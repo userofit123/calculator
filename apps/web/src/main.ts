@@ -3,7 +3,11 @@ import App from "./App.vue";
 import { startTheme } from "./core/theme";
 import { startSegSlide } from "./core/segSlide";
 import { startReloadOnMissingFiles, startUpdates } from "./core/update";
+import { installAndroidBridge } from "./native/android";
 import "./styles/index.css";
+
+// before the theme starts, so the Android app's bars get the first look too
+installAndroidBridge();
 
 startTheme();
 startReloadOnMissingFiles();

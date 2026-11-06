@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the default look's background (Ember, dark: the bg token in apps/web/src/styles/tokens.css), so opening never flashes white;
+         after the first start MainActivity uses the last look's own background instead -->
+    <color name="boot_bg">#17100d</color>
+</resources>

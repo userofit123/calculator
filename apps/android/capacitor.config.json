@@ -1,0 +1,7 @@
+{
+  "appId": "io.github.userofit123.calculator",
+  "appName": "Calculator",
+  "webDir": "www",
+  "android": { "backgroundColor": "#17100d" },
+  "server": { "androidScheme": "https" }
+}
