@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   parseDate, formatIsoDate, isLeapYear, daysInMonth, dayNumber, fromDayNumber, daysBetween, addDays, addMonths, addYears, addPeriod, diffYMD,
-  businessDays, weekday, dayOfYear, isoWeek, age, describeYMD, describeWeeks, parseDuration, parseTime, formatDuration, describeDuration,
+  businessDays, WEEKEND_SAT_SUN, WEEKEND_FRI_SAT, weekday, dayOfYear, isoWeek, age, describeYMD, describeWeeks, parseDuration, parseTime, formatDuration, describeDuration,
   timeBetween, addToTime, sumDurations, type YMD,
 } from "../src";
 
@@ -148,6 +148,25 @@ describe("business days", () => {
   it("weekend only", () => expect(businessDays(D("2026-11-07"), D("2026-11-09"))).toBe(0));
   it("a whole year", () => expect(businessDays(D("2026-01-01"), D("2027-01-01"))).toBe(261));
   it("backwards is negative", () => expect(businessDays(D("2026-11-09"), D("2026-11-02"))).toBe(-5));
+  it("Sat-Sun is the default weekend", () => expect(businessDays(D("2026-11-06"), D("2026-11-10"), false, WEEKEND_SAT_SUN)).toBe(2));
+  // Israel: Sunday to Thursday. Fri 6 Nov 2026 .. Tue 10 Nov: Sun, Mon (Fri and Sat are the weekend)
+  it("a Fri-Sat weekend (Sun-Thu working week)", () => {
+    expect(businessDays(D("2026-11-06"), D("2026-11-10"), false, WEEKEND_FRI_SAT)).toBe(2);
+    expect(businessDays(D("2026-11-08"), D("2026-11-13"), false, WEEKEND_FRI_SAT)).toBe(5); // Sun to Fri
+    expect(businessDays(D("2026-11-08"), D("2026-11-13"), true, WEEKEND_FRI_SAT)).toBe(5); // Fri not counted
+    expect(businessDays(D("2026-11-06"), D("2026-11-08"), false, WEEKEND_FRI_SAT)).toBe(0); // Fri, Sat
+    expect(businessDays(D("2026-11-07"), D("2026-11-09"), false, WEEKEND_FRI_SAT)).toBe(1); // Sat, Sun
+    expect(businessDays(D("2026-11-13"), D("2026-11-08"), false, WEEKEND_FRI_SAT)).toBe(-5);
+    expect(businessDays(D("2026-01-01"), D("2027-01-01"), false, WEEKEND_FRI_SAT)).toBe(261);
+  });
+  it("matches a day-by-day count for any weekend", () => {
+    for (const wk of [WEEKEND_SAT_SUN, WEEKEND_FRI_SAT, [7], []])
+      for (let n = 0; n < 30; n++) {
+        const s = D("2026-11-02"); let c = 0;
+        for (let i = 0; i < n; i++) if (!wk.includes(weekday(addDays(s, i)))) c++;
+        expect(businessDays(s, addDays(s, n), false, wk)).toBe(c);
+      }
+  });
   it("matches counting one by one", () => {
     const s = D("2026-01-01");
     for (let n = 0; n < 40; n++) {

@@ -37,20 +37,31 @@ const heUnits = shallowRef<Record<string, string>>({});
 
 // Left-to-right isolates (LRI … PDI) keep "12.5 km" or "-3" in their own order inside a Hebrew sentence
 const LRI = "⁦", PDI = "⁩";
-/** A value that has digits or Latin letters, kept left to right inside right-to-left text */
-export const iso = (v: unknown) => { const s = String(v); return lang.value === "he" && /[\dA-Za-z]/.test(s) ? LRI + s + PDI : s; };
+// Right-to-left letters (Hebrew, Arabic, Syriac, Thaana, NKo, …, and their presentation forms)
+const RTL = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFC]/;
+/** A value that has digits or Latin letters, kept left to right inside right-to-left text. A value that has right-to-left
+ *  letters of its own (a Hebrew date "6 בנוב׳ 2026", a Hebrew text already filled in, what the user typed in Hebrew) is
+ *  left as it is: isolated left to right, its words would read backwards. */
+export const iso = (v: unknown) => { const s = String(v); return lang.value === "he" && /[\dA-Za-z]/.test(s) && !RTL.test(s) ? LRI + s + PDI : s; };
 
 // In a Hebrew text, a run of numbers, Latin words and maths ("×10ⁿ", "1.2345×10³", "5 km in mi", "Ctrl+E") is kept
-// left to right as one piece; otherwise its symbols would be placed by the Hebrew around it (10³×1.2345).
-const RUN = /[×÷]?[0-9A-Za-z⁰¹²³⁴-⁹ⁿ⁻ˣʸ](?:[0-9A-Za-z⁰¹²³⁴-⁹ⁿ⁻ˣʸ.,:/×÷^+−%()' ]*[0-9A-Za-z⁰¹²³⁴-⁹ⁿˣʸ%])?/g;
-const isoRuns = (s: string) => s.replace(RUN, (m) => (/[\d×÷^+−/:.,]|\s\S/.test(m) ? LRI + m + PDI : m));
+// left to right as one piece; otherwise its symbols would be placed by the Hebrew around it (10³×1.2345). A leading
+// minus ("-1", "(-100%)") belongs to the number, but not a hyphen joined to a Hebrew word ("ל-1").
+const RUN = /(?:(?<![\p{L}\p{N}])[-−]|[×÷])?[0-9A-Za-z⁰¹²³⁴-⁹ⁿ⁻ˣʸ](?:[0-9A-Za-z⁰¹²³⁴-⁹ⁿ⁻ˣʸ.,:/×÷^+−%()' ]*[0-9A-Za-z⁰¹²³⁴-⁹ⁿˣʸ%])?/gu;
+const wrapRun = (m: string) => (/[\d×÷^+−/:.,]|\s\S/.test(m) ? LRI + m + PDI : m);
+const count = (s: string, c: string) => s.split(c).length - 1;
+// a run with a bracket left open ("1 (100%" of "ל-1 (100%)") is split at its brackets: a bracket closed outside the
+// isolate would be mirrored by the Hebrew around it
+const isoRuns = (s: string): string => s.replace(RUN, (m) => (count(m, "(") === count(m, ")") ? wrapRun(m)
+  : m.split(/([()])/).map((p) => (p === "(" || p === ")" ? p : isoRuns(p))).join("")));
 
 export type Params = Record<string, string | number>;
 /** The text for a key in the language shown, with {name} filled in from params */
 export function t(key: Key, params?: Params): string {
   const h = lang.value === "he" ? he.value?.[key] : undefined;
   const s = h !== undefined ? isoRuns(h) : en.value[key] ?? key;
-  return params ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? iso(params[k]) : m)) : s;
+  // a "%" right after a value goes into its isolate ("50%"), else the Hebrew around it would put it first ("%50")
+  return params ? s.replace(/\{(\w+)\}(%?)/g, (m, k: string, pct: string) => (k in params ? iso(String(params[k]) + pct) : m)) : s;
 }
 /** For a key built at runtime (a unit id, a mode id): its text, or `fallback` when there is no such key */
 export function tMaybe(key: string, fallback: string, params?: Params): string {

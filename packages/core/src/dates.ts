@@ -95,15 +95,21 @@ export function diffYMD(a: YMD, b: YMD): YMDiff {
   return { years: Math.floor(months / 12), months: months % 12, days, sign };
 }
 
-/** Mon-Fri days from a up to b, not counting b (the same way as the day count: Monday to the next Monday is 5), or
- *  counting both ends with includeEnd. Negative when b is earlier. */
-export function businessDays(a: YMD, b: YMD, includeEnd = false): number {
+/** Weekend days, ISO numbering (1 = Monday ... 7 = Sunday): Saturday and Sunday in most places, Friday and Saturday in
+ *  Israel (and much of the Middle East), where the working week is Sunday to Thursday */
+export const WEEKEND_SAT_SUN: readonly number[] = [6, 7];
+export const WEEKEND_FRI_SAT: readonly number[] = [5, 6];
+
+/** Working days (every day but the weekend's; Mon-Fri by default) from a up to b, not counting b (the same way as the
+ *  day count: Monday to the next Monday is 5), or counting both ends with includeEnd. Negative when b is earlier. */
+export function businessDays(a: YMD, b: YMD, includeEnd = false, weekend: readonly number[] = WEEKEND_SAT_SUN): number {
   let sign = 1, s = dayNumber(a), e = dayNumber(b);
   if (e < s) { [s, e] = [e, s]; sign = -1; }
-  // [s, e) or [s, e]: whole weeks give 5 each, then the days left over one by one (at most 6)
+  const off = new Set(weekend.filter((d) => Number.isInteger(d) && d >= 1 && d <= 7));
+  // [s, e) or [s, e]: whole weeks give (7 - weekend days) each, then the days left over one by one (at most 6)
   const total = e - s + (includeEnd ? 1 : 0), weeks = Math.floor(total / 7);
-  let count = weeks * 5;
-  for (let i = s + weeks * 7; i < s + total; i++) if (weekday(fromDayNumber(i)) <= 5) count++;
+  let count = weeks * (7 - off.size);
+  for (let i = s + weeks * 7; i < s + total; i++) if (!off.has(weekday(fromDayNumber(i)))) count++;
   return sign * count;
 }
 

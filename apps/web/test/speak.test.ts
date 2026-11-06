@@ -15,6 +15,17 @@ describe("speak: the display read as words", () => {
   it("reads a leading or following minus as negative", () => {
     expect(speak("−5")).toBe("negative 5");
     expect(speak("3 × −2")).toBe("3 times negative 2");
+    expect(speak("2×10^−3")).toBe("2 times ten to the power negative 3");
+    expect(speak("2^−3")).toBe("2 to the power negative 3");
+    expect(speak("(−2)")).toBe("open bracket negative 2 close bracket");
+  });
+  it("reads a minus after something that ends a number as a subtraction", () => {
+    expect(speak("(2) − 3")).toBe("open bracket 2 close bracket minus 3");
+    expect(speak("5² − 3")).toBe("5 squared minus 3");
+    expect(speak("5³ − 3")).toBe("5 cubed minus 3");
+    expect(speak("4⁻¹ − 1")).toBe("4 inverse minus 1");
+    expect(speak("50% − 1")).toBe("50 percent minus 1");
+    expect(speak("3! − 1")).toBe("3 factorial minus 1");
   });
   it("reads shifts and rotates, and keeps comparisons and bitwise words", () => {
     expect(speak("1 << 4")).toBe("1 shift left 4");

@@ -42,6 +42,18 @@ describe("t()", () => {
     // maths inside a Hebrew text stays in its own order
     expect(t("fmtHint.sci")).toBe("מדעי: \u20661.2345×10³\u2069");
     expect(t("msg.amountFirst")).toBe("קודם הקלידו כמות ויחידה: \u20665 km in mi\u2069");
+    // a value with Hebrew letters of its own (a Hebrew date, a filled-in text, a Hebrew search) is not isolated
+    expect(iso("6 בנוב׳ 2026")).toBe("6 בנוב׳ 2026");
+    expect(t("set.ratesOf", { date: "6 בנוב׳ 2026" })).toBe("שערים מתאריך 6 בנוב׳ 2026");
+    expect(t("set.formatHint", { hint: t("fmtHint.sci") })).not.toMatch(/\u2066[^\u2069]*\u2066/);
+    expect(t("hist.noMatchesText", { q: "שלום 5" })).toBe("שום דבר בהיסטוריה לא תואם ל-\"שלום 5\".");
+    expect(t("hist.noMatchesText", { q: "2+3" })).toBe("שום דבר בהיסטוריה לא תואם ל-\"\u20662+3\u2069\".");
+    // "%" goes inside the number's isolate, else it shows first ("%50")
+    expect(t("set.pct", { p: 50 })).toBe("\u206650%\u2069");
+    expect(t("msg.downloadingPct", { p: 7 })).toBe("מוריד \u20667%\u2069");
+    // a leading minus belongs to the number; a hyphen joined to a Hebrew word does not
+    expect(t("msg.rateAbove")).toBe("הריבית צריכה להיות מעל \u2066-1\u2069 (\u2066-100%\u2069)");
+    expect(t("msg.marginBelow")).toBe("שיעור הרווח צריך להיות מתחת ל-\u20661\u2069 (\u2066100%\u2069)");
     await setLang("en");
     expect(t("nav.calc")).toBe("Calculator");
   });
@@ -71,6 +83,9 @@ describe("Hebrew words", () => {
     await setLang("he");
     expect(speak("2 × 3")).toBe("2 כפול 3");
     expect(speak("3 × −2")).toBe("3 כפול מינוס 2");
+    expect(speak("2×10^−3")).toBe("2 כפול עשר בחזקת מינוס 3");
+    expect(speak("5² − 3")).toBe("5 בריבוע פחות 3");
+    expect(speak("(2) − 3")).toBe("פותח סוגריים 2 סוגר סוגריים פחות 3");
     expect(speak("sin(30)")).toBe("sin פותח סוגריים 30 סוגר סוגריים");
     await setLang("en");
     expect(speak("3 × −2")).toBe("3 times negative 2");
@@ -114,6 +129,6 @@ describe("before the first paint", () => {
   });
   it("mounts the app only once the saved language's texts are here", () => {
     const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-    expect(main).toMatch(/i18nReady\.then\(\(\) => \{\s*createApp\(App\)\.mount/);
+    expect(main).toMatch(/Promise\.race\(\[i18nReady, stalled\]\)\.then\(\(\) => \{\s*createApp\(App\)\.mount/);
   });
 });

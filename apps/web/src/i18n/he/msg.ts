@@ -17,7 +17,7 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.negPower": "חזקה שלילית אינה מספר שלם",
   "msg.ansWhole": "ans אינו מספר שלם",
   "msg.rateAbove": "הריבית צריכה להיות מעל -1 (-100%)",
-  "msg.marginBelow": "המרווח צריך להיות מתחת ל-1 (100%)",
+  "msg.marginBelow": "שיעור הרווח צריך להיות מתחת ל-1 (100%)",
   "msg.pmtZero": "התשלום התקופתי לא יכול להיות 0",
   "msg.periodLife": "התקופה צריכה להיות מספר שלם מ-1 ועד אורך החיים",
   "msg.progWhole": "מצב מתכנת עובד עם מספרים שלמים",

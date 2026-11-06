@@ -8,7 +8,7 @@ export const settings: Record<keyof typeof EN, string> = {
   "set.layout.phone": "טלפון",
   "set.layout.desktop": "מחשב",
   "set.angle": "יחידת זווית",
-  "set.angleHint": "לסינוס, קוסינוס, טנגנס והפונקציות ההפוכות שלהם (מתקדם)",
+  "set.angleHint": "לסינוס, קוסינוס, טנגנס והפונקציות ההפוכות שלהם (מדעי)",
   "set.decimals": "ספרות אחרי הנקודה",
   "set.decimalsHint": "המספר המרבי של ספרות שמוצגות אחרי הנקודה העשרונית",
   "set.format": "תצוגת מספרים",

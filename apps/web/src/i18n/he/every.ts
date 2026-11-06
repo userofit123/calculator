@@ -25,7 +25,7 @@ export const every: Record<keyof typeof EN, string> = {
   "every.vat": "מע\"מ",
   "every.copyRow": "העתקת {label}",
   "every.rounded": "מעוגל לתצוגה",
-  "every.inexact": "מקלט לא מדויק",
+  "every.inexact": "הקלט אינו מדויק",
   "every.unevenMore": "{n} חלקים של {each} מסתכמים ב-{diff} יותר מהסכום הכולל",
   "every.unevenLess": "{n} חלקים של {each} מסתכמים ב-{diff} פחות מהסכום הכולל",
   "every.hOf": "אחוז ממספר",

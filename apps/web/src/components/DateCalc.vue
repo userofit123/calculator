@@ -5,7 +5,7 @@
 // so the day shown is the day typed). The maths is in @calc/core (dates.ts). What was typed is remembered on this device.
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import {
-  parseDate, formatIsoDate, daysBetween, addDays, addPeriod, diffYMD, businessDays, dayOfYear, daysInYear, isoWeek, age,
+  parseDate, formatIsoDate, daysBetween, addDays, addPeriod, diffYMD, businessDays, WEEKEND_SAT_SUN, WEEKEND_FRI_SAT, dayOfYear, daysInYear, isoWeek, age,
   parseTime, sumDurations, formatDuration, timeBetween, type YMD,
 } from "@calc/core";
 import { isPhone } from "../core/device";
@@ -29,18 +29,26 @@ let tick: number | undefined;
 onMounted(() => { tick = window.setInterval(refreshToday, 60000); document.addEventListener("visibilitychange", refreshToday); });
 onUnmounted(() => { window.clearInterval(tick); document.removeEventListener("visibilitychange", refreshToday); });
 
+// The weekend for business days: Sat-Sun, or Fri-Sat (Israel's Sunday-to-Thursday week). Until it is chosen here it
+// follows the language: Fri-Sat in Hebrew, Sat-Sun otherwise.
+type Weekend = "satSun" | "friSat";
+const WEEKENDS: [Weekend, Key, Key, readonly number[]][] = [
+  ["satSun", "date.weekend.satSun", "date.work.monFri", WEEKEND_SAT_SUN],
+  ["friSat", "date.weekend.friSat", "date.work.sunThu", WEEKEND_FRI_SAT],
+];
 interface Kept {
-  tab: Tab; a: string; b: string; includeEnd: boolean; start: string; sub: boolean;
+  tab: Tab; a: string; b: string; includeEnd: boolean; weekend: Weekend | ""; start: string; sub: boolean;
   years: string; months: string; weeks: string; days: string; birth: string; on: string; t1: string; t2: string; durs: string;
 }
 const DEF: Kept = {
-  tab: "between", a: todayRef.value, b: todayRef.value, includeEnd: false, start: todayRef.value, sub: false,
+  tab: "between", a: todayRef.value, b: todayRef.value, includeEnd: false, weekend: "", start: todayRef.value, sub: false,
   years: "", months: "", weeks: "", days: "", birth: "", on: "", t1: "09:00", t2: "17:30", durs: "",
 };
 const saved = readJson<Partial<Kept>>("dateCalc", {});
 // only values of the right type are taken back (an old or edited entry can't break the page)
 const st = reactive<Kept>(Object.fromEntries(Object.entries(DEF).map(([k, v]) => [k, typeof saved[k as keyof Kept] === typeof v ? saved[k as keyof Kept] : v])) as unknown as Kept);
 if (!TABS.some(([x]) => x === st.tab)) st.tab = "between";
+if (!WEEKENDS.some(([x]) => x === st.weekend)) st.weekend = "";
 watch(st, (v) => writeJson("dateCalc", v), { deep: true });
 
 // ---- showing dates ----
@@ -66,8 +74,9 @@ const between = computed(() => {
   if (!a || !b) return null;
   const back = daysBetween(a, b) < 0, [s, e] = back ? [b, a] : [a, b];
   const end = st.includeEnd ? addDays(e, 1) : e, days = daysBetween(s, end);
-  return { days, back, ymd: describeYMD(diffYMD(s, end)), weeks: describeWeeks(days), work: Math.abs(businessDays(s, e, st.includeEnd)) };
+  return { days, back, ymd: describeYMD(diffYMD(s, end)), weeks: describeWeeks(days), work: Math.abs(businessDays(s, e, st.includeEnd, weekend.value[3])) };
 });
+const weekend = computed(() => WEEKENDS.find(([x]) => x === (st.weekend || (lang.value === "he" ? "friSat" : "satSun")))!);
 function swapDates() { [st.a, st.b] = [st.b, st.a]; }
 
 // ---- adding to a date ----
@@ -133,6 +142,10 @@ async function copy(s: string) {
           <div class="grow"><div class="t">{{ t("date.countEnd") }}</div><div class="s">{{ t("date.countEndHint") }}</div></div>
           <input v-model="st.includeEnd" type="checkbox" />
         </label>
+        <div class="li dtg">
+          <div class="grow"><div class="t">{{ t("date.weekend") }}</div><div class="s">{{ t("date.weekendHint") }}</div></div>
+          <div class="seg sm"><button v-for="[w, k] in WEEKENDS" :key="w" type="button" :class="{ on: weekend[0] === w }" :aria-pressed="weekend[0] === w" @click="st.weekend = w">{{ t(k) }}</button></div>
+        </div>
       </div>
       <div class="card dcard dres" aria-live="polite">
         <template v-if="between">
@@ -146,7 +159,7 @@ async function copy(s: string) {
           <div v-if="between.back" class="dnote">{{ t("date.backwards") }}</div>
           <div class="li"><span class="grow">{{ t("date.ymd") }}</span><span class="dv">{{ between.ymd }}</span></div>
           <div class="li"><span class="grow">{{ t("date.weeks") }}</span><span class="dv">{{ between.weeks }}</span></div>
-          <div class="li"><span class="grow">{{ t("date.business") }}</span><span class="dv num">{{ nf.format(between.work) }}</span></div>
+          <div class="li"><span class="grow">{{ t("date.business", { days: t(weekend[2]) }) }}</span><span class="dv num">{{ nf.format(between.work) }}</span></div>
         </template>
         <div v-else class="dnote">{{ t("date.pickBoth") }}</div>
       </div>

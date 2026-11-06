@@ -4,7 +4,7 @@ import { startTheme } from "./core/theme";
 import { startSegSlide } from "./core/segSlide";
 import { startReloadOnMissingFiles, startUpdates } from "./core/update";
 import { installAndroidBridge } from "./native/android";
-import { i18nReady } from "./core/i18n";
+import { i18nReady, lang, applyLang } from "./core/i18n";
 import "./styles/index.css";
 
 // before the theme starts, so the Android app's bars get the first look too
@@ -15,7 +15,10 @@ startReloadOnMissingFiles();
 // In Hebrew the app mounts once its texts are here (a small chunk, precached by the service worker, so it takes a few
 // milliseconds even offline); index.html has already set lang and dir, so the page under it is right to left from the start.
 // English needs nothing: i18nReady is already settled and the app mounts in the same task.
-void i18nReady.then(() => {
+// Should the Hebrew chunk stall (a broken cache, a hung request), the app mounts in English after 3 s rather than leaving
+// a blank screen; if the Hebrew texts turn up later, the app switches to them at once.
+const stalled = new Promise<void>((done) => setTimeout(() => { if (lang.value !== "he") applyLang("en"); done(); }, 3000));
+void Promise.race([i18nReady, stalled]).then(() => {
   createApp(App).mount("#app");
   // every row of tabs gets its gliding highlight without any code in the pages
   startSegSlide();

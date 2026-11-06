@@ -19,7 +19,7 @@ export { BUNDLED_RATES } from "./currency-rates";
 // Date and time maths (Calculator's Date mode, loaded only when chosen)
 export {
   parseDate, formatIsoDate, isValidDate, isLeapYear, daysInMonth, dayNumber, fromDayNumber, daysBetween, compareDates, addDays, addMonths, addYears,
-  addPeriod, diffYMD, businessDays, weekday, WEEKDAYS, dayOfYear, daysInYear, isoWeek, age, describeYMD, describeWeeks, describeDays,
+  addPeriod, diffYMD, businessDays, WEEKEND_SAT_SUN, WEEKEND_FRI_SAT, weekday, WEEKDAYS, dayOfYear, daysInYear, isoWeek, age, describeYMD, describeWeeks, describeDays,
   parseDuration, sumDurations, parseTime, formatDuration, describeDuration, timeBetween, addToTime, MIN_YEAR, MAX_YEAR,
   type YMD, type Period, type DateResult, type YMDiff, type Age,
 } from "./dates";

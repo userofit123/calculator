@@ -43,8 +43,9 @@ export function speak(text: string): string {
   // (its minus sign is kept as "-" and read as "negative" with the number)
   let s = text.replace(/([⁰¹²³⁴-⁹⁻]{2,}|[⁰¹⁴-⁹])/g, (m) => (m === "⁻¹" ? m : w("power") + [...m].map((c) => SUP[c] ?? c).join("").replace(/^-/, w("neg")) + " "));
   for (const [re, x] of WORDS) s = s.replace(re, x);
-  // a minus straight after an operator or at the start is a negative number
-  s = s.replace(/(^\s*|\u0001(?:times|divided|plus|minus|power|open|close|cbrt|sqrt)\u0001\s+)\u0001minus\u0001(?=\s+[\d.,])/g, "$1\u0001neg\u0001");
+  // a minus at the start, or straight after an operator that still waits for its number (×, ÷, +, −, ^, "×10^", "(", √,
+  // ∛), is a negative number. After one that ends a number (")", ², ³, ⁻¹, %, !) it is a subtraction: "5² − 3".
+  s = s.replace(/(^\s*|\u0001(?:times|timesTen|divided|plus|minus|power|open|cbrt|sqrt)\u0001\s+)\u0001minus\u0001(?=\s+[\d.,])/g, "$1\u0001neg\u0001");
   s = s.replace(/\u0001(\w+)\u0001/g, (_, k: string) => t(("say." + k) as Key));
   return s.replace(/\s+/g, " ").trim();
 }
