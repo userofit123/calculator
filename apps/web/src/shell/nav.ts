@@ -28,18 +28,26 @@ export const PAGES: Record<PageName, Component> = {
   settings: defineAsyncComponent(loaders.settings),
 };
 
-const fromPath = (p: string): PageName => NAV.find((n) => n.path !== "/" && (p === n.path || p.startsWith(n.path + "/")))?.name ?? "calc";
+// The app may be served below a folder (the copy on GitHub Pages lives at /calculator/): the paths above are inside the
+// app, the address bar shows them after BASE_URL ("/" for the desktop and Android apps and a copy at the root).
+const BASE = import.meta.env.BASE_URL;
+/** The full address of a page, e.g. "/calculator/converter". */
+export const href = (name: PageName) => BASE + NAV.find((n) => n.name === name)!.path.slice(1);
+const fromPath = (full: string): PageName => {
+  const p = full.startsWith(BASE) ? "/" + full.slice(BASE.length) : full;
+  return NAV.find((n) => n.path !== "/" && (p === n.path || p.startsWith(n.path + "/")))?.name ?? "calc";
+};
 export const page = ref<PageName>(fromPath(location.pathname));
 // an unknown address opens the calculator and says so in the address bar
-if (NAV.find((n) => n.name === page.value)!.path !== location.pathname) history.replaceState(null, "", NAV.find((n) => n.name === page.value)!.path);
+if (href(page.value) !== location.pathname) history.replaceState(null, "", href(page.value));
 
 export function go(name: PageName) {
   if (name === page.value) return;
-  history.pushState(null, "", NAV.find((n) => n.name === name)!.path);
+  history.pushState(null, "", href(name));
   page.value = name;
 }
 // Back closes an open sheet first (the step is put back), otherwise it follows the address
 addEventListener("popstate", () => {
-  if (sheetIsOpen()) { history.pushState(null, "", NAV.find((n) => n.name === page.value)!.path); closeTopSheet(); return; }
+  if (sheetIsOpen()) { history.pushState(null, "", href(page.value)); closeTopSheet(); return; }
   page.value = fromPath(location.pathname);
 });

@@ -184,3 +184,34 @@ jobs:
           else
             gh release create "v$V" --target "${{ github.sha }}" --title "Calculator $V" --notes-file notes.md out/*
           fi
+  # The hosted copy at https://userofit123.github.io/calculator/ (GitHub Pages, source "GitHub Actions"): the same web
+  # app built for the /calculator/ sub-path (CALC_BASE, see apps/web/vite.config.ts). Once opened it keeps itself on the
+  # device like any copy, so it works offline from then on. 404.html is the page again, so a deep link such as
+  # /calculator/converter opens the app on a first visit too (Pages answers unknown paths with 404.html).
+  pages:
+    # after publish, so the hosted copy never runs ahead of a release that failed to build
+    needs: [version, test, publish]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: npm pkg set version=${{ needs.version.outputs.version }}
+      - run: pnpm --filter @calc/web exec vite build
+        env: { CALC_BASE: /calculator/ }
+      - run: cp apps/web/dist/index.html apps/web/dist/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: apps/web/dist }
+      - id: deploy
+        uses: actions/deploy-pages@v4

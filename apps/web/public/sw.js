@@ -2,7 +2,8 @@
 // works with no connection from the very first time on.
 //
 // VERSION and FILES are filled in by the build (the "precache" plugin in vite.config.ts): VERSION is a hash of every
-// built file, FILES the list of them (scripts, styles, fonts, icons, manifest, and "/" for the page itself). A new build
+// built file, FILES the list of them (scripts, styles, fonts, icons, manifest, and the app's base address, usually "/", for the
+// page itself). A new build
 // changes VERSION, so the browser installs the new worker, which keeps the new files in a new cache.
 //
 // An update never breaks a page that is already open: the new worker waits (no skipWaiting on install) while any page
@@ -17,6 +18,9 @@ const CACHE = PREFIX + VERSION;
 // Not filled in: this is the development server's copy. Nothing is cached there; a worker left from a built copy on the
 // same address removes itself and its caches.
 const DEV = VERSION.startsWith("__");
+// Where the app lives: the folder sw.js is served from ("/", or "/calculator/" for the copy on GitHub Pages). The page
+// itself is kept under this address.
+const BASE = new URL("./", location.href).pathname;
 
 self.addEventListener("install", (e) => {
   if (DEV) { self.skipWaiting(); return; }
@@ -40,10 +44,10 @@ self.addEventListener("fetch", (e) => {
   if (DEV) return;
   const r = e.request, u = new URL(r.url);
   if (r.method !== "GET" || u.origin !== location.origin) return;
-  // every address inside the app (a path without a file extension: /, /settings, ...) is the same page; anything else
-  // (a font, an icon, /fonts/x.txt) is only answered with itself
-  const route = r.mode === "navigate" && !/\.[^/]*$/.test(u.pathname);
-  const key = route ? "/" : u.pathname;
+  // every address inside the app (a path without a file extension below BASE: /, /settings, /calculator/converter, ...)
+  // is the same page; anything else (a font, an icon, /fonts/x.txt) is only answered with itself
+  const route = r.mode === "navigate" && u.pathname.startsWith(BASE) && !/\.[^/]*$/.test(u.pathname);
+  const key = route ? BASE : u.pathname;
   if (!FILES.includes(key)) return;
   e.respondWith(caches.open(CACHE).then((c) => c.match(key)).then((m) => m ?? fetch(r)));
 });

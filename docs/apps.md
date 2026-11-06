@@ -114,6 +114,10 @@ A release is published by `.github/workflows/release.yml` when CHANGELOG.md on m
 4. Only when every build succeeded it writes `android-latest.json` (version, download address, sha256 and size of the
    APK, for the in-app updater) and `SHA256SUMS`, and creates the GitHub release `v0.2.0` with the CHANGELOG section as
    its notes and all those files attached.
+5. After the release is published, the `pages` job builds the web app again for the `/calculator/` sub-path
+   (`CALC_BASE=/calculator/`; every address in the app starts from Vite's base) and deploys it to GitHub Pages:
+   https://userofit123.github.io/calculator/ (the repository's Pages source is "GitHub Actions"). `404.html` is a copy
+   of the page, so deep links like `/calculator/converter` open the app on a first visit too.
 
 To build a version again (for example after a failed run), run the Release workflow by hand (Actions → Release → Run
 workflow) with "Build again" ticked; the files of the existing release are replaced.

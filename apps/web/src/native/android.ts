@@ -15,7 +15,7 @@ export function installAndroidBridge() {
   // memory, as with Android's own Back on a home screen app, so the next open is instant)
   P("App")?.addListener?.("backButton", ({ canGoBack }: { canGoBack: boolean }) => {
     if (sheetIsOpen()) closeTopSheet();
-    else if (canGoBack && location.pathname !== "/") history.back();
+    else if (canGoBack && location.pathname !== import.meta.env.BASE_URL) history.back();
     else void P("App")?.minimizeApp?.();
   });
   // the page runs behind clear status and navigation bars (CalcBarsPlugin), so its background shows under the clock and

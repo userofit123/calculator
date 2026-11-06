@@ -15,6 +15,8 @@ docs/apps.md, Releases.
   (or the refresh switched off) in Settings.
 - Look and Appearance: themes, colour sets, backgrounds, textures, density and fonts, in place from the first moment.
 - Works completely offline from the first open, opens instantly, and can be installed as a web app.
+- Hosted web version at https://userofit123.github.io/calculator/, updated with every release: open it in a browser
+  and install it; once opened it works offline.
 - Desktop app for Linux (AppImage, deb, rpm) and Windows.
 - Android app that opens straight onto the calculator, with system bars that follow the look.
 - Private: no account, no server, no tracking; everything stays on your device.

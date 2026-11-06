@@ -8,17 +8,21 @@ import { join, relative, sep } from "node:path";
 // https://<machine>.ts.net from a phone. Hot reload then connects back to whatever address and port the page came
 // from (VITE_HMR_HOST is set in docker-compose.dev.yml).
 const hmrHost = process.env.VITE_HMR_HOST;
+// Where the built app is served from: "/" for the desktop and Android apps, the development server and a copy hosted at
+// the root of its own address; "/calculator/" for the hosted copy on GitHub Pages (CALC_BASE in release.yml). Every
+// address the app uses at runtime starts from import.meta.env.BASE_URL, which is this.
+const base = ("/" + (process.env.CALC_BASE ?? "/") + "/").replace(/\/{2,}/g, "/");
 const version = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 // Fills in public/sw.js after a build: the list of every built file (so the worker keeps the whole app when it installs)
 // and a version made from their contents (so every build that changes anything gets a new cache; the old one is
 // dropped once no open page uses it any more). The development server serves sw.js as it is, which the worker takes as "cache nothing".
 function precache(): Plugin {
-  let outDir = "";
+  let outDir = "", root = "/";
   return {
     name: "calc-precache",
     apply: "build",
-    configResolved(c) { outDir = c.build.outDir; },
+    configResolved(c) { outDir = c.build.outDir; root = c.base; },
     closeBundle() {
       const all = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? all(join(d, e.name)) : [join(d, e.name)]));
       const files = all(outDir).map((f) => "/" + relative(outDir, f).split(sep).join("/")).filter((f) => f !== "/sw.js").sort();
@@ -28,13 +32,15 @@ function precache(): Plugin {
       if (!src.includes("__CALC_VERSION__") || !src.includes("/* __CALC_FILES__ */ []")) throw new Error("sw.js: the build's placeholders are missing");
       // the page is kept as "/" (what the app's addresses are answered with), not "/index.html": a host that redirects
       // /index.html to / would otherwise leave the worker holding a redirect instead of the page
-      const keep = files.map((f) => (f === "/index.html" ? "/" : f));
+      // (under a sub-path the page is that path, "/calculator/", and every file sits below it)
+      const keep = files.map((f) => (f === "/index.html" ? root : root + f.slice(1)));
       writeFileSync(sw, src.replace("__CALC_VERSION__", h.digest("hex").slice(0, 16)).replace("/* __CALC_FILES__ */ []", JSON.stringify(keep)));
     },
   };
 }
 
 export default defineConfig({
+  base,
   plugins: [vue(), precache()],
   define: { "import.meta.env.VITE_VERSION": JSON.stringify(version) },
   server: {
