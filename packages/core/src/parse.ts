@@ -35,8 +35,10 @@ function tokenize(src: string): Tok[] {
     const c = src[i]!;
     if (/\s/.test(c)) { i++; continue; }
     // the keyboard and paste turn "-" into "−", so 1.5e−3 is scientific entry too (the e key itself types "×e")
-    const num = /^(\d+\.?\d*|\.\d+)(?:[eE][+\-−]?\d+)?/.exec(src.slice(i));
-    if (num) { out.push({ t: "num", v: num[0].replace("−", "-") }); i += num[0].length; continue; }
+    // "≈" marks a stored approximation (an answer rounded to its trustworthy digits), so it stays approximate when reused
+    const ap = c === "≈" ? (/^≈[-−]/.test(src.slice(i)) ? 2 : 1) : 0;
+    const num = /^(\d+\.?\d*|\.\d+)(?:[eE][+\-−]?\d+)?/.exec(src.slice(i + ap));
+    if (num) { out.push({ t: "num", v: (ap ? (ap === 2 ? "≈-" : "≈") : "") + num[0].replace("−", "-") }); i += ap + num[0].length; continue; }
     if (SUP.includes(c) || c === "⁻" || c === "⁺") {
       let s = "";
       while (i < src.length && (SUP.includes(src[i]!) || src[i] === "⁻" || src[i] === "⁺")) { const ch = src[i++]!; s += ch === "⁻" ? "-" : ch === "⁺" ? "" : String(SUP.indexOf(ch)); }

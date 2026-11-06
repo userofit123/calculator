@@ -119,20 +119,26 @@ export function irootExact(a: bigint, k: number): bigint | null {
 /** The whole part of the k-th root of a ≥ 0 */
 function iroot(a: bigint, k: number): bigint {
   if (a < 2n) return a;
+  // below 2^k the root is between 1 and 2 (root(10^400; 100000) answers at once)
+  if (bitLength(a) <= k) return 1n;
   const K = BigInt(k);
-  // Newton's method from an estimate above the root
-  let x = 1n << BigInt(Math.ceil(bitLength(a) / k) + 1);
+  // Newton's method from just above the root: the estimate from the leading bits is close, so it takes a few steps
+  // instead of hundreds when k is large ((10^400)^(1/999))
+  const l = log2Big(a) / k, sh = Math.max(0, Math.floor(l) - 60);
+  let x = (BigInt(Math.ceil(2 ** (l - sh) * (1 + 1e-12))) + 1n) << BigInt(sh);
   for (;;) {
     const y = ((K - 1n) * x + a / x ** (K - 1n)) / K;
     if (y >= x) return x;
     x = y;
   }
 }
-/** The k-th root of a > 0 to 30 significant digits, as a fraction: for roots too big or too small for a double
- *  (√(2×10^1000) = 1.41421356237×10^500) */
+/** The k-th root of a > 0 to 32 significant digits (cut off, not rounded), as a fraction: for roots too big or too
+ *  small for a double (√(2×10^1000) = 1.41421356237×10^500). An approximation: the caller keeps it marked as one.
+ *  Only for small k (a root beyond a double's range of a number within MAX_BITS has k ≤ 330): the work grows with k. */
 export function rootApprox(a: Q, k: number): Q {
-  // s: decimals of the root to keep, so that it has at least 30 digits
-  const s = 30 - Math.floor(exponent10(a) / k);
+  if (k > 1000) throw tooLarge();
+  // s: decimals of the root to keep, so that it has at least 32 digits
+  const s = 32 - Math.floor(exponent10(a) / k);
   const n = BigInt(Math.abs(s) * k), p = 10n ** BigInt(Math.abs(s));
   const r = iroot(s >= 0 ? (a.n * 10n ** n) / a.d : a.n / (a.d * 10n ** n), k);
   return s >= 0 ? q(r, p) : q(r * p);
@@ -149,32 +155,67 @@ export function rootExact(a: Q, k: number): Q | null {
   return n !== null && d !== null ? q(n, d) : null;
 }
 
-/** log10 of a positive big integer, good to double precision */
-function log10Big(a: bigint): number {
-  const s = a.toString();
-  if (s.length <= 300) return Math.log10(Number(a));
-  return s.length - 17 + Math.log10(Number(s.slice(0, 17)));
-}
 /** log2 of a positive big integer, from its leading bits (cheap: no decimal digits) */
 function log2Big(a: bigint): number {
   const b = bitLength(a);
   if (b <= 1000) return Math.log2(Number(a));
   return b - 60 + Math.log2(Number(a >> BigInt(b - 60)));
 }
+/** |a| ≠ 0 as m × 2^t with m in [1, 2) to double precision: the leading bits of the fraction, so numbers far beyond a
+ *  double (10^400, 10^-400) still give their logarithm and roots to full double precision */
+function split2(a: Q): { m: number; t: number } {
+  const n = abs(a.n), s = bitLength(n) - bitLength(a.d) - 62;
+  const x = s >= 0 ? n / (a.d << BigInt(s)) : (n << BigInt(-s)) / a.d; // 61 to 63 bits
+  const m = Number(x) / 2 ** 62;
+  return m >= 2 ? { m: m / 2, t: s + 63 } : m < 1 ? { m: m * 2, t: s + 61 } : { m, t: s + 62 };
+}
+const LOG10_2 = Math.log10(2);
+/** m × 2^t without overflowing on the way (2^t alone may not fit a double) */
+const scale2 = (m: number, t: number) => (t > 1100 ? Infinity : t < -1200 ? 0 : m * 2 ** Math.trunc(t / 2) * 2 ** (t - Math.trunc(t / 2)));
+
 /** The natural logarithm of a > 0, also when a is far beyond a double (ln(10^400) = 921.03…) */
 export function lnQ(a: Q): number {
-  const x = toNumber(a);
-  if (Number.isFinite(x) && Math.abs(x) > 1e-300) return Math.log(x);
-  return (log10Big(a.n) - log10Big(a.d)) * Math.LN10;
+  const { m, t } = split2(a);
+  return Math.log(m) + t * Math.LN2;
 }
 
-/** The nearest double (Infinity when out of range) */
+/** The nearest double (Infinity when out of range, 0 when too small) */
 export function toNumber(a: Q): number {
   if (a.n === 0n) return 0;
-  const x = Number(a.n) / Number(a.d);
-  if (Number.isFinite(x) && x !== 0) return x;
-  const l = log10Big(abs(a.n)) - log10Big(a.d);
-  return (a.n < 0n ? -1 : 1) * 10 ** l;
+  if (abs(a.n) < 1n << 1000n && a.d < 1n << 1000n) { const x = Number(a.n) / Number(a.d); if (x !== 0) return x; }
+  const { m, t } = split2(a);
+  return (a.n < 0n ? -1 : 1) * scale2(m, t);
+}
+
+/** a^y for a > 0 and any y, as a double when it fits in one ({ f }), else as its log10 ({ l10 }, for a value beyond a
+ *  double's range). Works from a = m × 2^t, so a far beyond a double still gives a full-precision double
+ *  (root(10^400; 100000) = 1.00925…, (10^400)^(1/999) = 2.5164…) in constant time. */
+export function powNum(a: Q, y: Q): { f: number } | { l10: number } {
+  const { m, t } = split2(a);
+  const ty = mul(q(BigInt(t)), y), M = floor(ty), F = toNumber(sub(ty, q(M))); // t·y = M + F, 0 ≤ F < 1
+  const yf = toNumber(y), my = m ** yf * 2 ** F;
+  if (Number.isFinite(my) && my > 0 && M > -1300n && M < 1300n) {
+    const r = scale2(my, Number(M));
+    if (Number.isFinite(r) && Math.abs(r) >= 1e-300) return { f: r };
+  }
+  return { l10: (Number(M) + F + yf * Math.log2(m)) * LOG10_2 };
+}
+
+/** 10^l as a fraction of 15 significant digits: a power beyond a double's range worked out by logarithms */
+export function fromLog10(l: number): Q {
+  if (!Number.isFinite(l) || Math.abs(l) > MAX_BITS * LOG10_2) throw tooLarge();
+  const e = Math.floor(l), m = BigInt(Math.round(10 ** (l - e) * 1e14)), k = e - 14;
+  return k >= 0 ? q(m * 10n ** BigInt(k)) : q(m, 10n ** BigInt(-k));
+}
+
+/** a rounded to `digits` significant digits (half away from zero) */
+export function roundSig(a: Q, digits: number): Q {
+  if (a.n === 0n) return a;
+  const k = exponent10(a) - digits + 1, n = abs(a.n);
+  // r = |a| / 10^k rounded
+  const num = k >= 0 ? n : n * 10n ** BigInt(-k), den = k >= 0 ? a.d * 10n ** BigInt(k) : a.d;
+  const r = ((2n * num + den) / (2n * den)) * (a.n < 0n ? -1n : 1n);
+  return k >= 0 ? q(r * 10n ** BigInt(k)) : q(r, 10n ** BigInt(-k));
 }
 
 /** A decimal or scientific number written as text ("12.5", ".5", "1.2e-7"), exactly */

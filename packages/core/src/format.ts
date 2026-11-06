@@ -1,9 +1,24 @@
 // Numbers as the user sees them. A value is an exact fraction or, after an irrational step, a double; doubles are
 // rounded to 15 significant digits first, which hides float noise (0.30000000000000004, sin 30° = 0.49999999999999994)
-// while keeping every digit a double can be trusted with.
-import { type Q, CalcError, exponent10, parseDecimal, toFixed, isInt, q } from "./rational";
+// while keeping every digit a double can be trusted with. A value beyond a double's range that isn't exact
+// (√(2×10^1000)) is an approximation marked as one: a fraction with the digits it can be trusted with (p), treated like
+// a double (rounded to those digits before anything discrete and before it is shown, stored as "≈1.414…e500").
+import { type Q, CalcError, exponent10, parseDecimal, toFixed, isInt, q, roundSig, toNumber } from "./rational";
 
-export type Value = { q: Q } | { f: number };
+/** q: exact; f: a double (15 trustworthy digits); a: an approximation beyond a double's range, good to p digits */
+export type Value = { q: Q } | { f: number } | { a: Q; p: number };
+/** The most digits an approximation keeps */
+export const APPROX_DIGITS = 30;
+/** The digits a value can be trusted with (exact: all) */
+export const precision = (v: Value) => ("q" in v ? Infinity : "f" in v ? 15 : v.p);
+/** An approximate result to p digits: a double when it fits in one, else marked approximate (never as exact digits) */
+export function approx(x: Q, p: number): Value {
+  if (x.n === 0n || p < 1) return { f: 0 };
+  const f = toNumber(x);
+  if (Number.isFinite(f) && Math.abs(f) >= 1e-300) return { f };
+  const d = Math.min(Math.floor(p), APPROX_DIGITS);
+  return { a: roundSig(x, d + 2), p: d }; // two guard digits so rounding steps don't add up
+}
 export type NumberFormat = "auto" | "fixed" | "sci" | "eng";
 
 export interface FormatOptions {
@@ -22,7 +37,8 @@ export function cleanFloat(x: number): Q {
   if (Math.abs(x) < 1e-300) return q(0n);
   return parseDecimal(x.toPrecision(15));
 }
-export const asQ = (v: Value): Q => ("q" in v ? v.q : cleanFloat(v.f));
+/** The value as a fraction of its trustworthy digits: what anything discrete (floor, mod, factorial) works on */
+export const asQ = (v: Value): Q => ("q" in v ? v.q : "f" in v ? cleanFloat(v.f) : roundSig(v.a, v.p));
 
 /** a ÷ 10^e, left unreduced: only rounded for showing, so a gcd of numbers with thousands of digits isn't worth it */
 const by10 = (a: Q, e: number): Q => (e >= 0 ? { n: a.n, d: a.d * 10n ** BigInt(e) } : { n: a.n * 10n ** BigInt(-e), d: a.d });
@@ -41,11 +57,12 @@ export function formatValue(v: Value, o: FormatOptions = {}): string {
   const places = Math.max(0, Math.min(30, o.decimals ?? 12)), fmt = o.format ?? "auto";
   const a = asQ(v);
   if (a.n === 0n) return "0";
-  if (fmt === "fixed") return toFixed(a, places);
+  if (fmt === "fixed") return "a" in v ? sci(a, Math.min(places, 15), false) : toFixed(a, places);
   if (fmt === "sci" || fmt === "eng") return sci(a, Math.min(places, 15), fmt === "eng");
   const e = exponent10(a);
-  // whole numbers are written out in full while they still fit on a wide screen (2^100 = 1267650600228229401496703205376)
-  if (isInt(a) ? e >= 40 : e >= 21) return sci(a, Math.min(places, 15), false);
+  // whole numbers are written out in full while they still fit on a wide screen (2^100 = 1267650600228229401496703205376);
+  // an approximation never is: its digits past the trustworthy ones would be made-up zeros
+  if (isInt(a) && "q" in v ? e >= 40 : e >= 21) return sci(a, Math.min(places, 15), false);
   const plain = toFixed(a, places);
   // too small to show at this many decimals: switch to ×10ⁿ instead of showing 0
   if (e < -6 || (plain === "0" || plain === "-0")) return sci(a, Math.min(places, 15), false);
@@ -54,11 +71,29 @@ export function formatValue(v: Value, o: FormatOptions = {}): string {
 
 /** The value in full (a fraction "n/d" or a double's shortest text), for storing an answer, memory or variable */
 export function exactText(v: Value): string {
-  if ("f" in v) return String(v.f);
+  if ("f" in v) {
+    // a double is written so that it reads back as one: with an exponent, 16+ decimals, or else marked "≈"
+    const t = String(v.f);
+    return /[eE]/.test(t) || /\.\d{16,}/.test(t) ? t : "≈" + t;
+  }
+  if ("a" in v) return approxText(v.a, v.p);
   return isInt(v.q) ? v.q.n.toString() : `${v.q.n}/${v.q.d}`;
+}
+/** x rounded to p significant digits, marked approximate: "≈1.41421356237309504880168872421e500" */
+export function approxText(x: Q, p: number): string {
+  const r = roundSig(x, p), e = exponent10(r), k = e - p + 1;
+  // the p digits, trailing zeros kept: they say how many digits are trustworthy when read back
+  const R = (r.n < 0n ? -r.n : r.n) * (k < 0 ? 10n ** BigInt(-k) : 1n) / (r.d * (k > 0 ? 10n ** BigInt(k) : 1n));
+  const t = R.toString();
+  return `≈${r.n < 0n ? "-" : ""}${t[0]}${t.length > 1 ? "." + t.slice(1) : ""}e${e}`;
 }
 /** Reads back what exactText wrote (also plain decimals) */
 export function parseStored(s: string): Value {
+  s = s.trim();
+  if (s.startsWith("≈")) { // an approximation, to the digits written
+    const t = s.slice(1), digits = t.replace(/[eE].*$/, "").replace(/\D/g, "").replace(/^0+/, "").length;
+    return approx(parseDecimal(t), Math.max(1, Math.min(digits, APPROX_DIGITS)));
+  }
   const m = /^(-?\d+)\/(\d+)$/.exec(s.trim());
   if (m) return { q: q(BigInt(m[1]!), BigInt(m[2]!)) };
   if (/[eE]/.test(s) || /\.\d{16,}/.test(s)) { const x = Number(s); if (Number.isFinite(x)) return { f: x }; }
@@ -80,4 +115,12 @@ export function formatDisplay(s: string, o: DisplayOptions = {}): string {
     const ip = o.thousands ? i.replace(/\B(?=(\d{3})+$)/g, group) : i;
     return ip + (f ? mark + f.slice(1) : "");
   });
+}
+
+/** A stored value (an answer, memory, a variable) short enough to keep on the device: past `max` characters (an exact
+ *  answer of thousands of digits) it is kept rounded to 30 digits and marked approximate, never left out */
+export function storable(s: string, max = 2000): string {
+  if (s.length <= max) return s;
+  const v = parseStored(s);
+  return "f" in v ? exactText(v) : approxText("q" in v ? v.q : v.a, "q" in v ? APPROX_DIGITS : v.p);
 }

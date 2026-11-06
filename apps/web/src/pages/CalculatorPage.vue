@@ -44,7 +44,7 @@ const FKEYS = computed<FKey[]>(() => [
   { k: "op:⁻¹", label: "x⁻¹", aria: "Reciprocal" },
   { k: "fn:π", label: "π", aria: "Pi", k2: "fn:e", label2: "e", aria2: "e" },
   { k: "!", label: "n!", aria: "Factorial" }, { k: "op: mod ", label: "mod", aria: "Modulo" }, { k: "fn:abs(", label: "|x|", aria: "Absolute value" },
-  { k: "fn:ans", label: "ans", aria: "Last answer" }, { k: "op:×10^", label: "EE", aria: "Times ten to the power" },
+  { k: "fn:ans", label: "ans", aria: "Last answer" }, { k: "op:×10^", label: "×10ʸ", aria: "Times ten to the power (Ctrl+E)" },
 ].map((f: FKey) => (calc.second && f.k2 ? { ...f, k: f.k2, label: f.label2!, aria: f.aria2! } : f)));
 function fkey(k: string) {
   if (k === "2nd") { calc.second = !calc.second; return; }
@@ -79,9 +79,9 @@ const busy = (e: Event) => !!(e.target as HTMLElement).closest?.("input, textare
 const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".cpad, .memk");
 const onKeyUp = (e: KeyboardEvent) => { if (e.key === " " && onPadKey(e)) e.preventDefault(); };
 function onKey(e: KeyboardEvent) {
-  if (e.ctrlKey || e.metaKey || e.altKey || busy(e)) return;
-  if (e.key === " ") { if (onPadKey(e)) e.preventDefault(); return; }
-  let k = keyFor(e);
+  if (busy(e)) return;
+  if (e.key === " " && !e.ctrlKey) { if (onPadKey(e)) e.preventDefault(); return; }
+  let k = keyFor(e); // with Ctrl only Ctrl+E (×10ʸ): Ctrl+C, Ctrl+V and the browser's own shortcuts are left alone
   if (!k) return;
   if (k === "C") k = clearKey.value; // Delete clears the number being typed, or everything when that is all there is
   e.preventDefault();

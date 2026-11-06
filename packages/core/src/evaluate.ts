@@ -1,10 +1,13 @@
 // Works out a typed expression. Exact fractions while the maths allows it (0.1 + 0.2 = 0.3, 1 ÷ 3 × 3 = 1, 2^100 in
 // full, √16 = 4, 8^(1/3) = 2, sin 30° = 0.5, log 1000 = 3); a double only for what is irrational, rounded to its
-// trustworthy digits before anything discrete (floor, factorial, mod) and before it is shown.
+// trustworthy digits before anything discrete (floor, factorial, mod) and before it is shown. Beyond a double's range an
+// inexact result (√(2×10^1000)) is an approximation marked as one (see format.ts), never digits passed off as exact.
+// Every step takes bounded time, whatever is typed: the preview works it out on every key press.
 import {
   type Q, CalcError, q, ZERO, ONE, add, sub, mul, div, neg, isInt, cmp, floor, trunc, powInt, rootExact, rootApprox, lnQ, toNumber, parseDecimal, withBudget, OverBudget,
+  powNum, fromLog10, exponent10,
 } from "./rational";
-import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored } from "./format";
+import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored, approx, precision, cleanFloat } from "./format";
 import { parse, type Node } from "./parse";
 
 export type AngleUnit = "deg" | "rad" | "grad";
@@ -29,7 +32,15 @@ export const RESERVED = new Set(["ans", "mod", ...Object.keys(CONSTANTS)]);
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 
 const exact = (v: Value): v is { q: Q } => "q" in v;
-const num = (v: Value) => (exact(v) ? toNumber(v.q) : v.f);
+const num = (v: Value) => (exact(v) ? toNumber(v.q) : "f" in v ? v.f : toNumber(v.a));
+const isApprox = (v: Value): v is { a: Q; p: number } => "a" in v;
+/** The value as a fraction for working on beyond a double's range: exact, a double's 15 digits, or the approximation */
+const qOf = (v: Value): Q => (exact(v) ? v.q : "f" in v ? cleanFloat(v.f) : v.a);
+const sgn = (v: Value) => { const x = exact(v) ? v.q.n : "a" in v ? v.a.n : v.f; return x > 0 ? 1 : x < 0 ? -1 : 0; };
+const negV = (v: Value): Value => (exact(v) ? { q: neg(v.q) } : "a" in v ? { a: neg(v.a), p: v.p } : fl(-v.f));
+const absV = (v: Value): Value => (sgn(v) < 0 ? negV(v) : v);
+/** A value a double can't hold: exact beyond its range, or an approximation (always beyond it) */
+const big = (v: Value) => isApprox(v) || (exact(v) && outOfDouble(v.q));
 const fl = (x: number): Value => {
   if (Number.isNaN(x)) throw new CalcError("Not a real number");
   if (!Number.isFinite(x)) throw new CalcError("Number is too large");
@@ -39,48 +50,87 @@ const Z: Value = { q: ZERO };
 /** An exact value a double can't hold (beyond 1.8×10^308, or so small that it would be 0) */
 const outOfDouble = (a: Q) => { const x = Math.abs(toNumber(a)); return a.n !== 0n && (!Number.isFinite(x) || x < 1e-300); };
 /** ln of a value; exact values beyond a double still work (ln(10^400)) */
-const lnOf = (v: Value) => (exact(v) ? lnQ(v.q) : Math.log(v.f));
+const lnOf = (v: Value) => ("f" in v ? Math.log(v.f) : lnQ(exact(v) ? v.q : v.a));
 const intOf = (v: Value) => { const a = asQ(v); return isInt(a) ? a.n : null; };
 
 function arith(op: "+" | "-" | "*" | "/", a: Value, b: Value): Value {
-  if (exact(a) && exact(b)) return { q: op === "+" ? add(a.q, b.q) : op === "-" ? sub(a.q, b.q) : op === "*" ? mul(a.q, b.q) : div(a.q, b.q) };
-  const x = num(a), y = num(b);
-  if (op === "/" && (exact(b) ? b.q.n === 0n : y === 0)) throw new CalcError("Division by zero");
-  return fl(op === "+" ? x + y : op === "-" ? x - y : op === "*" ? x * y : x / y);
+  const exactOp = (x: Q, y: Q) => (op === "+" ? add(x, y) : op === "-" ? sub(x, y) : op === "*" ? mul(x, y) : div(x, y));
+  if (exact(a) && exact(b)) return { q: exactOp(a.q, b.q) };
+  if (op === "/" && sgn(b) === 0) throw new CalcError("Division by zero");
+  if (!big(a) && !big(b)) {
+    const x = num(a), y = num(b), r = op === "+" ? x + y : op === "-" ? x - y : op === "*" ? x * y : x / y;
+    // a product or quotient past a double's range is worked out below instead ((√2 × 10^200)^2 × 10^200)
+    if (op === "+" || op === "-" || (Number.isFinite(r) && (r !== 0 || x === 0))) return fl(r);
+  }
+  // beyond a double: on the fractions, to the digits the less precise side has
+  const x = qOf(a), y = qOf(b), r = exactOp(x, y);
+  let p = Math.min(precision(a), precision(b));
+  // a difference of nearly equal numbers keeps only the digits that didn't cancel (1.41…×10^500 − 1.41…×10^500)
+  // (to at least the one digit that is left, from the guard digits an approximation carries)
+  if ((op === "+" || op === "-") && r.n !== 0n) p = Math.max(1, p - (Math.max(x.n ? exponent10(x) : -Infinity, y.n ? exponent10(y) : -Infinity) - exponent10(r)));
+  return approx(r, p);
 }
 
 function pow(a: Value, b: Value): Value {
   if (exact(b) && exact(a)) {
     if (isInt(b.q)) return { q: powInt(a.q, b.q.n) };
     // a rational power p/r: exact when the r-th root comes out (8^(1/3) = 2, 4^1.5 = 8)
-    if (b.q.d <= 1000n) {
-      const r = rootExact(a.q, Number(b.q.d));
-      if (r) return { q: powInt(r, b.q.n) };
-      if (a.q.n < 0n && b.q.d % 2n === 1n) return fl(-(Math.abs(toNumber(a.q)) ** toNumber(b.q))); // odd root of a negative
-      // past a double's range ((2×10^1000)^0.5): the root to 30 digits, then the whole power
-      if (a.q.n > 0n && outOfDouble(a.q)) return { q: powInt(rootApprox(a.q, Number(b.q.d)), b.q.n) };
+    if (b.q.d <= 1000n) { const r = rootExact(a.q, Number(b.q.d)); if (r) return { q: powInt(r, b.q.n) }; }
+  }
+  const sa = sgn(a);
+  if (sa === 0) { if (num(b) < 0) throw new CalcError("Division by zero"); return fl(0 ** num(b)); }
+  // a negative number to a power: real for an odd root ((−8)^(1/3) = −2) and for whole powers
+  let sign = 1;
+  if (sa < 0) {
+    if (exact(b) && !isInt(b.q)) {
+      if (b.q.d % 2n === 0n) throw new CalcError("Not a real number");
+      if (b.q.n % 2n !== 0n) sign = -1;
+    } else {
+      const y = num(b);
+      if (!Number.isInteger(y)) throw new CalcError("Not a real number");
+      if (exact(b) ? b.q.n % 2n !== 0n : y % 2 !== 0) sign = -1;
     }
   }
-  const x = num(a), y = num(b);
-  if (x === 0 && y < 0) throw new CalcError("Division by zero");
-  return fl(x ** y);
+  const m = absV(a);
+  if (!big(m) && !isApprox(b)) {
+    const r = num(m) ** num(b);
+    if (Number.isFinite(r) && r !== 0) return fl(sign * r);
+  }
+  // beyond a double's range (in or out)
+  let p = Math.min(precision(m), precision(b));
+  if (isApprox(m) && exact(b) && isInt(b.q) && b.q.n >= -10000n && b.q.n <= 10000n) {
+    return approx(mul(q(BigInt(sign)), powInt(m.a, b.q.n)), p - Math.log10(Math.abs(Number(b.q.n))));
+  }
+  const r = powNum(qOf(m), qOf(b));
+  if ("f" in r) return precision(m) === Infinity && precision(b) === Infinity ? fl(sign * r.f) : approx(mul(q(BigInt(sign)), cleanFloat(r.f)), Math.min(p, 15));
+  // a root out of a double's range gets its 30 digits ((−2×10^1000)^(1/3) like ∛(−2×10^1000))
+  if (exact(m) && exact(b) && b.q.d <= 400n && b.q.n >= -1000n && b.q.n <= 1000n) {
+    const rt = rootApprox(m.q, Number(b.q.d));
+    return approx(mul(q(BigInt(sign)), powInt(rt, b.q.n)), 30 - Math.log10(Math.abs(Number(b.q.n))));
+  }
+  return approx(mul(q(BigInt(sign)), fromLog10(r.l10)), Math.min(p, 15.5 - Math.log10(Math.max(1, Math.abs(r.l10)))));
 }
 
 function root(a: Value, n: number): Value {
   if (!Number.isInteger(n) || n === 0) throw new CalcError("Malformed expression");
+  const sa = sgn(a);
+  if (sa < 0 && n % 2 === 0) throw new CalcError("Root of a negative number");
   if (exact(a)) {
-    if (a.q.n < 0n && n % 2 === 0) throw new CalcError("Root of a negative number");
     const r = rootExact(a.q, Math.abs(n));
     if (r) return n < 0 ? { q: div(ONE, r) } : { q: r };
-    if (outOfDouble(a.q)) { // √(2×10^1000): the root to 30 digits
-      const m = rootApprox(a.q.n < 0n ? neg(a.q) : a.q, Math.abs(n)), s = a.q.n < 0n ? neg(m) : m;
-      return { q: n < 0 ? div(ONE, s) : s };
-    }
   }
-  const x = num(a);
-  if (x < 0 && n % 2 === 0) throw new CalcError("Root of a negative number");
-  const r = Math.sign(x) * Math.abs(x) ** (1 / Math.abs(n));
-  return fl(n < 0 ? 1 / r : r);
+  if (sa === 0) { if (n < 0) throw new CalcError("Division by zero"); return Z; }
+  const m = absV(a), k = Math.abs(n);
+  if (!big(m)) {
+    const r = sa * num(m) ** (1 / k);
+    return fl(n < 0 ? 1 / r : r);
+  }
+  // beyond a double's range: by logarithms when the root fits in a double (root(10^400; 100000), in constant time),
+  // else to 30 digits (√(2×10^1000) = 1.41421356237…×10^500; then k ≤ 330, as the number has at most 100,000 digits)
+  const x = qOf(m), p = precision(m), r = powNum(x, q(n < 0 ? -1n : 1n, BigInt(k)));
+  if ("f" in r) return exact(m) ? fl(sa * r.f) : approx(cleanFloat(sa * r.f), Math.min(p, 15));
+  const rt = rootApprox(x, k);
+  return approx(mul(q(BigInt(sa)), n < 0 ? div(ONE, rt) : rt), Math.min(p, 30));
 }
 
 // Lanczos approximation (g = 7), for factorials of non-whole numbers
@@ -102,6 +152,14 @@ function factorial(v: Value): Value {
   let r = 1n;
   for (let i = 2n; i <= n; i++) r *= i;
   return { q: q(r) };
+}
+
+/** floor, round and the like: on the value's trustworthy digits. Of an approximate number with more whole digits than
+ *  it is sure of (3.1×10^20 as a double, √(2×10^1000)) the result is approximate too, not made-up exact digits. */
+function discrete(v: Value, f: (x: Q) => Q): Value {
+  const x = asQ(v), r = f(x);
+  if (exact(v) || x.n === 0n || exponent10(x) < precision(v)) return { q: r };
+  return approx(r, precision(v));
 }
 
 /** The angle in degrees as an exact fraction, when the unit allows it (degrees and gradians typed exactly) */
@@ -142,8 +200,8 @@ function trig(f: "sin" | "cos" | "tan", v: Value, unit: AngleUnit): Value {
 
 /** log of x in a base, exact when x is a whole power of the base (log 1000 = 3, log₂ 8 = 3) */
 function logBase(v: Value, base: Value): Value {
-  if (exact(v) ? v.q.n <= 0n : v.f <= 0) throw new CalcError("Logarithm of zero or less");
-  if ((exact(base) ? base.q.n <= 0n || cmp(base.q, ONE) === 0 : base.f <= 0 || base.f === 1)) throw new CalcError("Invalid logarithm base");
+  if (sgn(v) <= 0) throw new CalcError("Logarithm of zero or less");
+  if (sgn(base) <= 0 || (exact(base) ? cmp(base.q, ONE) === 0 : num(base) === 1)) throw new CalcError("Invalid logarithm base");
   const r = lnOf(v) / lnOf(base);
   const k = Math.round(r);
   if (exact(v) && exact(base) && Math.abs(r - k) < 1e-9 * Math.max(1, Math.abs(k))) {
@@ -187,18 +245,18 @@ function call(name: string, args: Value[], o: EvalOptions): Value {
     case "acosh": if (x() < 1) throw new CalcError("Out of range for acosh"); return fl(Math.acosh(x()));
     case "atanh": if (Math.abs(x()) >= 1) throw new CalcError("Out of range for atanh"); return fl(Math.atanh(x()));
     case "ln": {
-      if (exact(a) ? a.q.n <= 0n : x() <= 0) throw new CalcError("Logarithm of zero or less");
+      if (sgn(a) <= 0) throw new CalcError("Logarithm of zero or less");
       return exact(a) && cmp(a.q, ONE) === 0 ? Z : fl(lnOf(a));
     }
     case "exp": return exact(a) && a.q.n === 0n ? { q: ONE } : fl(Math.exp(x()));
     case "√": return root(a, 2);
     case "∛": return root(a, 3);
-    case "abs": return exact(a) ? { q: a.q.n < 0n ? neg(a.q) : a.q } : fl(Math.abs(a.f));
-    case "floor": return { q: q(floor(asQ(a))) };
-    case "ceil": return { q: neg(q(floor(neg(asQ(a))))) };
-    case "round": { const v = asQ(a), h = q(1n, 2n); return { q: q(v.n < 0n ? -floor(add(neg(v), h)) : floor(add(v, h))) }; }
-    case "int": return { q: q(trunc(asQ(a))) };
-    case "frac": { const v = asQ(a); return { q: sub(v, q(trunc(v))) }; }
+    case "abs": return absV(a);
+    case "floor": return discrete(a, (v) => q(floor(v)));
+    case "ceil": return discrete(a, (v) => neg(q(floor(neg(v)))));
+    case "round": return discrete(a, (v) => { const h = q(1n, 2n); return q(v.n < 0n ? -floor(add(neg(v), h)) : floor(add(v, h))); });
+    case "int": return discrete(a, (v) => q(trunc(v)));
+    case "frac": return discrete(a, (v) => sub(v, q(trunc(v))));
     case "sgn": { const v = asQ(a); return { q: q(BigInt(v.n > 0n ? 1 : v.n < 0n ? -1 : 0)) }; }
     case "gamma": { const n = intOf(a); if (n !== null && n <= 0n) throw new CalcError("Gamma is undefined here"); return n !== null ? factorial({ q: q(n - 1n) }) : fl(gamma(x())); }
     case "!": return factorial(a);
@@ -215,7 +273,7 @@ function lookup(name: string, o: EvalOptions): Value | null {
 
 function ev(n: Node, o: EvalOptions): Value {
   switch (n.k) {
-    case "num": return { q: parseDecimal(n.text) };
+    case "num": return n.text.startsWith("≈") ? parseStored(n.text) : { q: parseDecimal(n.text) };
     case "name": {
       const v = lookup(n.name, o);
       if (v) return v;
@@ -224,7 +282,7 @@ function ev(n: Node, o: EvalOptions): Value {
       if (parts.length > 1 && parts.every((c) => lookup(c, o))) return parts.map((c) => lookup(c, o)!).reduce((a, b) => arith("*", a, b));
       throw new CalcError("Unknown variable " + n.name);
     }
-    case "neg": { const a = ev(n.a, o); return exact(a) ? { q: neg(a.q) } : fl(-a.f); }
+    case "neg": return negV(ev(n.a, o));
     case "pct": return arith("/", ev(n.a, o), { q: q(100n) });
     case "fact": return factorial(ev(n.a, o));
     case "root": return root(ev(n.a, o), n.n);
@@ -235,7 +293,12 @@ function ev(n: Node, o: EvalOptions): Value {
       if (n.op === "mod") {
         const x = asQ(a), y = asQ(b);
         if (y.n === 0n) throw new CalcError("Division by zero");
-        return { q: sub(x, mul(y, q(floor(div(x, y))))) }; // the sign follows the divisor, like GNOME's
+        const r = sub(x, mul(y, q(floor(div(x, y))))); // the sign follows the divisor, like GNOME's
+        if (exact(a) && exact(b)) return { q: r };
+        // of an approximate number, only the digits it is sure of count: (10^20·π) mod 7 can't be known
+        const p = Math.min(precision(a), precision(b)) - (x.n === 0n ? 0 : Math.max(0, exponent10(x) - exponent10(y)));
+        if (p < 1) throw new CalcError("Not precise enough for mod");
+        return approx(r, p);
       }
       return arith(n.op, a, b);
     }

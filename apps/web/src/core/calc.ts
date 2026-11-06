@@ -2,9 +2,9 @@
 // @calc/core; here only the typed text is edited (append, delete, brackets, sign) and handed over to be worked out.
 // Memory, variables, the last answer and the calculator settings are kept on this device.
 import { reactive, watch } from "vue";
-import { evaluate, formatDisplay, sanitizeInput, RESERVED, type AngleUnit, type EvalOptions, type NumberFormat } from "@calc/core";
+import { evaluate, formatDisplay, sanitizeInput, storable, RESERVED, type AngleUnit, type EvalOptions, type NumberFormat } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
-import { addHistory, keepable } from "./history";
+import { addHistory } from "./history";
 
 export type Mode = "basic" | "advanced" | "financial" | "programming";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
@@ -35,10 +35,11 @@ export const calc = reactive({
   hyp: false,
 });
 watch(() => calc.mode, (m) => writeJson("calcMode", m));
-// answers of thousands of digits are kept only until the app closes, so they can't fill the device's storage
-watch(() => calc.ans, (v) => writeJson("calcAns", keepable(v)));
-watch(() => calc.mem, (v) => writeJson("calcMem", keepable(v)));
-watch(() => calc.vars, (v) => writeJson("calcVars", Object.fromEntries(Object.entries(v).filter(([, x]) => keepable(x)))), { deep: true });
+// answers of thousands of digits are kept in full only until the app closes, so they can't fill the device's storage:
+// on the device they are kept to 30 digits, marked approximate (never left out, so ans + 1 still means something)
+watch(() => calc.ans, (v) => writeJson("calcAns", storable(v)));
+watch(() => calc.mem, (v) => writeJson("calcMem", storable(v)));
+watch(() => calc.vars, (v) => writeJson("calcVars", Object.fromEntries(Object.entries(v).map(([k, x]) => [k, storable(x)]))), { deep: true });
 
 const evalOptions = (): EvalOptions => ({ angle: settings.angle, decimals: settings.decimals, format: settings.format, variables: calc.vars, ans: calc.ans });
 /** Text as shown: the chosen decimal mark and thousands grouping */
@@ -87,7 +88,7 @@ function fromAnswer(keepAnswer: boolean) {
 /** Adds an operand (a number, a function, a constant): after an answer it starts afresh */
 function operand(s: string) {
   fromAnswer(false);
-  // 2 then the e key is 2×e: "2e−3" would read as 2×10⁻³
+  // 2 then the e key is 2×e: "2e−3" would read as 2×10⁻³ (a letter e typed on the keyboard is scientific entry, see press)
   if (/[\d.]$/.test(calc.expr) && (/^[\d.]/.test(s) || /^e(?![\p{L}])/u.test(s))) calc.expr += "×";
   calc.expr += s;
 }
@@ -186,7 +187,9 @@ export function press(k: string) {
   }
   if (/^\d$/.test(k)) {
     fromAnswer(false);
-    if (last() === ")") calc.expr += "×";
+    // after ")" or the constant e or π on its own, a digit multiplies: e then 5 is e×5, never read as 10⁵ (but 1e5 typed
+    // on the keyboard stays scientific entry)
+    if (last() === ")" || /(?:^|[^\p{L}\d._₀-₉])[eπ]$/u.test(calc.expr)) calc.expr += "×";
     if (tailNumber() === "0") calc.expr = calc.expr.slice(0, -1); // no leading zeros: 05 becomes 5
     calc.expr += k;
     return;
@@ -202,9 +205,11 @@ export function paste(text: string) {
   if (/^[+×÷^%!]/.test(s)) after(s); else operand(s);
 }
 
-/** The key a keyboard key stands for, or "" */
+/** The key a keyboard key stands for, or "". A letter e is typed as a letter, so 1e5 is scientific entry (100000);
+ *  only the on-screen e key gives the constant (2×e). Ctrl+E is the ×10ʸ key, as in GNOME's calculator. */
 export function keyFor(e: KeyboardEvent): string {
   const k = e.key;
+  if (e.ctrlKey || e.metaKey || e.altKey) return e.ctrlKey && !e.metaKey && !e.altKey && k.toLowerCase() === "e" ? "op:×10^" : "";
   if (/^\d$/.test(k)) return k;
   const map: Record<string, string> = { "+": "+", "-": "−", "*": "×", "/": "÷", ".": ".", ",": ".", "(": "(", ")": ")",
     "^": "op:^", "%": "%", "!": "!", "|": "fn:|", ";": "fn:;", " ": "", Enter: "=", "=": "=", Backspace: "⌫", Escape: "AC", Delete: "C" };

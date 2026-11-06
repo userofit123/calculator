@@ -342,3 +342,75 @@ describe("a preview's lower size limit", () => {
   it("works out what fits", () => expect(v("2^100 + 1", { maxBits: 110000 })).toBe("1267650600228229401496703205377"));
   it("is gone again for the next sum", () => { evaluate("1", { maxBits: 10 }); expect(v("2^1000")).toMatch(/×10³⁰¹$/); });
 });
+
+describe("roots with a big index stay fast (the preview works them out on every key press)", () => {
+  const timed = (e: string, o: EvalOptions = {}) => { const t = performance.now(); const r = evaluate(e, o); return { r, ms: performance.now() - t }; };
+  for (const [e, want] of [
+    ["root(10^400; 100000)", "1.009252886077"],
+    ["root(10^400; 10000)", "1.096478196143"],
+    ["root(10^400; 3000)", "1.359356390879"],
+    ["(10^400)^(1/999)", "2.514203348143"],
+    ["(10^400)^(1/100000)", "1.009252886077"],
+    ["root(10^-400; 1000)", "0.398107170553"],
+  ] as const) {
+    it(`${e} = ${want} in under 50 ms, also as a preview`, () => {
+      for (const o of [{}, { maxBits: 110000 }]) {
+        const { r, ms } = timed(e, o);
+        expect("value" in r && r.value).toBe(want);
+        expect(ms).toBeLessThan(50);
+      }
+    });
+  }
+  it("a root beyond a double's range with the biggest index that has one", () => {
+    const { r, ms } = timed("root(9^100000; 300)");
+    expect("value" in r && r.value).toMatch(/×10³¹⁸$/);
+    expect(ms).toBeLessThan(200);
+  });
+});
+
+describe("approximate roots beyond a double are marked approximate, never exact", () => {
+  const exactOf = (e: string, o: EvalOptions = {}) => { const r = evaluate(e, o); return "exact" in r ? r.exact : "error: " + r.error; };
+  it("√(2×10^1000) is stored as an approximation", () => expect(exactOf("√(2×10^1000)")).toBe("≈1.41421356237309504880168872421e500"));
+  it("…and reads back as one", () => expect(exactOf("ans", { ans: "≈1.41421356237309504880168872421e500" })).toBe("≈1.41421356237309504880168872421e500"));
+  it("no made-up exact digits in fixed format", () => expect(v("√(2×10^1000)", { format: "fixed" })).toBe("1.414213562373×10⁵⁰⁰"));
+  it("a difference of nearly equal approximations is not an exact 0", () => {
+    expect(exactOf("√(2×10^1000) − 1414213562373095048801688724209×10^470")).not.toBe("0");
+    expect(exactOf("√(2×10^1000) − 1414213562373095048801688724209×10^470")).not.toMatch(/^-?\d+$/);
+  });
+  it("floor of it is approximate too", () => expect(exactOf("floor(√(2×10^1000))")).toMatch(/^≈1\.414213562373095048801688724\d*e500$/));
+  it("mod of it can't be known", () => expect(err("floor(√(2×10^1000)) mod 7")).toBe("Not precise enough for mod"));
+  it("nor of a double past its digits", () => expect(err("(10^20 × π) mod 7")).toBe("Not precise enough for mod"));
+  it("floor of a big double is not exact", () => expect(exactOf("floor(10^20 × π)")).toBe("≈314159265358979000000"));
+  it("…but floor of an exact number is", () => expect(exactOf("floor(10^40 + 1/2)")).toBe("1" + "0".repeat(40)));
+  it("arithmetic on an approximation stays approximate", () => {
+    expect(exactOf("√(2×10^1000) × 2")).toBe("≈2.82842712474619009760337744842e500");
+    expect(exactOf("(√(2×10^1000))^2")).toMatch(/^≈2\.0{20,}\d*e1000$/);
+    expect(v("√(2×10^1000) ÷ 10^500")).toBe("1.414213562373");
+  });
+  it("roots of negative numbers beyond a double agree", () => {
+    expect(v("(−2×10^1000)^(1/3)")).toBe("-2.714417616595×10³³³");
+    expect(v("∛(−2×10^1000)")).toBe("-2.714417616595×10³³³");
+    expect(exactOf("(−2×10^1000)^(1/3)")).toBe(exactOf("∛(−2×10^1000)"));
+    expect(v("(−2×10^1000)^(2/3)")).toBe("7.368062997281×10⁶⁶⁶");
+  });
+  it("a power by logarithms beyond a double is approximate", () => {
+    expect(exactOf("(10^400)^1.5")).toBe("1" + "0".repeat(600));
+    expect(exactOf("(2×10^400)^0.75")).toMatch(/^1\.68179283\d*e\+300$/);
+  });
+});
+
+describe("stored values too long to keep", () => {
+  it("are kept rounded and marked approximate", async () => {
+    const { storable } = await import("../src/format");
+    expect(storable("12")).toBe("12");
+    const long = "7".repeat(2500);
+    expect(storable(long)).toBe("≈7.77777777777777777777777777778e2499");
+    expect(v("ans + 1", { ans: storable(long) })).toBe("7.777777777778×10²⁴⁹⁹");
+    expect(storable("1/" + "3".repeat(2500))).toMatch(/^≈3\.0{29}e-2500$/);
+  });
+});
+
+describe("stored approximations typed back into a sum", () => {
+  it("negative ones too", () => expect(v("(≈-1.41421356237309504880168872421e500)+(≈−1.41421356237309504880168872421e500)")).toBe("-2.828427124746×10⁵⁰⁰"));
+  it("as memory plus an answer", () => expect(evaluate("(≈2.5)+(1/2)")).toEqual({ value: "3", exact: "≈3" }));
+});
