@@ -424,10 +424,12 @@ describe("every double is stored marked approximate, and reads back as the same 
 });
 
 describe("powers past the smallest number kept", () => {
+  // ≈0 on the display, stored with its exponent (≈1.01e-301030) so it stays a tiny value, not 0
+  const TINY = /^≈-?\d(\.\d+)?e-\d+$/;
   const exactOf = (e: string, o: EvalOptions = {}) => { const r = evaluate(e, o); return "exact" in r ? r.exact : "error: " + r.error; };
   it("1.05^(−10^6) is a tiny approximation", () => expect(exactOf("1.05^(−10^6)")).toMatch(/^≈5\.02261699\d*e-21190$/));
-  it("1.05^(−10^7) is approximately 0", () => expect(exactOf("1.05^(−10^7)")).toBe("≈0"));
-  it("2^(−10^6) too", () => expect(exactOf("2^(−10^6)")).toBe("≈0"));
+  it("1.05^(−10^7) is approximately 0, kept with its exponent", () => { expect(v("1.05^(−10^7)")).toBe("0"); expect(exactOf("1.05^(−10^7)")).toMatch(/^≈1\.02164\d*e-211893$/); });
+  it("2^(−10^6) too", () => expect(exactOf("2^(−10^6)")).toMatch(TINY));
   it("1.05^(10^7) is too large", () => expect(evaluate("1.05^(10^7)")).toEqual({ error: "Number is too large" }));
   // a power below the smallest number kept is ≈0, but not a real 0: dividing by it is too large, its log is worked out
   it("1 ÷ 1.05^(−10^7) is too large", () => expect(err("1/(1.05^(−10^7))")).toBe("Number is too large"));
@@ -439,28 +441,28 @@ describe("powers past the smallest number kept", () => {
   it("log 1.05^(−10^7)", () => expect(v("log(1.05^(−10^7))")).toMatch(/^-211892\.99069938/));
   it("log₂ 2^(−10^6)", () => expect(v("log₂(2^(−10^6))")).toBe("-1000000"));
   it("ln of a negative one", () => expect(err("ln(−2^(−10^6))")).toBe("Logarithm of zero or less"));
-  it("√2^(−10^6) is ≈0 too", () => expect(exactOf("√(2^(−10^6))")).toBe("≈0"));
-  it("∛ of a negative one", () => expect(exactOf("∛(−2^(−10^6))")).toBe("≈0"));
+  it("√2^(−10^6) is ≈0 too", () => expect(exactOf("√(2^(−10^6))")).toMatch(TINY));
+  it("∛ of a negative one", () => expect(exactOf("∛(−2^(−10^6))")).toMatch(TINY));
   it("√ of a negative one", () => expect(err("√(−2^(−10^6))")).toBe("Root of a negative number"));
   it("a power of it that comes back in range", () => expect(v("(2^(−10^6))^(−0.1)")).toMatch(/^9\.990020\d*×10³⁰¹⁰²$/));
   it("1 + 2^(−10^6) ≈ 1", () => expect(exactOf("1 + 2^(−10^6)")).toBe("≈1"));
   it("2^(−10^6) − 2^(−10^6) ≈ 0", () => expect(exactOf("2^(−10^6) − 2^(−10^6)")).toBe("≈0"));
-  it("2^(−10^6) × 2^300000 is still ≈0", () => expect(exactOf("2^(−10^6) × 2^300000")).toBe("≈0"));
-  it("10^−60000 × 10^−60000 is ≈0, not too large", () => expect(exactOf("10^-60000 × 10^-60000")).toBe("≈0"));
+  it("2^(−10^6) × 2^300000 is still ≈0", () => expect(exactOf("2^(−10^6) × 2^300000")).toMatch(TINY));
+  it("10^−60000 × 10^−60000 is ≈0, not too large", () => expect(exactOf("10^-60000 × 10^-60000")).toMatch(TINY));
   it("…and 1 ÷ it is too large", () => expect(err("1/(10^-60000 × 10^-60000)")).toBe("Number is too large"));
-  it("(√2×10^−400)^1000 is ≈0", () => expect(exactOf("(√2×10^-400)^1000")).toBe("≈0"));
+  it("(√2×10^−400)^1000 is ≈0", () => expect(exactOf("(√2×10^-400)^1000")).toMatch(TINY));
   // an exact base out of a double's range to a power below the smallest number kept: ≈0, not "too large"
   for (const e of ["(10^-60000)^2", "(2^-200000)^2", "(2^-200000)^3", "(1e-99990)^2", "(10^-60000)^2.5", "(10^-60000)^(5/2)", "√(10^-60000)^4"])
-    it(`${e} is ≈0`, () => expect(exactOf(e)).toBe("≈0"));
+    it(`${e} is ≈0`, () => expect(exactOf(e)).toMatch(TINY));
   it("(10^−99990)^−2 is too large", () => expect(err("(10^-99990)^-2")).toBe("Number is too large"));
   it("(10^−60000)^2 ÷ 10^−60000 is back in range", () => expect(exactOf("(10^-60000)^2 / 10^-60000")).toMatch(/^≈1(\.0*)?e-60000$/));
   // a power whose exponent is past a double but whose log10 (≈ −2.119×10^307) is not: worked out
-  it("1.05^(−10^309) is ≈0", () => expect(exactOf("1.05^(-10^309)")).toBe("≈0"));
-  it("1.05^(−10^309) ÷ 1.05^(−10^309) ≈ 1", () => expect(exactOf("1.05^(-10^309)/1.05^(-10^309)")).toBe("≈1"));
+  it("1.05^(−10^309) is ≈0", () => expect(exactOf("1.05^(-10^309)")).toMatch(TINY));
+  it("1.05^(−10^309) ÷ 1.05^(−10^309) ≈ 1", () => expect(exactOf("1.05^(-10^309)/1.05^(-10^309)")).toMatch(/^≈1(e0)?$/));
   it("log(1.05^(−10^309); 1.05^(−10^309)) = 1", () => expect(v("log(1.05^(-10^309); 1.05^(-10^309))")).toBe("1"));
   it("log 1.05^(−10^309)", () => expect(v("log(1.05^(-10^309))")).toMatch(/^-2\.1189299\d*×10³⁰⁷$/));
   // past even that (log10 ≈ −2.1×10^398, beyond a double) the exponent can't be known: an error, not ≈0 or "Not a real number"
-  it("1.05^(−10^400) is ≈0", () => expect(exactOf("1.05^(-10^400)")).toBe("≈0"));
+  it("1.05^(−10^400) is ≈0 (too small even for its exponent)", () => expect(exactOf("1.05^(-10^400)")).toBe("≈0"));
   it("1.05^(−10^400) ÷ itself", () => expect(err("1.05^(-10^400)/1.05^(-10^400)")).toBe("Not precise enough"));
   it("log of it in itself", () => expect(err("log(1.05^(-10^400); 1.05^(-10^400))")).toBe("Not precise enough"));
   it("its log is too large", () => expect(err("log(1.05^(-10^400))")).toBe("Number is too large"));
@@ -477,4 +479,86 @@ describe("powers past the smallest number kept", () => {
   it("ln 0", () => expect(err("ln(0)")).toBe("Logarithm of zero or less"));
   it("log(√2 − √2)", () => expect(err("log(√2−√2)")).toBe("Logarithm of zero or less"));
   it("√(√2 − √2) is 0", () => expect(v("√(√2−√2)")).toBe("0"));
+});
+
+describe("precision edge cases for huge and tiny numbers (C-32)", () => {
+  const exactOf = (e: string, o: EvalOptions = {}) => { const r = evaluate(e, o); return "exact" in r ? r.exact : "error: " + r.error; };
+  const rad: EvalOptions = { angle: "rad" };
+  // 1: only the guard digits' rounding is left after the cancellation: not a digit of the answer
+  it("nearly equal huge estimates subtracted", () => expect(err("√(2×10^1000) − 1414213562373095048801688724209698×10^467")).toBe("Not precise enough"));
+  it("…while digits are left they are kept", () => expect(v("√(2×10^1000) − 1414213562373095048801688724×10^473")).toBe("2.1×10⁴⁷²"));
+  it("…and equal ones give 0", () => expect(v("√(2×10^1000) − √(2×10^1000)")).toBe("0"));
+  // 2: a decimal past 2^53 reads back as the nearest double, not one unit off
+  it("saved decimals read back to the same double", async () => {
+    const { toNumber, parseDecimal } = await import("../src/rational");
+    expect(toNumber(parseDecimal("14.142135623730951"))).toBe(14.142135623730951);
+    expect(toNumber(parseDecimal("-0.30000000000000004441"))).toBe(-0.30000000000000004);
+    expect(toNumber(parseDecimal("123456789012345678901234567890.123"))).toBe(123456789012345678901234567890.123);
+    expect(exactOf("ans × 1", { ans: "≈14.142135623730951" })).toBe("≈14.142135623730951");
+  });
+  // 3: (10^14×π) has 15 digits, so its remainder by 7 has one, and stays at one
+  it("(10^14×π) mod 7 keeps its one digit", () => { expect(v("(10^14×π) mod 7")).toBe("5"); expect(exactOf("(10^14×π) mod 7")).toBe("≈5e0"); });
+  it("(10^13×π) mod 7 has two", () => expect(v("(10^13×π) mod 7")).toBe("1.9"));
+  it("…and a power of 10 times it isn't written out with made-up digits", () => expect(v("((10^14×π) mod 7) × 10^25")).toBe("5×10²⁵"));
+  // 4: a pasted estimate stays approximate
+  it("pasting ≈ keeps an estimate", () => {
+    expect(sanitizeInput("≈1.41421356237309504880168872421e500")).toBe("≈1.41421356237309504880168872421e500");
+    expect(sanitizeInput("≈ -2.5")).toBe("≈−2.5");
+    expect(sanitizeInput("x ≈ y")).toBe("x y");
+    expect(exactOf(sanitizeInput("≈14.142135623730951"))).toBe("≈14.142135623730951");
+    expect(exactOf(sanitizeInput("≈1.41421356237309504880168872421e500") + "−1414213562373095048801688724209698×10^467")).toBe("error: Not precise enough");
+  });
+  // 5: an estimate past its trustworthy digits is shown ×10ⁿ, in fixed format too
+  it("fixed format doesn't make up zeros", () => {
+    expect(v("2^0.5×10^30", { format: "fixed" })).toBe("1.414213562373×10³⁰");
+    expect(v("2^0.5×10^18")).toBe("1.414213562373×10¹⁸");
+    expect(v("2^0.5×10^5", { format: "fixed" })).toBe("141421.35623731");
+    expect(v("2^100", { format: "fixed" })).toBe("1267650600228229401496703205376");
+    expect(v("√(10^-801)", { format: "fixed" })).toBe("3.162277660168×10⁻⁴⁰¹");
+  });
+  // 6: a huge angle: exact ones reduced exactly, approximate ones only while they are known to within a turn
+  it("sin of a huge exact angle in degrees", () => { expect(v("sin(10^400)")).toBe("-0.984807753012"); expect(v("sin(10^30)")).toBe("-0.984807753012"); });
+  it("sin of a huge exact angle in radians", () => { expect(v("sin(10^30)", rad)).toBe("-0.090116901912"); expect(v("cos(10^20)", rad)).toBe("0.763970404442"); expect(v("sin(10^22)", rad)).toBe("-0.852200849767"); });
+  it("…past π's 200 digits", () => expect(err("sin(10^400)", rad)).toBe("Not precise enough"));
+  it("sin of an approximate huge angle", () => { expect(err("sin(π×10^20)", rad)).toBe("Not precise enough"); expect(err("sin(√(2×10^1000))")).toBe("Not precise enough"); });
+  it("…with fewer digits while some are known", () => expect(v("sin(√2×10^8)", rad)).toMatch(/^-?0\.\d{1,7}$/));
+  // 7: a power below the smallest number kept is ≈0, not too large
+  it("2^−√(2×10^1000) ≈ 0", () => { expect(v("2^-√(2×10^1000)")).toBe("0"); expect(exactOf("2^-√(2×10^1000)")).toBe("≈0"); });
+  // 8: the quotient of two huge roots in range, though the quotient of their fractions isn't
+  it("√(2×10^99999) ÷ √(3×10^−99999)", () => expect(v("√(2×10^99999)÷√(3×10^-99999)")).toBe("8.164965809277×10⁹⁹⁹⁹⁸"));
+  it("…and their product and sum", () => { expect(v("√(2×10^99999)×√(3×10^-99999)")).toBe("2.449489742783"); expect(v("√(2×10^99999)+√(3×10^-99999)")).toBe("4.472135955×10⁴⁹⁹⁹⁹"); });
+  // 9: a whole power of a negative number is real, its sign from the exact power
+  it("(−1.05)^(−10^309) ≈ +0", () => { expect(v("(−1.05)^(−10^309)")).toBe("0"); expect(exactOf("(−1.05)^(−10^309)")).toMatch(/^≈\d/); });
+  it("(−1.05)^(−10^309+1) ≈ −0", () => expect(exactOf("(−1.05)^(−10^309+1)")).toMatch(/^≈-\d/));
+  it("(−1.05)^(10^309) is too large", () => expect(err("(−1.05)^(10^309)")).toBe("Number is too large"));
+  it("an approximate huge power of a negative number", () => expect(err("(−2)^(π×10^20)")).toBe("Not precise enough"));
+  // 10: a base near 1 doesn't round to 1
+  it("(1+10^−30)^(10^400) is too large", () => expect(err("(1+10^-30)^(10^400)")).toBe("Number is too large"));
+  it("(1+10^−30)^(10^29) = e^0.1", () => expect(v("(1+10^-30)^(10^29)")).toBe("1.105170918076"));
+  it("(1−10^−30)^(10^400) ≈ 0", () => expect(v("(1-10^-30)^(10^400)")).toBe("0"));
+  it("ln(1+10^−30)", () => expect(v("ln(1+10^-30)")).toBe("1×10⁻³⁰"));
+  it("(1+10^−400)^(10^500) can't be known", () => expect(err("(1+10^-400)^(10^500)")).toBe("Not precise enough"));
+  // 11: a tiny answer stored keeps its exponent
+  it("a tiny answer stored and read back", () => {
+    const x = exactOf("2^(−10^6)");
+    expect(x).toMatch(/^≈1\.01003\d*e-301030$/);
+    expect(err("1/ans", { ans: x })).toBe("Number is too large");
+    expect(v("ans/2^(−10^6)", { ans: x })).toMatch(/^1$|^0\.99999999\d*$/); // to the digits it was stored with
+    expect(exactOf("ans", { variables: {}, ans: "≈-9.96e-400000" })).toBe("≈-9.96e-400000");
+    expect(exactOf("2×ans", { ans: "≈-9.96e-400000" })).toBe("≈-1.99e-399999");
+    expect(v("x×10^5", { variables: { x: "≈1e-301030" } })).toBe("0");
+    expect(err("1/x", { variables: { x: "≈1e-301030" } })).toBe("Number is too large");
+  });
+  it("…kept as stored text", async () => { const { storable } = await import("../src/format"); expect(storable("≈1.5e-301030")).toBe("≈1.5e-301030"); });
+  it("typed exponents below the smallest number kept", () => { expect(exactOf("1e-200000")).toBe("≈1e-200000"); expect(err("1/1e-200000")).toBe("Number is too large"); });
+  it("a tiny value too small even for its exponent is still ≈0", () => expect(exactOf("1.05^(-10^400)")).toBe("≈0"));
+  // 12: sin x ≈ tan x ≈ x for tiny x
+  it("sin and tan of a tiny number", () => {
+    expect(v("sin(10^-400)", rad)).toBe("1×10⁻⁴⁰⁰");
+    expect(v("tan(−10^-400)", rad)).toBe("-1×10⁻⁴⁰⁰");
+    expect(v("sin(10^-400)")).toBe("1.745329251994×10⁻⁴⁰²");
+    expect(exactOf("sin(2^(-10^6))", rad)).toMatch(/^≈1\.01003\d*e-301030$/);
+    expect(err("1/tan(2^(-10^6))", rad)).toBe("Number is too large");
+    expect(v("cos(10^-400)", rad)).toBe("1");
+  });
 });

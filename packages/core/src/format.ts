@@ -3,7 +3,7 @@
 // while keeping every digit a double can be trusted with. A value beyond a double's range that isn't exact
 // (√(2×10^1000)) is an approximation marked as one: a fraction with the digits it can be trusted with (p), treated like
 // a double (rounded to those digits before anything discrete and before it is shown, stored as "≈1.414…e500").
-import { type Q, CalcError, exponent10, parseDecimal, toFixed, isInt, q, roundSig, toNumber } from "./rational";
+import { type Q, CalcError, exponent10, parseDecimal, toFixed, isInt, q, roundSig, toNumber, UNDERFLOW_L10 } from "./rational";
 
 /** q: exact; f: a double (15 trustworthy digits); a: an approximation beyond a double's range, good to p digits;
  *  m: a number below the smallest one kept (about 10^−100000) but not 0, m × 10^e (1 ≤ |m| < 10, e whole), good to p digits. It is shown
@@ -13,11 +13,12 @@ export type Value = { q: Q } | { f: number } | { a: Q; p: number } | { m: number
 export const APPROX_DIGITS = 30;
 /** The digits a value can be trusted with (exact: all) */
 export const precision = (v: Value) => ("q" in v ? Infinity : "f" in v ? 15 : v.p);
-/** An approximate result to p digits: a double when it fits in one, else marked approximate (never as exact digits) */
+/** An approximate result to p digits: a double when it fits in one and is good to a double's 15 digits, else marked
+ *  approximate with its p digits (never as exact digits, nor as 15 digits it doesn't have: (10^14×π) mod 7 has one) */
 export function approx(x: Q, p: number): Value {
   if (x.n === 0n || p < 1) return { f: 0 };
   const f = toNumber(x);
-  if (Number.isFinite(f) && Math.abs(f) >= 1e-300) return { f };
+  if (Number.isFinite(f) && Math.abs(f) >= 1e-300 && p >= 15) return { f };
   const d = Math.min(Math.floor(p), APPROX_DIGITS);
   return { a: roundSig(x, d + 2), p: d }; // two guard digits so rounding steps don't add up
 }
@@ -93,11 +94,16 @@ export function formatValue(v: Value, o: FormatOptions = {}): string {
   }
   const a = asQ(v);
   if (a.n === 0n) return "0";
-  if (fmt === "fixed") return "a" in v ? sci(a, Math.min(places, 15), false) : toFixed(a, places);
   if (fmt === "sci" || fmt === "eng") return sci(a, Math.min(places, 15), fmt === "eng");
   const e = exponent10(a);
-  // whole numbers are written out in full while they still fit on a wide screen (2^100 = 1267650600228229401496703205376);
-  // an approximation never is: its digits past the trustworthy ones would be made-up zeros
+  // an approximation is never written out past its trustworthy digits: they would be made-up zeros
+  // (2^0.5×10^30 is not 1414213562373100000000000000000), also in fixed format
+  if (!("q" in v) && e >= precision(v)) return sci(a, Math.min(places, 15), false);
+  if (fmt === "fixed") {
+    const t = toFixed(a, places);
+    return "a" in v && (t === "0" || t === "-0") ? sci(a, Math.min(places, 15), false) : t;
+  }
+  // whole numbers are written out in full while they still fit on a wide screen (2^100 = 1267650600228229401496703205376)
   if (isInt(a) && "q" in v ? e >= 40 : e >= 21) return sci(a, Math.min(places, 15), false);
   const plain = toFixed(a, places);
   // too small to show at this many decimals: switch to ×10ⁿ instead of showing 0
@@ -113,7 +119,19 @@ export function exactText(v: Value): string {
     return "≈" + String(v.f);
   }
   if ("a" in v) return approxText(v.a, v.p);
-  if ("m" in v) return "≈0";
+  if ("m" in v) {
+    // with its exponent, so 1 ÷ ans is "too large", not "Division by zero" (only one too small even for its log is ≈0)
+    if (!Number.isFinite(v.e)) return "≈0";
+    const d = Math.max(1, Math.min(15, Math.floor(v.p)));
+    let m = Number(v.m.toPrecision(d)), e = v.e;
+    if (Math.abs(m) >= 10) { m /= 10; e++; } // 9.96 to 2 digits
+    // an exponent past 10^21 is written out whole, to the 15 digits it has (String would give "-2.1e+307", which
+    // doesn't read back)
+    let et = String(e);
+    const x = /^(-?)(\d)\.?(\d*)e\+(\d+)$/.exec(e.toPrecision(15));
+    if (x) { const dg = (x[2]! + x[3]!).replace(/0+$/, ""); et = x[1] + dg + "0".repeat(Number(x[4]) + 1 - dg.length); }
+    return `≈${m.toPrecision(d)}e${et}`;
+  }
   return isInt(v.q) ? v.q.n.toString() : `${v.q.n}/${v.q.d}`;
 }
 /** x rounded to p significant digits, marked approximate: "≈1.41421356237309504880168872421e500" */
@@ -124,11 +142,25 @@ export function approxText(x: Q, p: number): string {
   const t = R.toString();
   return `≈${r.n < 0n ? "-" : ""}${t[0]}${t.length > 1 ? "." + t.slice(1) : ""}e${e}`;
 }
+/** A number written with an exponent below the smallest number kept ("1.5e-301030", "-2e-400000") as a tiny value
+ *  good to its digits (at most p), else null */
+export function tinyText(t: string, p = APPROX_DIGITS): Value | null {
+  const r = /^([+-]?)(\d*\.?\d*)[eE]([+-]?\d+)$/.exec(t.trim().replace(/−/g, "-"));
+  if (!r) return null;
+  const mant = Number(r[1]! + r[2]!), ex = Number(r[3]);
+  if (!(mant !== 0 && Number.isFinite(mant)) || !(ex + Math.log10(Math.abs(mant)) < UNDERFLOW_L10)) return null;
+  const k = Math.floor(Math.log10(Math.abs(mant)));
+  let m = mant / 10 ** k, e = ex + k;
+  if (Math.abs(m) >= 10) { m /= 10; e++; } else if (Math.abs(m) < 1) { m *= 10; e--; }
+  const digits = r[2]!.replace(/\D/g, "").replace(/^0+/, "").length;
+  return { m, e, p: Math.max(1, Math.min(digits, p, 15)) };
+}
 /** Reads back what exactText wrote (also plain decimals) */
 export function parseStored(s: string): Value {
   s = s.trim();
   if (s.startsWith("≈")) { // an approximation, to the digits written
-    const t = s.slice(1), x = Number(t);
+    const t = s.slice(1), x = Number(t), tv = tinyText(t);
+    if (tv) return tv;
     if (Number.isFinite(x) && Math.abs(x) >= 1e-300) return { f: x }; // a double, exactly as it was
     const digits = t.replace(/[eE].*$/, "").replace(/\D/g, "").replace(/^0+/, "").length;
     return approx(parseDecimal(t), Math.max(1, Math.min(digits, APPROX_DIGITS)));

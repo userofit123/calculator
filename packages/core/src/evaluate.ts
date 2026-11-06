@@ -5,9 +5,9 @@
 // Every step takes bounded time, whatever is typed: the preview works it out on every key press.
 import {
   type Q, CalcError, q, ZERO, ONE, add, sub, mul, div, neg, isInt, cmp, floor, trunc, powInt, rootExact, rootApprox, lnQ, toNumber, parseDecimal, withBudget, OverBudget,
-  powNum, exponent10, bitLength, MAX_BITS,
+  powNum, exponent10, bitLength, MAX_BITS, UNDERFLOW_L10, approxOp,
 } from "./rational";
-import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored, approx, precision, cleanFloat, APPROX_DIGITS } from "./format";
+import { type Value, type FormatOptions, tinyText, asQ, formatValue, exactText, parseStored, approx, precision, cleanFloat, APPROX_DIGITS } from "./format";
 import { parse, type Node } from "./parse";
 import { financial, financialName, type FinOps } from "./financial";
 import type { RateSet } from "./currency";
@@ -95,8 +95,9 @@ function meOf(v: Value): [number, number] {
   if (isTiny(v)) return [v.m, v.e];
   const x = num(v);
   if (x !== 0 && Number.isFinite(x)) return [x, 0];
-  const l = log10Of(v), e = Math.floor(l);
-  return [sgn(v) * 10 ** (l - e), e];
+  // beyond a double: the digits from the fraction itself (by its log, 10^−60000 would come out as 1.00000000006701)
+  const a = qOf(v), e = exponent10(a);
+  return [toNumber(e >= 0 ? { n: a.n, d: a.d * 10n ** BigInt(e) } : { n: a.n * 10n ** BigInt(-e), d: a.d }), e];
 }
 /** A tiny value is not whole (Γ(tiny) is huge, tiny! ≈ 1) */
 const intOf = (v: Value) => { if (isTiny(v)) return null; const a = asQ(v); return isInt(a) ? a.n : null; };
@@ -114,7 +115,9 @@ function fromME(m: number, e: number, p: number): Value {
   if (!(l >= UNDERFLOW_L10)) return tiny(m, e, p);
   if (l > MAX_BITS * Math.LOG10E * Math.LN2) throw new CalcError("Number is too large");
   const M = BigInt(Math.round(m * 1e14)), k = e - 14;
-  return approx(k >= 0 ? q(M * 10n ** BigInt(k)) : q(M, 10n ** BigInt(-k)), p);
+  // back in a double's range (Pmt(1000; 2^(−10^6); 12), tiny ÷ tiny) it is a double as before: the rounding of the
+  // tiny values' digits mostly cancels there (n·i ÷ i), and fewer digits would show a payment of 83.33333333
+  return approx(k >= 0 ? q(M * 10n ** BigInt(k)) : q(M, 10n ** BigInt(-k)), Math.abs(l) < 300 ? Math.max(p, 15) : p);
 }
 /** a × b or a ÷ b (both ≠ 0) by their m × 10^e: for a tiny value, or a result that would be one */
 function mulME(op: "*" | "/", a: Value, b: Value): Value {
@@ -163,12 +166,16 @@ function arithQ(op: "+" | "-" | "*" | "/", a: Value, b: Value): Value {
     // a product or quotient past a double's range is worked out below instead ((√2 × 10^200)^2 × 10^200)
     if (op === "+" || op === "-" || (Number.isFinite(r) && (r !== 0 || x === 0))) return fl(r);
   }
-  // beyond a double: on the fractions, to the digits the less precise side has
-  const x = qOf(a), y = qOf(b), r = exactOp(x, y);
+  // beyond a double: on the fractions, to the digits the less precise side has (at most 30, see approxOp)
+  const x = qOf(a), y = qOf(b), r = approxOp(op, x, y);
   let p = Math.min(precision(a), precision(b));
-  // a difference of nearly equal numbers keeps only the digits that didn't cancel (1.41…×10^500 − 1.41…×10^500)
-  // (to at least the one digit that is left, from the guard digits an approximation carries)
-  if ((op === "+" || op === "-") && r.n !== 0n) p = Math.max(1, p - (Math.max(x.n ? exponent10(x) : -Infinity, y.n ? exponent10(y) : -Infinity) - exponent10(r)));
+  // a difference of nearly equal numbers keeps only the digits that didn't cancel (1.41…×10^500 − 1.41…×10^500); when
+  // none are left, what remains is the rounding of the guard digits, not a digit of the answer
+  // (√(2×10^1000) − 1414213562373095048801688724209698×10^467)
+  if ((op === "+" || op === "-") && r.n !== 0n) {
+    p -= Math.max(x.n ? exponent10(x) : -Infinity, y.n ? exponent10(y) : -Infinity) - exponent10(r);
+    if (p < 1) throw new CalcError("Not precise enough");
+  }
   return approx(r, p);
 }
 
@@ -189,17 +196,23 @@ function pow(a: Value, b: Value): Value {
   // a negative number to a power: real for an odd root ((−8)^(1/3) = −2) and for whole powers
   let sign = 1;
   if (sa < 0) {
-    if (exact(b) && !isInt(b.q)) {
-      if (b.q.d % 2n === 0n) throw new CalcError("Not a real number");
+    if (exact(b)) {
+      // a whole power is real whatever its size: its parity from the exact number ((−1.05)^(−10^309) > 0), not from
+      // a double (which is ±∞ past 1.8×10^308)
+      if (!isInt(b.q) && b.q.d % 2n === 0n) throw new CalcError("Not a real number");
       if (b.q.n % 2n !== 0n) sign = -1;
     } else {
       const y = num(b);
+      // an approximate power past 2^53 (or past a double) is whole as far as its digits go, but odd or even is unknown
+      if (!Number.isFinite(y) || Math.abs(y) >= 2 ** 53) throw new CalcError("Not precise enough");
       if (!Number.isInteger(y)) throw new CalcError("Not a real number");
-      if (exact(b) ? b.q.n % 2n !== 0n : y % 2 !== 0) sign = -1;
+      if (y % 2 !== 0) sign = -1;
     }
   }
   const m = absV(a);
-  if (!big(m) && !isApprox(b)) {
+  // an exact base near 1 rounds to 1 as a double ((1 + 10^−30)^(10^29) = e^0.1, not 1): by powNum's ln(1 + x) below
+  const nearOne = exact(m) && Math.abs(num(m) - 1) < 1e-3 && cmp(m.q, ONE) !== 0;
+  if (!big(m) && !isApprox(b) && !nearOne) {
     const r = num(m) ** num(b);
     if (Number.isFinite(r) && r !== 0) return fl(sign * r);
   }
@@ -217,6 +230,8 @@ function pow(a: Value, b: Value): Value {
   // ≈ −2.1×10^398) it stays ∓∞, and what can't be known from it is "Not precise enough" (fromME, logBase)
   if ("l10" in r && !Number.isFinite(r.l10)) {
     const la = log10Of(m);
+    // a base whose log rounds to 0 though it isn't 1 (1 + 10^−400): to the power 10^500 it could be anything
+    if (la === 0) throw new CalcError("Not precise enough");
     r.l10 = Math.sign(la) * sgn(b) * 10 ** (Math.log10(Math.abs(la)) + log10Of(b));
   }
   if ("f" in r) return precision(m) === Infinity && precision(b) === Infinity ? fl(sign * r.f) : approx(mul(q(BigInt(sign)), cleanFloat(r.f)), Math.min(p, 15));
@@ -231,8 +246,6 @@ function pow(a: Value, b: Value): Value {
   // smaller than the smallest number the calculator holds (10^−100000): a tiny value, ≈0 but not a real 0
   return fromL10(sign, r.l10, p);
 }
-/** log10 of the smallest number kept, the mirror of the largest (MAX_BITS) */
-const UNDERFLOW_L10 = -MAX_BITS * Math.log10(2) + 20; // (with room for the 15 digits of a number just above it)
 /** A power with a tiny base or exponent, by logarithms */
 function powTiny(a: Value, b: Value): Value {
   if (isTiny(b)) {
@@ -337,11 +350,44 @@ function trig(f: "sin" | "cos" | "tan", v: Value, unit: AngleUnit): Value {
       if (k in SIN_EXACT) return { q: SIN_EXACT[k]! };
     }
   }
-  const x = toRad(num(v), unit);
-  if (f === "sin") return fl(snap(Math.sin(x)));
-  if (f === "cos") return fl(snap(Math.cos(x)));
-  if (Math.abs(Math.cos(x)) < 1e-15) throw new CalcError("Tangent is undefined here");
-  return fl(snap(Math.tan(x)));
+  // sin x ≈ tan x ≈ x for an angle too small for a double (10^−400 rad, a tiny value): not 0
+  if (f !== "cos" && sgn(v) !== 0 && Math.abs(num(v)) < 1e-300) {
+    const r = unit === "rad" ? v : arith("*", v, fl(toRad(1, unit)));
+    return exact(r) ? approx(r.q, APPROX_DIGITS) : r;
+  }
+  // the angle in radians within a turn or so. An exact angle is reduced exactly (10^30° is 280°; 10^30 rad by π to 200
+  // digits): its double would be off by far more than a turn. An approximate one is only known to within err (radians),
+  // which is all the answer is known to: past a turn nothing is (sin(π×10^20), sin of √(2×10^1000))
+  let x: number, err = 0;
+  if (d) x = (toNumber(d) * Math.PI) / 180;
+  else if (exact(v)) x = radians(v.q);
+  else {
+    x = toRad(num(v), unit);
+    err = Math.abs(x) * 10 ** -precision(v);
+    if (!(err < 1)) throw new CalcError("Not precise enough");
+  }
+  const r = f === "sin" ? Math.sin(x) : f === "cos" ? Math.cos(x) : Math.tan(x);
+  if (f === "tan" && Math.abs(Math.cos(x)) < 1e-15) throw new CalcError("Tangent is undefined here");
+  // the digits of the answer that are above err (only when that's 2 or more fewer than a double's: sin(π×10^10))
+  const pr = err ? Math.log10(Math.abs(r) / err) : Infinity;
+  if (pr < 13) {
+    if (pr >= 1) return approx(cleanFloat(r), pr);
+    // within err of 0: 0 like any double that should have been 0 (snap), unless err is too large to say so
+    if (err < 1e-6) return fl(0);
+    throw new CalcError("Not precise enough");
+  }
+  return fl(snap(r));
+}
+// π to 200 decimals, for reducing an exact angle in radians
+const PI_Q = parseDecimal("3.14159265358979323846264338327950288419716939937510582097494459230781640628620899862803482534211706798214808651328230664709384460955058223172535940812848111745028410270193852110555964462294895493038196");
+const TWO_PI_Q = mul(q(2n), PI_Q);
+/** An exact angle in radians reduced into [−π, π] as a double; past 10^150 the 200 digits of π aren't enough */
+function radians(a: Q): number {
+  const x = toNumber(a);
+  if (Math.abs(x) <= 4) return x;
+  if (exponent10(a) > 150) throw new CalcError("Not precise enough");
+  const k = div(a, TWO_PI_Q), n = floor(add(k, q(1n, 2n)));
+  return toNumber(sub(a, mul(q(n), TWO_PI_Q)));
 }
 
 /** log of x in a base, exact when x is a whole power of the base (log 1000 = 3, log₂ 8 = 3) */
@@ -478,7 +524,7 @@ function lookup(name: string, o: EvalOptions): Value | null {
 
 function ev(n: Node, o: EvalOptions): Value {
   switch (n.k) {
-    case "num": return n.text.startsWith("≈") ? parseStored(n.text) : { q: parseDecimal(n.text) };
+    case "num": return n.text.startsWith("≈") ? parseStored(n.text) : tinyText(n.text, 15) ?? { q: parseDecimal(n.text) };
     case "name": {
       const v = lookup(n.name, o);
       if (v) return v;

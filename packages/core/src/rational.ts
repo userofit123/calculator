@@ -11,6 +11,9 @@ export const bitLength = (a: bigint) => { const h = abs(a).toString(16); return 
 /** The biggest exact number kept: about 100,000 digits. Past that a sum takes seconds and nobody reads the digits. */
 export const MAX_BITS = 332_200;
 const LIMIT = 1n << BigInt(MAX_BITS);
+/** log10 of the smallest number kept, the mirror of the largest (with room for the 15 digits of a number just above
+ *  it): below it a number is a tiny value (format.ts) */
+export const UNDERFLOW_L10 = -MAX_BITS * Math.log10(2) + 20;
 const tooLarge = () => new CalcError("Number is too large");
 
 /** Thrown when a number grows past a smaller limit asked for (a preview while typing must answer at once) */
@@ -144,6 +147,30 @@ export function rootApprox(a: Q, k: number): Q {
   return s >= 0 ? q(r, p) : q(r * p);
 }
 
+/** x op y (y ≠ 0 for ÷) for an approximate answer: each side cut to 40 significant digits first (an approximation has
+ *  at most 32), so the working numbers stay the size of the answer. The exact quotient of two approximations' fractions
+ *  can be far past the largest number kept though the answer is not (√(2×10^99999) ÷ √(3×10^−99999)). */
+export function approxOp(op: "+" | "-" | "*" | "/", x: Q, y: Q): Q {
+  const G = 40;
+  if (x.n === 0n || y.n === 0n) return op === "+" ? add(x, y) : op === "-" ? sub(x, y) : op === "*" ? mul(x, y) : div(x, y);
+  if (op === "+" || op === "-") {
+    // both on the scale of the larger one's 40th digit: a much smaller side is lost in it, as it would be in the answer
+    const u = Math.max(exponent10(x), exponent10(y)) - G, X = scaledRound(x, u), Y = scaledRound(y, u);
+    return fromScaled(op === "+" ? X + Y : X - Y, u);
+  }
+  const ex = exponent10(x) - G, ey = exponent10(y) - G, X = scaledRound(x, ex), Y = scaledRound(y, ey);
+  if (op === "*") return fromScaled(X * Y, ex + ey);
+  const t = (2n * abs(X) * 10n ** BigInt(G) + abs(Y)) / (2n * abs(Y));
+  return fromScaled((X < 0n) !== (Y < 0n) ? -t : t, ex - ey - G);
+}
+/** a ÷ 10^u rounded to a whole number (half away from zero) */
+function scaledRound(a: Q, u: number): bigint {
+  const n = abs(a.n), num = u < 0 ? n * 10n ** BigInt(-u) : n, den = u > 0 ? a.d * 10n ** BigInt(u) : a.d;
+  const r = (2n * num + den) / (2n * den);
+  return a.n < 0n ? -r : r;
+}
+const fromScaled = (m: bigint, u: number): Q => (u >= 0 ? q(m * 10n ** BigInt(u)) : q(m, 10n ** BigInt(-u)));
+
 /** The exact k-th root of a rational (k ≥ 2), or null when it isn't rational */
 export function rootExact(a: Q, k: number): Q | null {
   if (a.n < 0n) {
@@ -176,15 +203,24 @@ const scale2 = (m: number, t: number) => (t > 1100 ? Infinity : t < -1200 ? 0 : 
 /** The natural logarithm of a > 0, also when a is far beyond a double (ln(10^400) = 921.03…) */
 export function lnQ(a: Q): number {
   const { m, t } = split2(a);
+  // near 1 the leading bits round to 1 (1 + 10^−30 has m = 1, so ln would be 0): ln(1 + x) from x = a − 1 itself
+  if (t === 0 || t === -1) return Math.log1p(toNumber(sub(a, ONE)));
   return Math.log(m) + t * Math.LN2;
 }
 
 /** The nearest double (Infinity when out of range, 0 when too small) */
 export function toNumber(a: Q): number {
   if (a.n === 0n) return 0;
-  if (abs(a.n) < 1n << 1000n && a.d < 1n << 1000n) { const x = Number(a.n) / Number(a.d); if (x !== 0) return x; }
-  const { m, t } = split2(a);
-  return (a.n < 0n ? -1 : 1) * scale2(m, t);
+  const n = abs(a.n);
+  // both exact as doubles: one division, correctly rounded
+  if (n <= 1n << 53n && a.d <= 1n << 53n) return Number(a.n) / Number(a.d);
+  // else Number(n) / Number(d) rounds three times and can be one unit off in the 17th digit (14.142135623730951 read
+  // back as 14.142135623730953): the quotient to 66 bits with a sticky last bit, rounded once by Number()
+  const s = bitLength(n) - bitLength(a.d) - 66;
+  const nn = s >= 0 ? n : n << BigInt(-s), dd = s >= 0 ? a.d << BigInt(s) : a.d;
+  let x = nn / dd;
+  if (x * dd !== nn) x |= 1n;
+  return (a.n < 0n ? -1 : 1) * scale2(Number(x), s);
 }
 
 /** a^y for a > 0 and any y, as a double when it fits in one ({ f }), else as its log10 ({ l10 }, for a value beyond a
@@ -192,6 +228,12 @@ export function toNumber(a: Q): number {
  *  (root(10^400; 100000) = 1.00925…, (10^400)^(1/999) = 2.5164…) in constant time. */
 export function powNum(a: Q, y: Q): { f: number } | { l10: number } {
   const { m, t } = split2(a);
+  // a base near 1 ((1 + 10^−30)^(10^29) = e^0.1): m rounds to 1, so by ln(1 + x) instead (an infinite or unknown
+  // exponent, ln × y not finite, is left to the caller below)
+  if (t === 0 || t === -1) {
+    const l = lnQ(a) * toNumber(y);
+    if (Number.isFinite(l)) return l < 709 && l > -690 ? { f: Math.exp(l) } : { l10: l * Math.LOG10E };
+  }
   const ty = mul(q(BigInt(t)), y), M = floor(ty), F = toNumber(sub(ty, q(M))); // t·y = M + F, 0 ≤ F < 1
   const yf = toNumber(y), my = m ** yf * 2 ** F;
   if (Number.isFinite(my) && my > 0 && M > -1300n && M < 1300n) {

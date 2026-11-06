@@ -20,6 +20,9 @@ export function sanitizeInput(text: string, decimalMark: "." | "," = "."): strin
   s = s.replace(/[-–—]/g, "−").replace(/[*·⋅]/g, "×").replace(/[/∕]/g, "÷").replace(/,/g, ";");
   // the degree sign stays in a unit conversion (100 °F in °C), where it is part of a unit
   const deg = /\s(?:in|to)\s/i.test(s) ? "°℃℉" : "";
-  s = s.replace(new RegExp(`[^\\p{L}\\d.+−×÷^()|!%=;√∛∜⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀₁₂₃₄₅₆₇₈₉π ${deg}]`, "gu"), "");
+  s = s.replace(new RegExp(`[^\\p{L}\\d.+−×÷^()|!%=;√∛∜⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀₁₂₃₄₅₆₇₈₉π≈ ${deg}]`, "gu"), "");
+  // "≈" right before a number (a copied estimate, "≈1.414e500") keeps it an estimate: taken as exact digits it would
+  // claim a precision it doesn't have; anywhere else it is left out
+  s = s.replace(/≈\s*\+?/g, "≈").replace(/≈(?![−\d.])/g, "");
   return s.replace(/\s+/g, " ").replace(/\s*=\s*$/, "").trim();
 }

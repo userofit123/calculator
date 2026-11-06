@@ -145,7 +145,8 @@ describe("small rates", () => {
   it("Pmt(1000; 10^−12; 360) = 2.77778", () => expect(v("Pmt(1000; 10^−12; 360)", { decimals: 5 })).toBe("2.77778"));
   it("Fv(1; 10^−9; 360) = 360.0000646…", () => expect(v("Fv(1; 10^−9; 360)")).toBe("360.000064620008"));
   it("Rate(2; 1; 10^30) ≈ 6.93×10⁻³¹", () => expect(v("Rate(2; 1; 10^30)")).toBe("6.931471805599×10⁻³¹"));
-  it("Ctrm(10^−20; 2; 1) ≈ 6.93×10¹⁹", () => expect(v("Ctrm(10^−20; 2; 1)")).toBe("69314718055994500000"));
+  // a double past its 15 digits is shown ×10ⁿ, not with made-up zeros (69314718055994500000)
+  it("Ctrm(10^−20; 2; 1) ≈ 6.93×10¹⁹", () => expect(v("Ctrm(10^−20; 2; 1)")).toBe("6.931471805599×10¹⁹"));
   it("Ctrm(10^−400; 2; 1) ≈ 6.93×10³⁹⁹", () => expect(v("Ctrm(10^−400; 2; 1)")).toBe("6.931471805599×10³⁹⁹"));
   it("whole answers stay exact", () => {
     expect(exactOf("Ctrm(0.1; 121; 100)")).toBe("2");
