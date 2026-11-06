@@ -7,6 +7,10 @@ import { layoutChoice, setLayout } from "../core/device";
 import { settings, ANGLES, type CalcSettings } from "../core/calc";
 import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
+// --- Converter / Currency rates (C-14) ---
+import { ECB_SOURCE } from "@calc/core";
+import { rates, rateDate, refreshRates } from "../core/rates";
+// --- end Converter / Currency rates ---
 
 const version = import.meta.env.VITE_VERSION || "dev";
 const DECIMALS = Array.from({ length: 16 }, (_, i) => ({ value: i, label: String(i) }));
@@ -56,6 +60,25 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
           </label>
         </div>
       </section>
+      <!-- Converter / Currency rates (C-14) -->
+      <section>
+        <div class="sh"><h2>Currency rates</h2></div>
+        <div class="card flush">
+          <label class="li tg">
+            <Icon name="convert" /><div class="grow"><div class="t">Update currency rates online</div><div class="s">Downloads the latest
+              rates straight from the European Central Bank, a few times a day at most, while the converter is open. No account,
+              no cookies, nothing about you is sent. Off: no network requests at all; the converter keeps using the rates it has.</div></div>
+            <input v-model="rates.online" type="checkbox" />
+          </label>
+          <div class="li">
+            <Icon name="history" /><div class="grow"><div class="t">Rates of {{ rateDate(rates.set.date) }}</div>
+              <div class="s">{{ ECB_SOURCE }} · {{ rates.loading ? "Checking..." : rates.error ? rates.error
+                : rates.set.fetchedAt ? `downloaded ${new Date(rates.set.fetchedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : "came with the app" }}</div></div>
+            <button type="button" class="btn o s" :disabled="!rates.online || rates.loading" @click="refreshRates()">Refresh now</button>
+          </div>
+        </div>
+      </section>
+      <!-- end Converter / Currency rates -->
       <section>
         <div class="sh"><h2>About</h2></div>
         <div class="card about">
