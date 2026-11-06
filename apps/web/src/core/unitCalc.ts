@@ -10,19 +10,20 @@ export const units = shallowReactive({
   rates: null as { set: RateSet } | null,
 });
 let unitsP: Promise<void> | null = null, ratesP: Promise<void> | null = null;
-export const loadUnits = () => (unitsP ??= import("./unitConv").then((m) => { units.convert = markRaw(m.convertExpression); }));
-export const loadRates = () => (ratesP ??= import("./rates").then((m) => { units.rates = m.rates; }));
+// (a failed load is forgotten, so the next try starts again)
+export const loadUnits = () => (unitsP ??= import("./unitConv").then((m) => { units.convert = markRaw(m.convertExpression); }, (e) => { unitsP = null; throw e; }));
+export const loadRates = () => (ratesP ??= import("./rates").then((m) => { units.rates = m.rates; }, (e) => { ratesP = null; throw e; }));
 
 /** The options a sum needs for a conversion (and starts loading what it lacks) */
 export function unitOptions(expr: string): Partial<EvalOptions> {
   if (!isConversion(expr)) return {};
-  if (!units.convert) { void loadUnits(); return {}; }
+  if (!units.convert) { loadUnits().catch(() => {}); return {}; }
   return { convert: units.convert, ...(units.rates ? { rates: units.rates.set } : {}) };
 }
 /** Is the result only waiting for the conversion code or the rates? Starts loading the rates when they are missing. */
 export function waiting(r: EvalResult): boolean {
   if (!("error" in r)) return false;
-  if (r.error === RATES_LOADING) { void loadRates(); return true; }
+  if (r.error === RATES_LOADING) { loadRates().catch(() => {}); return true; }
   return r.error === UNITS_LOADING;
 }
 /** Loads whatever a conversion still waits for (the code first, then the rates if it turns out to need them) */

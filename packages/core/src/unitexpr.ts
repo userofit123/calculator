@@ -44,20 +44,20 @@ const EXTRA: Record<string, { cs?: string[]; ci?: string[] }> = {
   "area:sqmm": { ci: ["sq mm", "sqmm"] },
   "volume:liter": { cs: ["l"], ci: ["ltr", "litre", "litres", "liter", "liters"] },
   "volume:ml": { ci: ["ml"] },
-  "volume:usgal": { ci: ["gal", "gallon", "gallons"] },
-  "volume:impgal": { ci: ["gal", "gallon", "gallons"] },
-  "volume:uspt": { ci: ["pint", "pints"] },
-  "volume:imppt": { ci: ["pint", "pints"] },
+  "volume:usgal": { ci: ["gal", "gallon", "gallons", "us gal", "us gallon", "us gallons"] },
+  "volume:impgal": { ci: ["gal", "gallon", "gallons", "uk gal", "imp gal", "uk gallon", "uk gallons", "imp gallon", "imp gallons", "imperial gal"] },
+  "volume:uspt": { ci: ["pint", "pints", "us pint", "us pints", "us pt"] },
+  "volume:imppt": { ci: ["pint", "pints", "uk pint", "uk pints", "imp pint", "imp pints", "uk pt", "imp pt"] },
   "volume:usqt": { ci: ["qt", "quart", "quarts"] },
   "volume:impqt": { ci: ["qt", "quart", "quarts"] },
-  "volume:usfloz": { ci: ["fl oz", "floz", "fluid ounce", "fluid ounces"] },
-  "volume:impfloz": { ci: ["fl oz", "floz", "fluid ounce", "fluid ounces"] },
+  "volume:usfloz": { ci: ["fl oz", "floz", "fluid ounce", "fluid ounces", "us fl oz", "us floz"] },
+  "volume:impfloz": { ci: ["fl oz", "floz", "fluid ounce", "fluid ounces", "uk fl oz", "uk floz", "imp fl oz", "imp floz"] },
   "volume:ft3": { ci: ["cu ft", "cubic foot"] },
   "volume:in3": { ci: ["cu in", "cubic inch"] },
   "volume:yd3": { ci: ["cu yd", "cubic yard"] },
   "mass:pound": { ci: ["lbs", "pound", "pounds"] },
-  "mass:shortton": { ci: ["ton", "tons"] },
-  "mass:longton": { ci: ["ton", "tons"] },
+  "mass:shortton": { ci: ["ton", "tons", "short ton", "short tons", "us ton", "us tons"] },
+  "mass:longton": { ci: ["ton", "tons", "long ton", "long tons", "uk ton", "uk tons", "imperial ton"] },
   "duration:hour": { ci: ["hrs"] },
   "duration:minute": { ci: ["mins"] },
   "duration:second": { ci: ["secs"] },
@@ -166,6 +166,18 @@ function unitStarts(left: string): number[] {
   return out;
 }
 
+/** The inside of a text that is wholly one bracket pair ("(5 km)" gives "5 km"), else "" */
+function unwrap(text: string): string {
+  const t = text.trim();
+  if (!t.startsWith("(") || !t.endsWith(")")) return "";
+  let depth = 0;
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] === "(") depth++;
+    else if (t[i] === ")" && --depth === 0 && i < t.length - 1) return "";
+  }
+  return depth === 0 ? t.slice(1, -1) : "";
+}
+
 /** The places "in" / "to" may split the text, outside brackets, the last one first ("5 in in cm" splits at the second) */
 function splitPoints(src: string): { left: string; right: string }[] {
   const out: { left: string; right: string }[] = [];
@@ -211,10 +223,16 @@ export function convertExpression(src: string, o: EvalOptions): EvalResult {
   if (!left.trim()) throw new CalcError("Type an amount and its unit first: 5 km in mi");
   // the unit converted from: the longest end of the left side that is one
   let from: { amount: string; units: Entry[] } | null = null;
-  for (const i of unitStarts(left)) {
-    const text = left.slice(i), u = findUnits(text, o.rates);
-    if (u === "loading") return { error: RATES_LOADING };
-    if (u.length) { from = { amount: left.slice(0, i).trim(), units: u }; break; }
+  // "(5 km) in mi": a whole left side in brackets is looked into when it has no unit outside them
+  for (let l = left, tries = 0; !from && tries < 4; tries++) {
+    for (const i of unitStarts(l)) {
+      const text = l.slice(i), u = findUnits(text, o.rates);
+      if (u === "loading") return { error: RATES_LOADING };
+      if (u.length) { from = { amount: l.slice(0, i).trim(), units: u }; break; }
+    }
+    const inner = from ? "" : unwrap(l);
+    if (!inner) break;
+    l = inner;
   }
   if (!from) {
     // "5 in mi": no unit to convert from

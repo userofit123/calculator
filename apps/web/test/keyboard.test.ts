@@ -103,3 +103,16 @@ describe("a typed line", () => {
     try { expect(enterLine("1,5*2")).toBe(""); expect(calc.ans).toBe("3"); } finally { settings.decimalMark = "."; }
   });
 });
+
+describe("Enter while the unit tables load (C-42)", () => {
+  it("returns a promise, and a second Enter then answers", async () => {
+    calc.mode = "keyboard"; calc.answer = ""; calc.expr = "";
+    const r = enterLine("5 km in mi");
+    expect(typeof r).not.toBe("string");
+    await r;
+    expect(enterLine("5 km in mi")).toBe("");
+    expect(calc.answer).toBe("3.1068559612");
+    expect(calc.unit).toBe("mi");
+    expect(history.filter((h) => h.e === "5 km in mi")).toHaveLength(1); // the waiting Enter wrote nothing
+  });
+});

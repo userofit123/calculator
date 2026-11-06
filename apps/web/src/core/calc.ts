@@ -130,7 +130,7 @@ watch(() => [calc.expr, calc.answer, calc.error], () => { if (!quiet) edits++; }
 const rewrite = (f: () => void) => { quiet = true; try { f(); } finally { quiet = false; } };
 const progKey = () => `${prog.wordSize} ${prog.signed}`;
 /** the display before the last change to or from programming mode (and the base, word size and sign it was read with) */
-let kept: { prog: boolean; expr: string; answer: string; error: string; base: Base; o: string; at: number } | null = null;
+let kept: { prog: boolean; expr: string; answer: string; error: string; unit: string; note: string; base: Base; o: string; at: number } | null = null;
 /** the sum in each base it was shown in since the last edit (with the word size and sign it was read with) */
 let baseTexts: { at: number; o: string; t: Partial<Record<Base, string>> } | null = null;
 /** Changes base; a sum being typed has its numbers rewritten, so it keeps its meaning */
@@ -170,10 +170,10 @@ watch(() => calc.mode, (m, old) => {
   if ((m === "programming") === (old === "programming")) return;
   const toProg = isProg();
   const back = kept && kept.at === edits && kept.prog === toProg && (!toProg || (kept.base === prog.base && kept.o === progKey())) ? kept : null;
-  const leaving = { prog: !toProg, expr: calc.expr, answer: calc.answer, error: calc.error, base: prog.base, o: progKey() };
+  const leaving = { prog: !toProg, expr: calc.expr, answer: calc.answer, error: calc.error, unit: calc.unit, note: calc.note, base: prog.base, o: progKey() };
   let lost = false;
   rewrite(() => {
-    if (back) { calc.expr = back.expr; calc.answer = back.answer; calc.error = back.error; return; }
+    if (back) { calc.expr = back.expr; calc.answer = back.answer; calc.error = back.error; calc.unit = back.unit; calc.note = back.note; return; }
     if (calc.answer) {
       if (!toProg) calc.expr = typedValue(calc.ans);
       else if (/^-?\d+$/.test(calc.ans)) calc.expr = literal(BigInt(calc.ans), prog);
@@ -307,7 +307,10 @@ export function press(k: string) {
     if (!isProg() && /^[\p{L}_][\p{L}_₀-₉]*$/u.test(calc.expr) && !Object.prototype.hasOwnProperty.call(calc.vars, calc.expr) && !RESERVED.has(calc.expr) && !isFunction(calc.expr)) { calc.expr += " = "; return; }
     const expr = calc.expr, r = run(expr);
     // a unit conversion whose code or rates are still loading: = again once they are there (same sum, nothing pressed since)
-    if (waiting(r)) { void ready(() => run(expr)).then(() => { if (calc.expr === expr && !calc.answer && !calc.error) press("="); }); return; }
+    if (waiting(r)) {
+      ready(() => run(expr)).then(() => { if (calc.expr === expr && !calc.answer && !calc.error) press("="); }, () => { if (calc.expr === expr && !calc.answer && !calc.error) toast(UNITS_FAILED, { kind: "err" }); });
+      return;
+    }
     if (!("value" in r)) { calc.error = r.error; return; }
     if (open() > 0) calc.expr += ")".repeat(open()); // the brackets closed for you show in the sum and its history
     calc.answer = r.value; calc.error = ""; calc.ans = r.exact;
@@ -456,14 +459,20 @@ export function linePreview(text: string): string {
   if (!("value" in r)) { waiting(r); return r.error === "Number is too large" ? r.error : ""; }
   return r.value !== s ? withUnit(r.value, r.unit) : "";
 }
+/** What Enter and = say when the unit tables or rates can't be loaded */
+export const UNITS_FAILED = "Couldn't load the unit tables";
 /** Enter: works the line out like =, so it is the answer (ans), sets a variable (x = 5) and goes into history.
- *  "" when done, else the error. */
-export function enterLine(text: string): string {
+ *  "" when done, else the error (or, while a conversion's tables load, a promise: see above). */
+export function enterLine(text: string): string | Promise<void> {
   let s = lineExpr(text);
   if (!s) return "";
   const r = evaluate(s, { ...evalOptions(), ...unitOptions(s) });
-  // (the preview has started loading what a conversion needs; Enter again once it is there)
-  if (!("value" in r)) { waiting(r); return r.error; }
+  // a conversion whose code or rates are still loading: a promise for when they are there (it rejects if they can't be
+  // loaded); the caller presses Enter again if the line is unchanged
+  if (!("value" in r)) {
+    if (waiting(r)) { const t = s; return ready(() => evaluate(t, { ...evalOptions(), ...unitOptions(t) })); }
+    return r.error;
+  }
   const o = (s.match(/\(/g)?.length ?? 0) - (s.match(/\)/g)?.length ?? 0);
   if (o > 0) s += ")".repeat(o); // the brackets closed for you show in the line and its history
   calc.expr = s; calc.answer = r.value; calc.error = ""; calc.ans = r.exact;

@@ -12,7 +12,7 @@ let sessionId = 0;
 // ArrowUp/Down bring back earlier lines; clicking an earlier expression or answer types it in at the caret.
 // Small, so in the main bundle: a computer's first open starts here and shouldn't wait for a chunk.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, settings, show, linePreview, enterLine, lineExpr, typedValue, valueText, answerNote, withUnit, ANGLES } from "../core/calc";
+import { calc, settings, show, linePreview, enterLine, UNITS_FAILED, lineExpr, typedValue, valueText, answerNote, withUnit, ANGLES } from "../core/calc";
 import NumFormat from "./NumFormat.vue";
 import { history, histPrefs } from "../core/history";
 import { freshRecall, recallLines, recallStep, pushCapped, pageKeyTarget } from "../core/keyboard";
@@ -82,17 +82,25 @@ function recall(dir: "up" | "down") {
   try { insert(s.text, true); } finally { recalling = false; }
   rc = s.st;
 }
+/** Enter: a conversion still loading its tables finishes by itself once they are there, if the line is unchanged */
+function enter(retried: boolean) {
+  const t = line.value, er = enterLine(t);
+  if (typeof er !== "string") {
+    er.then(() => { if (line.value === t) { if (retried) { err.value = UNITS_FAILED; } else enter(true); } }, () => { if (line.value === t) { err.value = UNITS_FAILED; say(`Error: ${UNITS_FAILED}`); } });
+    return;
+  }
+  if (er) { err.value = er; say(`Error: ${er}`); return; }
+  if (!line.value.trim()) return;
+  say(`${speak(show(calc.expr))} equals ${speak(show(withUnit(calc.answer, calc.unit)))}`);
+  if (!histPrefs.keep) pushCapped(session, { id: ++sessionId, e: calc.expr, r: withUnit(calc.answer, calc.unit), x: calc.ans, u: calc.unit || undefined }, 200);
+  synced = calc.expr;
+  line.value = ""; err.value = ""; rc = freshRecall(); toBottom();
+}
 function onKey(e: KeyboardEvent) {
   if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.keyCode === 229) return; // 229: Safari's IME
   if (e.key === "Enter") {
     e.preventDefault();
-    const er = enterLine(line.value);
-    if (er) { err.value = er; say(`Error: ${er}`); return; }
-    if (!line.value.trim()) return;
-    say(`${speak(show(calc.expr))} equals ${speak(show(withUnit(calc.answer, calc.unit)))}`);
-    if (!histPrefs.keep) pushCapped(session, { id: ++sessionId, e: calc.expr, r: withUnit(calc.answer, calc.unit), x: calc.ans, u: calc.unit || undefined }, 200);
-    synced = calc.expr;
-    line.value = ""; err.value = ""; rc = freshRecall(); toBottom();
+    enter(false);
   } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
     e.preventDefault();
     recall(e.key === "ArrowUp" ? "up" : "down");

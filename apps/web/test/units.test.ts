@@ -64,3 +64,17 @@ describe("Keyboard mode's line", () => {
   });
   it("speed with a slash", () => expect(linePreview("36 km/h in m/s")).toBe("10 m/s"));
 });
+
+describe("Programming and back keeps the answer's unit (C-42)", () => {
+  beforeEach(async () => { await loadUnits(); await loadRates(); });
+  it("the unit survives the round trip", () => {
+    calc.mode = "advanced"; press("AC");
+    calc.expr = "5 km in mi"; press("=");
+    expect(calc.unit).toBe("mi");
+    const a = calc.answer;
+    calc.mode = "programming";
+    calc.mode = "advanced";
+    expect(calc.answer).toBe(a);
+    expect(calc.unit).toBe("mi");
+  });
+});

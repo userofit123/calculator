@@ -149,3 +149,33 @@ describe("format and exactness", () => {
     expect(performance.now() - t).toBeLessThan(1500);
   });
 });
+
+describe("C-42: qualified names and bracketed amounts", () => {
+  const id = (s: string) => (findUnits(s) as { unit: { id: string } }[]).map((e) => e.unit.id);
+  it("US and UK spellings are unambiguous", () => {
+    expect(id("US gal")).toEqual(["usgal"]);
+    expect(id("UK gal")).toEqual(["impgal"]);
+    expect(id("US gallons")).toEqual(["usgal"]);
+    expect(id("imp gal")).toEqual(["impgal"]);
+    expect(id("UK pint")).toEqual(["imppt"]);
+    expect(id("US pint")).toEqual(["uspt"]);
+    expect(id("US fl oz")).toEqual(["usfloz"]);
+    expect(id("UK fl oz")).toEqual(["impfloz"]);
+    expect(id("short ton")).toEqual(["shortton"]);
+    expect(id("long ton")).toEqual(["longton"]);
+    expect(id("metric ton")).toHaveLength(1);
+    expect(id("US cup")).toHaveLength(1);
+  });
+  it("converts with them", () => {
+    expect(ev("1 US gal in L")).toBe("3.785411784 L");
+    expect(ev("1 UK gal in L")).toBe("4.54609 L");
+  });
+  it("(5 km) in mi takes a bracketed amount and unit", () => {
+    expect(ev("(5 km) in mi")).toBe(ev("5 km in mi"));
+    expect(ev("(5 km) in mi")).toMatch(/^3\.10685/);
+    expect(ev("((5 km)) in mi")).toBe(ev("5 km in mi"));
+    expect(ev("(5) km in mi")).toBe(ev("5 km in mi"));
+    expect(ev("(1+2) km in m")).toBe("3000 m");
+  });
+  it("brackets without a unit still say so", () => expect(ev("(5) in mi")).toMatch(/^error/));
+});
