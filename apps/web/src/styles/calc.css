@@ -1,4 +1,4 @@
-/* The calculator: the mode switch, the display and the keypad. Tokens only: the keys follow the colour set, the
+/* The calculator: the mode switch, the display, the memory keys, the keypad and (Advanced) the function pad. Tokens only: the keys follow the colour set, the
    density (their height and the gaps between them), the corners (or round, Appearance > Style > Calculator keys) and
    the key press feedback. On the phone the keypad fills the space between the display and the tabs. */
 
@@ -28,12 +28,19 @@ html[data-ksh="round"] { --kr: 999px; }
 .cres.xs { font-size: 24px; letter-spacing: 0; }
 .cres.pre { color: var(--tx2); }
 .cres.err { color: var(--neg); font-size: 24px; letter-spacing: 0; }
+/* the display's top line: angle unit and memory flags at the start, delete at the end */
+.cbar { display: flex; align-items: center; gap: 6px; min-height: 32px; margin-bottom: auto; }
+.cbar .ib:disabled { opacity: .35; }
+.cflag { border: 0; font-family: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .4px; color: var(--tx2); background: var(--s2); border-radius: var(--pill); padding: 3px 9px; line-height: 1.3; }
+button.cflag { cursor: pointer; }
+button.cflag:hover { color: var(--acc); }
+.cvars { border: 0; background: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--acc); padding: 6px 10px; border-radius: var(--pill); cursor: pointer; }
+.cvars:hover { background: var(--s2); }
 .cnote { display: flex; align-items: center; gap: 8px; padding: calc(var(--cpy) * .5) var(--cpx); border-radius: var(--r-sm); background: var(--s1); }
 
 /* the keypad: numbers on a surface tone, operators tinted with the accent, functions quieter, = the one filled key */
 .keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(var(--kh), auto); gap: var(--kg); }
 .key { border: 0; border-radius: var(--kr); font-family: inherit; font-size: var(--kfs); font-weight: 500; cursor: pointer; display: grid; place-items: center; min-width: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; transition: background .15s, color .15s, transform .12s var(--ease), box-shadow .15s; }
-.key .ico { width: 24px; height: 24px; }
 .k-n { background: var(--s2); color: var(--tx); }
 .k-n:hover { background: color-mix(in srgb, var(--tx) 14%, var(--bg)); }
 .k-op { background: color-mix(in srgb, var(--acc) 18%, var(--bg)); color: var(--acc); font-size: calc(var(--kfs) + 4px); }
@@ -43,6 +50,18 @@ html[data-ksh="round"] { --kr: 999px; }
 .k-eq { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: var(--on); font-size: calc(var(--kfs) + 6px); box-shadow: 0 10px 24px -12px var(--acc); }
 .k-eq:hover { filter: brightness(1.06); }
 .key:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* memory: a quiet row of small keys above the keypad */
+.memk { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--kg); }
+.memk button { border: 0; background: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--tx2); min-height: calc(var(--kh) * .6); border-radius: var(--kr); cursor: pointer; touch-action: manipulation; transition: background .15s, color .15s; }
+.memk button:hover:not(:disabled), .memk button.hit { background: var(--s1); color: var(--tx); }
+.memk button:disabled { opacity: .4; cursor: default; }
+
+/* Advanced: the function pad (5 across, smaller text); 2nd and hyp light up while on */
+.cpad, .bpad { display: flex; flex-direction: column; gap: var(--kg); }
+.fkeys { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: minmax(calc(var(--kh) * .78), auto); gap: calc(var(--kg) * .8); }
+.fkeys .key { font-size: calc(var(--kfs) - 6px); }
+.fkeys .key.on { background: color-mix(in srgb, var(--acc) 22%, var(--bg)); color: var(--acc); }
 
 /* key press feedback (Appearance > Style > Calculator keys): pressed in, lit up, or none. .hit is a keyboard press */
 html:not([data-kfb="glow"]):not([data-kfb="none"]) .key:is(:active, .hit) { transform: scale(.93); }
@@ -59,12 +78,50 @@ body.glass .cdisp, body.glass .k-n, body.glass .k-fn { background: color-mix(in 
 html.phone .pmain:has(> .calc) { padding-bottom: 12px; }
 html.phone .calc { max-width: none; height: calc(100dvh - var(--tabh) - var(--sb) - var(--st) - 14px - 12px - 16px); min-height: 440px; }
 html.phone .cdisp { flex: 1 1 auto; min-height: 120px; max-height: 34%; }
-html.phone .keys { flex: 1 1 auto; grid-auto-rows: minmax(min(var(--kh), 44px), 1fr); }
+html.phone .cpad, html.phone .bpad, html.phone .keys { flex: 1 1 auto; }
+html.phone .keys { grid-auto-rows: minmax(min(var(--kh), 44px), 1fr); }
+html.phone .memk button { min-height: 34px; }
+html.phone .calc.adv { min-height: 600px; }
+/* Advanced on the phone: the display takes only what its lines need, the keys get the rest */
+html.phone .calc.adv .cdisp { flex: 0 0 auto; min-height: 0; max-height: none; gap: 0; }
+html.phone .calc.adv .cbar { min-height: 28px; }
+html.phone .calc.adv .cres { font-size: 40px; }
+html.phone .calc.adv .cres.m { font-size: 34px; }
+html.phone .calc.adv .cres.s { font-size: 28px; }
+html.phone .fkeys { grid-auto-rows: minmax(36px, auto); }
 
 /* a computer: the calculator sits in the middle of the page */
 html:not(.phone) .calc { margin: 0 auto; padding-top: 4vh; }
+/* Advanced on a computer: the function pad beside the keypad, so nothing scrolls */
+html:not(.phone) .calc.adv { max-width: 900px; }
+html:not(.phone) .calc.adv .cpad { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: calc(var(--kg) * 2); align-items: end; }
+html:not(.phone) .calc.adv .fkeys { grid-auto-rows: minmax(var(--kh), auto); }
+@media (max-width: 760px) { html:not(.phone) .calc.adv .cpad { display: flex; } }
 
-/* the placeholder pages (Converter, History) and Settings */
+/* History: the expression (tap: bring it back) above its answer (tap: type it in) */
+.hrow { flex-direction: column; align-items: stretch; gap: 2px; }
+.hrow button { border: 0; background: none; padding: 2px 0; font-family: inherit; text-align: end; cursor: pointer; overflow-wrap: anywhere; border-radius: var(--r-sm); }
+.hexp { color: var(--tx2); font-size: 15px; }
+.hres { color: var(--tx); font-size: 22px; font-weight: 500; }
+.hrow button:hover { color: var(--acc); }
+
+/* Variables */
+.vname { font-weight: 600; color: var(--acc); }
+.vsave { display: flex; align-items: flex-end; gap: 10px; margin-top: var(--hg); }
+.vsave .fld { margin: 0; }
+.verr { color: var(--neg); margin-top: 6px; }
+
+/* settings rows on the phone: a row of choices too wide to share the line goes under its label */
+html.phone .card .li:has(> .seg, > .fpick) { flex-wrap: wrap; row-gap: 8px; }
+html.phone .card .li:has(> .seg, > .fpick) > .grow { flex: 1 1 calc(100% - 48px); }
+html.phone .card .li:has(> .seg, > .fpick) > :is(.seg, .fpick) { margin-inline-start: auto; }
+.card .li > .fpick { width: 112px; flex: none; }
+.hres.long { font-size: 17px; }
+
+/* a switch inside a settings row */
+.li.tg { padding: var(--lpy) 4px; border-top: 0; justify-content: flex-start; cursor: pointer; }
+
+/* the placeholder page (Converter), the empty History and Settings */
 .soon { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: calc(var(--cpy) * 3) var(--cpx); color: var(--tx2); }
 .soon .ico { color: var(--acc); }
 .soon b { color: var(--tx); font-size: 17px; }
