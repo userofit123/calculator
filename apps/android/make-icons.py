@@ -6,9 +6,12 @@ res = os.path.join(here, "android/app/src/main/res")
 svg = open(os.path.join(here, "../web/public/icon.svg")).read()
 os.chdir(tempfile.mkdtemp())
 defs = re.search(r'<defs>.*</defs>', svg).group(0)
-glyph = svg[svg.index('<g fill="none"'):svg.rindex('</svg>')]
-s = 0.16  # glyph scale on the 108dp adaptive canvas: keeps it inside the 66dp safe circle
-fg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108"><g transform="translate({54-256*s} {54-256*s}) scale({s})">{glyph}</g></svg>'
+glyph = svg[svg.index('<g id="glyph"'):svg.rindex('</svg>')]
+# glyph scale on the 108dp adaptive canvas: 72/512 gives it the same share of the visible 72dp as it has of the web tile,
+# and keeps it well inside the 66dp safe circle (its corners reach about 20dp from the centre)
+s = 72 / 512
+# the foreground carries the defs too: the glyph's display and keys are cut out with a mask
+fg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">{defs}<g transform="translate({54-256*s} {54-256*s}) scale({s})">{glyph}</g></svg>'
 bg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">{defs}<rect width="108" height="108" fill="url(#g)"/></svg>'
 # legacy (before Android 8): the web icon itself, and a round one
 legacy = svg
