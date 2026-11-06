@@ -100,7 +100,8 @@ const note = computed(() => (calc.answer && !calc.error && !progMode.value ? [an
 // A lone number being typed (no operator yet) is shown big on the answer's line, like most calculators, and = then
 // puts its answer in the same place at the same size; the line above stays empty until there is a sum to show.
 // (It has no preview of its own: what = would give is the number itself.)
-const typing = computed(() => !calc.answer && !calc.error && (progMode.value ? /^−?[\dA-F]+$/ : /^−?[\d.]+$/).test(calc.expr));
+// (the sign is "−" as typed, or "-" in a Programming sum rebuilt from a negative value)
+const typing = computed(() => !calc.answer && !calc.error && (progMode.value ? /^[−-]?[\dA-F]+$/ : /^[−-]?[\d.]+$/).test(calc.expr));
 // a preview (faint) is shown while a sum is typed: what = would give now
 const previewing = computed(() => !calc.answer && !calc.error && !typing.value && !!pv.value);
 // a unit conversion's answer shows its unit after the number: "8.04672 km"
@@ -147,8 +148,16 @@ function fit() {
   if (over > 1) el.style.fontSize = `${Math.max(parseFloat(getComputedStyle(el).fontSize) / over - 0.5, 12)}px`;
 }
 watch(() => [big.value, calc.mode, isPhone.value], () => nextTick(fit), { flush: "post" });
-onMounted(() => { addEventListener("resize", fit); fit(); });
-onBeforeUnmount(() => removeEventListener("resize", fit));
+// re-fit whenever the line's width changes, not only the window's (a panel opening beside it, the layout switching).
+// Only a width change counts: fit() changes the font size, which must not set it off again
+let fitW = 0;
+const fitObs = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(([e]) => {
+  const w = e?.contentRect.width ?? 0;
+  if (w !== fitW) { fitW = w; fit(); }
+});
+watch(resEl, (el, old) => { if (old) fitObs?.unobserve(old); if (el) fitObs?.observe(el); }, { flush: "post" });
+onMounted(fit);
+onBeforeUnmount(() => fitObs?.disconnect());
 
 // the end of a long expression stays in view
 const exprEl = ref<HTMLElement | null>(null);
@@ -227,7 +236,7 @@ async function copyAnswer() {
       </div>
       <div ref="exprEl" class="cexp num" :title="show(calc.expr)"><span aria-hidden="true">{{ typing ? "" : show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></span><span v-if="said" class="sr">{{ said }}</span></div>
       <button ref="resEl" type="button" class="cres num" :class="[size, { pre: previewing, err: !!calc.error }]" :title="t('c.copy')"
-        :aria-label="t(calc.error ? 'calc.ariaError' : calc.answer ? 'calc.ariaAnswer' : previewing ? 'calc.ariaPreview' : 'calc.ariaError', { x: bigSaid })" @click="copyAnswer">{{ bigShown }}</button>
+        :aria-label="t(calc.error ? 'calc.ariaError' : calc.answer ? 'calc.ariaAnswer' : previewing ? 'calc.ariaPreview' : 'calc.ariaError', { x: bigSaid })" @click="copyAnswer"><span>{{ bigShown }}</span></button>
     </div>
     <template v-if="dateMode || kbd" />
     <ProgPad v-else-if="progMode" :hit="hit" :clear="clearKey" @tap="tap" />

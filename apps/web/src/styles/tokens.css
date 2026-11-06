@@ -20,6 +20,18 @@
   --shc: #000;
   --s1: color-mix(in srgb, var(--tx) 5%, var(--bg));
   --s2: color-mix(in srgb, var(--tx) 10%, var(--bg));
+  /* the calculator keys: see-through tints of white (dark) or black (light) laid over whatever background and texture
+     is behind them, so a key is always a step lighter (darker) than the page right behind it. Numbers the lightest,
+     function keys a step stronger, operators the accent; each with a hover step. Light mode below */
+  --kn: color-mix(in srgb, var(--hl) 8%, transparent);
+  --kn-h: color-mix(in srgb, var(--hl) 14%, transparent);
+  --kf: color-mix(in srgb, var(--hl) 12%, transparent);
+  --kf-h: color-mix(in srgb, var(--hl) 18%, transparent);
+  /* a function key's label: on the light step over a light texture the quieter --tx2 falls under 4.5:1, so in dark mode
+     it is the full text colour (the stronger step and the smaller size still set functions apart) */
+  --kfx: var(--tx);
+  --kop: color-mix(in srgb, var(--acc) 20%, transparent);
+  --kop-h: color-mix(in srgb, var(--acc) 28%, transparent);
   --ol: color-mix(in srgb, var(--tx) 13%, transparent);
   --font: Inter, "Segoe UI", Roboto, system-ui, sans-serif;
   --r: 22px;
@@ -66,6 +78,16 @@
   --bg-duo: linear-gradient(180deg,color-mix(in srgb,var(--acc) calc(20% * var(--gi)),var(--bg)) 0%,var(--bg) 50%,color-mix(in srgb,var(--acc2) calc(20% * var(--gi)),var(--bg)) 100%);
   --bg-corners: radial-gradient(55% 55% at 0 0,color-mix(in srgb,var(--acc) calc(32% * var(--gi)),transparent),transparent 70%),radial-gradient(55% 55% at 100% 100%,color-mix(in srgb,var(--acc2) calc(30% * var(--gi)),transparent),transparent 70%),var(--bg);
   --bg-sweep: conic-gradient(from 200deg at 50% -10%,color-mix(in srgb,var(--acc) calc(30% * var(--gi)),transparent),transparent 22%,color-mix(in srgb,var(--acc2) calc(26% * var(--gi)),transparent) 50%,transparent 78%,color-mix(in srgb,var(--acc) calc(30% * var(--gi)),transparent)),var(--bg);
+}
+
+html[data-mode="light"] {
+  --kn: color-mix(in srgb, var(--shc) 5%, transparent);
+  --kn-h: color-mix(in srgb, var(--shc) 9%, transparent);
+  --kf: color-mix(in srgb, var(--shc) 8%, transparent);
+  --kf-h: color-mix(in srgb, var(--shc) 12%, transparent);
+  --kfx: var(--tx2);
+  --kop: color-mix(in srgb, var(--acc) 14%, transparent);
+  --kop-h: color-mix(in srgb, var(--acc) 22%, transparent);
 }
 
 [dir="rtl"] {

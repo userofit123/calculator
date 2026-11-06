@@ -44,15 +44,17 @@ button.cflag:hover { color: var(--acc); }
 .cvars { border: 0; background: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--acc); padding: 6px 10px; border-radius: var(--pill); cursor: pointer; }
 .cvars:hover { background: var(--s2); }
 
-/* the keypad: numbers on a surface tone, operators tinted with the accent, functions quieter, = the one filled key */
+/* the keypad: numbers a faint see-through tint, functions a step stronger, operators tinted with the accent, = the one
+   filled key. The tints (tokens.css --kn, --kf, --kop) are see-through rather than mixed with the base colour, so the
+   keys stand out from any background or texture behind them */
 .keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(var(--kh), auto); gap: var(--kg); }
 .key { border: 0; border-radius: var(--kr); font-family: inherit; font-size: var(--kfs); font-weight: 500; cursor: pointer; display: grid; place-items: center; min-width: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; transition: background .15s, color .15s, transform .12s var(--ease), box-shadow .15s; }
-.k-n { background: var(--s2); color: var(--tx); }
-.k-n:hover { background: color-mix(in srgb, var(--tx) 14%, var(--bg)); }
-.k-op { background: color-mix(in srgb, var(--acc) 18%, var(--bg)); color: var(--acc); font-size: calc(var(--kfs) + 4px); }
-.k-op:hover { background: color-mix(in srgb, var(--acc) 26%, var(--bg)); }
-.k-fn { background: var(--s1); color: var(--tx2); font-size: calc(var(--kfs) - 3px); }
-.k-fn:hover { background: var(--s2); color: var(--tx); }
+.k-n { background: var(--kn); color: var(--tx); }
+.k-n:hover { background: var(--kn-h); }
+.k-op { background: var(--kop); color: var(--acc); font-size: calc(var(--kfs) + 4px); }
+.k-op:hover { background: var(--kop-h); }
+.k-fn { background: var(--kf); color: var(--kfx); font-size: calc(var(--kfs) - 3px); }
+.k-fn:hover { background: var(--kf-h); color: var(--tx); }
 .k-eq { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: var(--on); font-size: calc(var(--kfs) + 6px); box-shadow: 0 10px 24px -12px var(--acc); }
 .k-eq:hover { filter: brightness(1.06); }
 .key:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
@@ -60,22 +62,22 @@ button.cflag:hover { color: var(--acc); }
 /* memory: a quiet row of small keys above the keypad */
 .memk { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--kg); }
 .memk button { border: 0; background: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--tx2); min-height: calc(var(--kh) * .6); border-radius: var(--kr); cursor: pointer; touch-action: manipulation; transition: background .15s, color .15s; }
-.memk button:hover:not(:disabled), .memk button.hit { background: var(--s1); color: var(--tx); }
+.memk button:hover:not(:disabled), .memk button.hit { background: var(--kn); color: var(--tx); }
 .memk button:disabled { opacity: .4; cursor: default; }
 
 /* Advanced: the function pad (5 across, smaller text); 2nd and hyp light up while on */
 .cpad, .bpad { display: flex; flex-direction: column; gap: var(--kg); }
 .fkeys { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: minmax(calc(var(--kh) * .78), auto); gap: calc(var(--kg) * .8); }
 .fkeys .key { font-size: calc(var(--kfs) - 6px); }
-.fkeys .key.on { background: color-mix(in srgb, var(--acc) 22%, var(--bg)); color: var(--acc); }
+.fkeys .key.on { background: var(--kop-h); color: var(--acc); }
 
 /* key press feedback (Appearance > Style > Calculator keys): pressed in, lit up, or none. .hit is a keyboard press */
 html:not([data-kfb="glow"]):not([data-kfb="none"]) .key:is(:active, .hit) { transform: scale(.93); }
-html[data-kfb="glow"] .key:is(:active, .hit) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 45%, transparent); background: color-mix(in srgb, var(--acc) 34%, var(--bg)); color: var(--tx); }
+html[data-kfb="glow"] .key:is(:active, .hit) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 45%, transparent); background: color-mix(in srgb, var(--acc) 34%, transparent); color: var(--tx); }
 html[data-kfb="glow"] .k-eq:is(:active, .hit) { background: linear-gradient(135deg, var(--acc2), var(--acc)); color: var(--on); }
 /* reduced motion: a key that is pressed lights up (a colour change, no movement) instead of shrinking */
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-kfb="none"]) .key:is(:active, .hit) { transform: none; background: color-mix(in srgb, var(--acc) 30%, var(--bg)); }
+  html:not([data-kfb="none"]) .key:is(:active, .hit) { transform: none; background: color-mix(in srgb, var(--acc) 30%, transparent); }
   html:not([data-kfb="none"]) .k-eq:is(:active, .hit) { background: linear-gradient(135deg, var(--acc2), var(--acc)); }
   .btn:active, .ib:active, .btn:active:not(:disabled) { transform: none; }
 }
@@ -84,7 +86,9 @@ html[data-kfb="glow"] .k-eq:is(:active, .hit) { background: linear-gradient(135d
 body.outline .cdisp { background: none; }
 body.outline .k-n, body.outline .k-fn { background: none; box-shadow: inset 0 0 0 1px var(--ol); }
 body.raised .cdisp, body.raised .key:not(.k-eq) { box-shadow: 0 1px 0 color-mix(in srgb, var(--tx) 6%, transparent) inset, 0 6px 16px -10px var(--scrim); }
-body.glass .cdisp, body.glass .k-n, body.glass .k-fn { background: color-mix(in srgb, var(--s2) calc(var(--gop) * 100%), transparent); backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); -webkit-backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); }
+/* glass keys keep their see-through tint and blur what is behind them */
+body.glass .cdisp { background: color-mix(in srgb, var(--s2) calc(var(--gop) * 100%), transparent); }
+body.glass .cdisp, body.glass .key:not(.k-eq) { backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); -webkit-backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); }
 
 /* the phone: the calculator fills the screen between the top and the tabs, the keys share the height left */
 html.phone .pmain:has(> .calc) { padding-bottom: var(--hg); }

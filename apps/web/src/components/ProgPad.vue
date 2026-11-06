@@ -147,7 +147,7 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
 .pnib { display: flex; flex: 0 1 auto; min-width: 0; }
 .pbit { flex: 0 1 auto; width: 20px; min-width: 0; border: 0; background: none; font-family: inherit; font-size: 13.5px; line-height: 1.6; color: var(--tx2); cursor: pointer; border-radius: var(--r-sm); padding: 0; }
 .pbit.on { color: var(--acc); font-weight: 700; }
-.pbit:hover:not(:disabled) { background: var(--s2); }
+.pbit:hover:not(:disabled) { background: var(--kn-h); }
 .pbit:disabled { cursor: default; }
 
 /* the keys: bit operators 5 across (as Advanced's), the hex digits 6 across, then the number pad */

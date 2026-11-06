@@ -253,9 +253,15 @@ body::after {
   unicode-bidi: isolate;
 }
 /* words inside the left-to-right display (a note, an error) still read right to left */
-[dir="rtl"] .cnote,
-[dir="rtl"] .cres.err {
+[dir="rtl"] .cnote {
   unicode-bidi: plaintext;
+}
+/* an error is a sentence in the language shown, so it is right to left as a whole even when it starts with a Latin word
+   ("ans אינו מספר שלם": plaintext would take the "a" and lay the sentence out left to right). The answer line is a flex
+   box, so the text sits in a box of its own (the span) that carries the direction */
+[dir="rtl"] .cres.err > span {
+  direction: rtl;
+  unicode-bidi: isolate;
 }
 /* icons that point the way forward */
 [dir="rtl"] .ico.flip {

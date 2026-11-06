@@ -613,7 +613,7 @@ html.phone #pop .only-d {
 
 /* the calculator keys' shape preview: three keys in a row, with the corners chosen or round */
 .kpv { display: flex; align-items: center; justify-content: center; gap: 4px; }
-.kpv i { width: 20px; height: 15px; background: var(--s2); border-radius: calc(var(--r-sm) * .5); }
+.kpv i { width: 20px; height: 15px; background: var(--kf); border-radius: calc(var(--r-sm) * .5); }
 .kpv i:last-child { background: linear-gradient(135deg, var(--acc), var(--acc2)); }
 .kpv.ks-round i { border-radius: 999px; }
 
