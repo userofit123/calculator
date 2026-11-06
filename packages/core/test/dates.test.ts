@@ -173,6 +173,9 @@ describe("age", () => {
   it("born on 29 Feb turns older on 1 Mar in other years", () => {
     expect(age(D("2024-02-29"), D("2025-02-28"))!.years).toBe(0);
     expect(age(D("2024-02-29"), D("2025-03-01"))!.years).toBe(1);
+    const bd = age(D("2024-02-29"), D("2025-03-01"))!;
+    expect(describeYMD(bd)).toBe("1 year");
+    expect(bd.daysToBirthday).toBe(365);
     expect(formatIsoDate(age(D("2024-02-29"), D("2025-01-10"))!.nextBirthday)).toBe("2025-03-01");
     expect(formatIsoDate(age(D("2024-02-29"), D("2027-03-01"))!.nextBirthday)).toBe("2028-02-29");
   });

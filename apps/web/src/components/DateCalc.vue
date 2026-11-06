@@ -3,7 +3,7 @@
 // and times of day and durations. Results follow as you type. Dates are plain calendar days: a field's "2026-11-06" is
 // read as that day, never as a moment in some time zone, and shown in the user's own date format (Intl, pinned to UTC
 // so the day shown is the day typed). The maths is in @calc/core (dates.ts). What was typed is remembered on this device.
-import { computed, reactive, watch } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import {
   parseDate, formatIsoDate, daysBetween, addDays, addPeriod, diffYMD, businessDays, dayOfYear, daysInYear, isoWeek, age,
   describeYMD, describeWeeks, describeDays, parseTime, sumDurations, formatDuration, describeDuration, timeBetween, type YMD,
@@ -16,15 +16,20 @@ type Tab = "between" | "add" | "age" | "time";
 const TABS: [Tab, string][] = [["between", "Between dates"], ["add", "Add or subtract"], ["age", "Age"], ["time", "Time"]];
 
 /** today on this device's calendar (local, not UTC: just after midnight it is already the new day here) */
-const now = new Date();
-const today = formatIsoDate({ y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() });
+const localToday = () => { const n = new Date(); return formatIsoDate({ y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() }); };
+const todayRef = ref(localToday());
+const today = computed(() => todayRef.value);
+const refreshToday = () => { todayRef.value = localToday(); return todayRef.value; };
+let tick: number | undefined;
+onMounted(() => { tick = window.setInterval(refreshToday, 60000); document.addEventListener("visibilitychange", refreshToday); });
+onUnmounted(() => { window.clearInterval(tick); document.removeEventListener("visibilitychange", refreshToday); });
 
 interface Kept {
   tab: Tab; a: string; b: string; includeEnd: boolean; start: string; sub: boolean;
   years: string; months: string; weeks: string; days: string; birth: string; on: string; t1: string; t2: string; durs: string;
 }
 const DEF: Kept = {
-  tab: "between", a: today, b: today, includeEnd: false, start: today, sub: false,
+  tab: "between", a: todayRef.value, b: todayRef.value, includeEnd: false, start: todayRef.value, sub: false,
   years: "", months: "", weeks: "", days: "", birth: "", on: "", t1: "09:00", t2: "17:30", durs: "",
 };
 const saved = readJson<Partial<Kept>>("dateCalc", {});
@@ -71,7 +76,7 @@ const addedDate = computed(() => (added.value && "date" in added.value ? added.v
 const PARTS: [keyof Kept & ("years" | "months" | "weeks" | "days"), string][] = [["years", "Years"], ["months", "Months"], ["weeks", "Weeks"], ["days", "Days"]];
 
 // ---- age ----
-const birth = computed(() => dateOf(st.birth)), onDay = computed(() => dateOf(st.on || today));
+const birth = computed(() => dateOf(st.birth)), onDay = computed(() => dateOf(st.on || today.value));
 const ageR = computed(() => (birth.value && onDay.value ? age(birth.value, onDay.value) : null));
 const ageText = computed(() => (ageR.value ? describeYMD(ageR.value) : ""));
 
@@ -113,8 +118,8 @@ async function copy(t: string) {
         </div>
         <div class="dbtns">
           <button type="button" class="btn o sm" @click="swapDates">Swap</button>
-          <button type="button" class="btn o sm" @click="st.a = today">Start today</button>
-          <button type="button" class="btn o sm" @click="st.b = today">End today</button>
+          <button type="button" class="btn o sm" @click="st.a = refreshToday()">Start today</button>
+          <button type="button" class="btn o sm" @click="st.b = refreshToday()">End today</button>
         </div>
         <label class="li tg dtg">
           <div class="grow"><div class="t">Count the end date too</div><div class="s">Monday to Friday is 4 days, or 5 counting both</div></div>
@@ -242,7 +247,7 @@ async function copy(t: string) {
 <style>
 /* Calculator's Date mode. Tokens only, like the rest of the calculator (calc.css). The page grows with its forms
    instead of the keypad's fixed height. */
-.calc.dmode { height: auto; min-height: 0; }
+html.phone .calc.dmode, .calc.dmode { height: auto; min-height: 0; }
 html:not(.phone) .calc.dmode { max-width: 900px; }
 .dcalc { display: flex; flex-direction: column; gap: var(--spg); }
 .dcalc .dseg { margin: 0; }
@@ -257,7 +262,7 @@ html:not(.phone) .calc.dmode { max-width: 900px; }
 .dnote { font-size: var(--fs-sm); color: var(--tx2); margin-top: calc(var(--lpy) * .4); line-height: 1.4; }
 .dwarn { color: var(--neg); }
 .dinfo { color: var(--tx); font-weight: 600; }
-.dbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--hg); }
+.dbtns { display: flex; flex-wrap: wrap; gap: var(--hg); margin-bottom: var(--hg); }
 .dtg { padding-inline: 0; }
 .dtg .t { font-size: var(--fs); }
 .dtg .s { font-size: var(--fs-xs); color: var(--tx2); }

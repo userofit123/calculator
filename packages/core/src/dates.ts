@@ -111,7 +111,11 @@ export interface Age { years: number; months: number; days: number; totalDays: n
 /** Age on a day. Someone born on 29 Feb turns a year older on 1 Mar in other years. Null when born after that day. */
 export function age(birth: YMD, on: YMD): Age | null {
   if (compareDates(birth, on) > 0) return null;
-  const d = diffYMD(birth, on);
+  let d = diffYMD(birth, on);
+  // a 29 Feb birthday is on 1 Mar in other years: that day is exactly N years, not N years and a day
+  if (birth.m === 2 && birth.d === 29 && on.m === 3 && on.d === 1 && on.y > birth.y && !isLeapYear(on.y)) {
+    d = { years: on.y - birth.y, months: 0, days: 0, sign: 1 };
+  }
   const next = (n: number) => { const r = addYears(birth, n); return r.clamped ? addDays(r.date, 1) : r.date; };
   let nb = next(d.years);
   if (compareDates(nb, on) <= 0) nb = next(d.years + 1);
