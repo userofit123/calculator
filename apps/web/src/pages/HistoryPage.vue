@@ -2,6 +2,7 @@
 // Past calculations, newest first, kept only on this device. Tap the answer to type it into the calculator, or the
 // expression to bring the whole sum back. Search, pin (pinned ones sit first and survive the cap and Clear), copy and
 // export from the menus.
+import { speak } from "../core/speak";
 import { computed, ref } from "vue";
 import { history, histPrefs, clearHistory, restoreHistory, togglePin, removeEntry, filterHistory, splitPinned, lineOf, toText, toCsv, type HistItem } from "../core/history";
 import { calc, press, show, typedValue, restoreExpr } from "../core/calc";
@@ -85,8 +86,8 @@ const text = (s: string, b?: number, isAnswer = false) => (b ? s.replace(/-/g, "
           <div class="card flush hlist">
             <div v-for="(h, i) in g.list" :key="h.t + ':' + i" class="li hrow">
               <div class="hmain">
-                <button type="button" class="hexp num" title="Use this expression" @click="useExpr(h)"><span v-if="h.b" class="hbase">{{ base(h.b)?.label }}</span>{{ text(h.e, h.b) }}</button>
-                <button type="button" class="hres num" :class="{ long: h.r.length > 18 }" title="Use this answer" @click="useResult(h.x, h.r)">=&nbsp;{{ text(h.r, h.b, true) }}</button>
+                <button type="button" class="hexp num" title="Use this expression" :aria-label="`${h.b ? base(h.b)?.name + ' ' : ''}${speak(text(h.e, h.b))}. Use this expression`" @click="useExpr(h)"><span v-if="h.b" class="hbase">{{ base(h.b)?.label }}</span>{{ text(h.e, h.b) }}</button>
+                <button type="button" class="hres num" :class="{ long: h.r.length > 18 }" title="Use this answer" :aria-label="`Equals ${speak(text(h.r, h.b))}. Use this answer`" @click="useResult(h.x, h.r)">=&nbsp;{{ text(h.r, h.b, true) }}</button>
               </div>
               <Menu :items="rowItems(h)" label="Entry options" />
             </div>

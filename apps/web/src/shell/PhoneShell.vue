@@ -31,10 +31,10 @@ function te(e: TouchEvent) {
 
 <template>
   <div class="pshell" :class="{ hasupd: !!upd.latest }" @touchstart.passive="ts" @touchend.passive="te">
-    <div class="pmain"><Transition :name="motion" mode="out-in"><component :is="PAGES[page]" :key="page" /></Transition></div>
+    <div class="pmain" role="main"><Transition :name="motion" mode="out-in"><component :is="PAGES[page]" :key="page" /></Transition></div>
     <div class="dock">
       <UpdateButton phone />
-      <div class="tabbar" :style="{ '--tabs': NAV.length }">
+      <div class="tabbar" role="navigation" :style="{ '--tabs': NAV.length }" aria-label="Menu">
         <button v-for="t in NAV" :key="t.name" type="button" :class="{ on: page === t.name }" :aria-current="page === t.name ? 'page' : undefined" @click="go(t.name)"><span class="ic"><Icon :name="t.icon" :size="22" /></span>{{ t.label }}</button>
       </div>
     </div>

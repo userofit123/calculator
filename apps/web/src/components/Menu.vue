@@ -26,21 +26,37 @@ async function toggle() {
   const sa = safeArea(), lo = innerHeight - sa.bottom - 8, hi = sa.top + 8;
   pos.value = { top: b.bottom + 6 + m.height > lo ? Math.max(hi, b.top - m.height - 6) : b.bottom + 6, left: Math.max(sa.left + 8, Math.min(props.align === "start" ? b.left : b.right - m.width, innerWidth - sa.right - m.width - 8)) };
   setTimeout(() => addEventListener("click", away, true));
+  // the keyboard starts on the chosen item (a mode switch) or the first one
+  (el.value!.querySelector<HTMLElement>('[aria-checked="true"]') ?? items()[0])?.focus();
 }
-const away = (e: Event) => { if (!el.value?.contains(e.target as Node)) { e.stopPropagation(); close(); } };
-const close = () => { open.value = false; unlock(); unlock = () => {}; removeEventListener("click", away, true); };
+const items = () => Array.from(el.value?.querySelectorAll<HTMLElement>("button") ?? []);
+const away = (e: Event) => { if (!el.value?.contains(e.target as Node)) { e.stopPropagation(); close(false); } };
+// focus goes back to the menu's button, unless a click elsewhere closed it (that click decides where focus goes)
+const close = (refocus = true) => {
+  const was = open.value;
+  open.value = false; unlock(); unlock = () => {}; removeEventListener("click", away, true);
+  if (was && refocus) btn.value?.focus({ preventScroll: true });
+};
 const pick = (i: MenuItem) => { close(); i.run(); };
-onBeforeUnmount(close);
+// a menu's keys: arrows, Home and End move, Esc closes it (and nothing under it), Tab leaves it
+function key(e: KeyboardEvent) {
+  const l = items(), i = l.indexOf(document.activeElement as HTMLElement);
+  const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: l.length - 1 }[e.key];
+  if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
+  else if (e.key === "Tab") close();
+  else if (to !== undefined && l.length) { e.preventDefault(); l[(to + l.length) % l.length]!.focus(); }
+}
+onBeforeUnmount(() => close(false));
 </script>
 
 <template>
   <button v-if="text" ref="btn" class="mnub" :aria-label="label" aria-haspopup="menu" :aria-expanded="open" @click.stop="toggle"><span>{{ text }}</span><Icon name="down" :size="16" /></button>
-  <button v-else ref="btn" class="ib sm plain" :aria-label="label ?? 'More'" @click.stop="toggle"><Icon :name="icon ?? 'more'" /></button>
+  <button v-else ref="btn" class="ib sm plain" :aria-label="label ?? 'More'" aria-haspopup="menu" :aria-expanded="open" @click.stop="toggle"><Icon :name="icon ?? 'more'" /></button>
   <Teleport to="body">
-    <div v-if="open" ref="el" class="mnu" :style="{ top: pos.top + 'px', left: pos.left + 'px' }" role="menu">
+    <div v-if="open" ref="el" class="mnu" :style="{ top: pos.top + 'px', left: pos.left + 'px' }" role="menu" :aria-label="label ?? text ?? 'More'" @keydown="key">
       <template v-for="(i, k) in props.items.filter((x) => !x.hidden)" :key="k">
-        <hr v-if="i.sep" />
-        <button :class="{ danger: i.danger, on: i.checked }" :role="i.checked != null ? 'menuitemradio' : 'menuitem'" :aria-checked="i.checked ?? undefined" @click="pick(i)"><Icon v-if="i.icon" :name="i.icon" :size="18" /><span v-if="i.hint" class="mh"><span>{{ i.label }}</span><small>{{ i.hint }}</small></span><span v-else class="ml">{{ i.label }}</span><Icon v-if="i.checked" name="check" :size="16" class="mck" /></button>
+        <hr v-if="i.sep" role="separator" />
+        <button type="button" tabindex="-1" :class="{ danger: i.danger, on: i.checked }" :role="i.checked != null ? 'menuitemradio' : 'menuitem'" :aria-checked="i.checked ?? undefined" @click="pick(i)"><Icon v-if="i.icon" :name="i.icon" :size="18" /><span v-if="i.hint" class="mh"><span>{{ i.label }}</span><small>{{ i.hint }}</small></span><span v-else class="ml">{{ i.label }}</span><Icon v-if="i.checked" name="check" :size="16" class="mck" /></button>
       </template>
     </div>
   </Teleport>

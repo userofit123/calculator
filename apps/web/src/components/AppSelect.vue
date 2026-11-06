@@ -4,7 +4,7 @@
 // Keys as on a <select>: arrows, Home/End, Enter or Space, Esc, and typing a name's first letters jumps to it.
 // Slot "end" (given the option) adds something at the right of each option, e.g. a button that plays a sound; it must
 // stop its own click, or the click picks the option too.
-import { computed, nextTick, ref, useId, watch } from "vue";
+import { computed, nextTick, ref, useAttrs, useId, watch } from "vue";
 import { isPhone } from "../core/device";
 import Icon from "./Icon.vue";
 import PickerPop from "./PickerPop.vue";
@@ -24,6 +24,9 @@ const groups = computed(() => {
 });
 const flat = computed(() => groups.value.flatMap(([, os]) => os));
 const cur = computed(() => opts.value.find((o) => o.value === props.modelValue));
+// a combobox's own text isn't its name: what it is (its title) and what is chosen, read together
+const attrs = useAttrs();
+const name = computed(() => [(attrs["aria-label"] as string | undefined) ?? props.title ?? props.placeholder, cur.value?.label].filter(Boolean).join(": "));
 const open = ref(false), hi = ref(-1), btn = ref<HTMLButtonElement | null>(null);
 
 function show() {
@@ -82,7 +85,7 @@ function key(e: KeyboardEvent) {
 </script>
 
 <template>
-  <button ref="btn" type="button" class="fpick" v-bind="$attrs" role="combobox" aria-haspopup="listbox" :aria-expanded="open" :aria-controls="open ? `${id}-l` : undefined"
+  <button ref="btn" type="button" class="fpick" v-bind="$attrs" :aria-label="name" role="combobox" aria-haspopup="listbox" :aria-expanded="open" :aria-controls="open ? `${id}-l` : undefined"
     :aria-activedescendant="open && hi >= 0 ? `${id}-${hi}` : undefined" :disabled="disabled" @click="open ? close() : show()" @keydown="key">
     <span class="v" :class="{ unset: !cur }">{{ cur?.label ?? placeholder ?? "" }}</span><Icon name="down" :size="16" />
   </button>

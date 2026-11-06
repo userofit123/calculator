@@ -53,7 +53,7 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
           </button>
           <div class="li">
             <Icon name="device" /><div class="grow"><div class="t">Layout</div><div class="s">Auto picks the phone layout on narrow or touch screens</div></div>
-            <div class="seg"><button v-for="[v, l] in LAYOUTS" :key="v" type="button" :class="{ on: layoutChoice === v }" @click="setLayout(v)">{{ l }}</button></div>
+            <div class="seg"><button v-for="[v, l] in LAYOUTS" :key="v" type="button" :class="{ on: layoutChoice === v }" :aria-pressed="layoutChoice === v" @click="setLayout(v)">{{ l }}</button></div>
           </div>
         </div>
       </section>
@@ -62,7 +62,7 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
         <div class="card flush">
           <div class="li">
             <Icon name="calc" /><div class="grow"><div class="t">Angle unit</div><div class="s">For sin, cos, tan and their inverses (Advanced)</div></div>
-            <div class="seg"><button v-for="a in ANGLES" :key="a.id" type="button" :class="{ on: settings.angle === a.id }" @click="settings.angle = a.id">{{ a.label }}</button></div>
+            <div class="seg"><button v-for="a in ANGLES" :key="a.id" type="button" :class="{ on: settings.angle === a.id }" :aria-pressed="settings.angle === a.id" @click="settings.angle = a.id">{{ a.label }}</button></div>
           </div>
           <div class="li">
             <Icon name="calc" /><div class="grow"><div class="t">Decimal places</div><div class="s">The most digits shown after the decimal point</div></div>
@@ -74,7 +74,7 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
           </div>
           <div class="li">
             <Icon name="calc" /><div class="grow"><div class="t">Decimal mark</div><div class="s">{{ settings.decimalMark === "," ? "1.234,5" : "1,234.5" }}</div></div>
-            <div class="seg"><button v-for="m in MARKS" :key="m" type="button" :class="{ on: settings.decimalMark === m }" @click="settings.decimalMark = m">{{ m === "." ? "Point" : "Comma" }}</button></div>
+            <div class="seg"><button v-for="m in MARKS" :key="m" type="button" :class="{ on: settings.decimalMark === m }" :aria-pressed="settings.decimalMark === m" @click="settings.decimalMark = m">{{ m === "." ? "Point" : "Comma" }}</button></div>
           </div>
           <label class="li tg">
             <Icon name="calc" /><div class="grow"><div class="t">Group thousands</div><div class="s">{{ settings.decimalMark === "," ? "1.000.000" : "1,000,000" }}</div></div>

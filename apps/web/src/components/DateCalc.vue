@@ -150,7 +150,7 @@ async function copy(t: string) {
           <input id="d-s" v-model="st.start" type="date" min="0001-01-01" max="9999-12-31" />
           <div class="dnote">{{ about(S) || "Pick a date" }}</div>
         </div>
-        <div class="seg sm dseg2"><button type="button" :class="{ on: !st.sub }" @click="st.sub = false">Add</button><button type="button" :class="{ on: st.sub }" @click="st.sub = true">Subtract</button></div>
+        <div class="seg sm dseg2"><button type="button" :class="{ on: !st.sub }" :aria-pressed="!st.sub" @click="st.sub = false">Add</button><button type="button" :class="{ on: st.sub }" :aria-pressed="st.sub" @click="st.sub = true">Subtract</button></div>
         <div class="dparts">
           <div v-for="[k, l] in PARTS" :key="k" class="fld">
             <label :for="'d-' + k">{{ l }}</label>
@@ -208,7 +208,7 @@ async function copy(t: string) {
 
     <div v-else class="dgrid">
       <div class="card dcard">
-        <h3 class="dh">From one time to another</h3>
+        <h3 class="dh" role="heading" aria-level="2">From one time to another</h3>
         <div class="dparts two">
           <div class="fld"><label for="d-t1">From</label><input id="d-t1" v-model="st.t1" type="time" /></div>
           <div class="fld"><label for="d-t2">To</label><input id="d-t2" v-model="st.t2" type="time" /></div>
@@ -223,7 +223,7 @@ async function copy(t: string) {
         <div v-else class="dnote">Pick both times.</div>
       </div>
       <div class="card dcard">
-        <h3 class="dh">Add and subtract hours</h3>
+        <h3 class="dh" role="heading" aria-level="2">Add and subtract hours</h3>
         <div class="fld">
           <label for="d-durs">Hours and minutes</label>
           <input id="d-durs" v-model="st.durs" class="num" type="text" autocomplete="off" spellcheck="false" inputmode="text" placeholder="1:30 + 2:45 - 0:20" />

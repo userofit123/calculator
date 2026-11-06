@@ -15,7 +15,7 @@
 
 .pop {
   position: fixed;
-  left: calc(98px + var(--sl)); /* fixed side */
+  left: calc(3.75rem + 38px + var(--sl)); /* fixed side: beside the rail (98px at the usual text size) */
   bottom: calc(16px + var(--sb));
   width: 310px;
   background: var(--bg);
@@ -35,7 +35,7 @@
 /* ===== appearance panel ===== */
 
 .pop {
-  width: 432px;
+  width: min(27rem, calc(100vw - 3.75rem - 54px)); /* 432px at the usual text size */
   max-height: calc(100vh - 32px);
   padding: 0;
   overflow: hidden;

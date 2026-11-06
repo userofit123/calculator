@@ -1,7 +1,8 @@
 /* The app frame from Money Manager: the desktop rail and main. */
 /* --st / --sb / --sl / --sr: room for the Android app's bars (0 on the web and the desktop app) */
 nav {
-  width: 88px;
+  /* 88px at the usual text size; wider with larger text (the browser's or the system's), so the labels still fit */
+  width: calc(3.75rem + 28px);
   padding: calc(18px + var(--st)) 0 calc(12px + var(--sb));
   display: flex;
   flex-direction: column;

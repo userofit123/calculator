@@ -22,8 +22,14 @@ const dark = computed(() => k.value === "D");
 const out = ref(false);
 // Back closes it like any sheet, instead of leaving the page behind it
 let backId = 0, unlock = () => {};
+// the keyboard goes into the panel when it opens (onto the chosen tab) and back to where it was when it closes
+let before: HTMLElement | null = null;
 watch(appearanceOpen, (o) => {
   unlock();
+  if (o) {
+    before = document.activeElement as HTMLElement | null;
+    nextTick(() => el.value?.querySelector<HTMLElement>('#apTabs [aria-selected="true"]')?.focus({ preventScroll: true }));
+  } else if (before?.isConnected && (el.value?.contains(document.activeElement) || document.activeElement === document.body)) { before.focus({ preventScroll: true }); before = null; }
   if (o) { backId = sheetOpened(() => (appearanceOpen.value = false)); if (isPhone.value) unlock = lockScroll(); } // phone only: a bottom sheet with a scrim; on a computer the lock would shift fixed elements by the scrollbar width
   else {
     unlock = () => {};
@@ -38,7 +44,15 @@ const el = ref<HTMLElement | null>(null);
 // on the phone it is a bottom sheet: pull it down to close, like the others
 const pull = usePullDown(() => el.value, () => document.querySelector<HTMLElement>(".apscr"), () => appearanceOpen.value, close);
 const outside = (e: Event) => { if (appearanceOpen.value && el.value && !el.value.contains(e.target as Node) && !(e.target as HTMLElement).closest?.("#themeBtn,[data-theme-open]")) close(); };
-const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && appearanceOpen.value) close(); };
+const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && appearanceOpen.value && !document.querySelector(".scr:not(.apscr):not(.leaving)")) close(); };
+// the tabs: arrows move between them (and show the one moved to), as tabs do
+function tabKey(e: KeyboardEvent) {
+  const ks = Object.keys(TABS), i = ks.indexOf(tab.value);
+  const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: ks.length - 1 }[e.key];
+  if (to === undefined) return;
+  e.preventDefault(); tab.value = ks[(to + ks.length) % ks.length]!;
+  nextTick(() => el.value?.querySelector<HTMLElement>('#apTabs [aria-selected="true"]')?.focus());
+}
 onMounted(() => { document.addEventListener("click", outside, true); addEventListener("keydown", esc); });
 onBeforeUnmount(() => { unlock(); document.removeEventListener("click", outside, true); removeEventListener("keydown", esc); });
 
@@ -101,24 +115,24 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
 <template>
   <!-- on the phone it's a bottom sheet over a scrim, like the other sheets; a tap on the scrim closes it -->
   <div v-if="isPhone && appearanceOpen" class="scr apscr" aria-hidden="true" />
-  <div id="pop" ref="el" class="pop" :class="{ on: appearanceOpen, out }" role="dialog" aria-label="Appearance">
-    <div class="aph"><b>Appearance</b><span class="aphb"><button class="btn o s" @click="openSave">Save…</button><button class="btn o s" @click="reset">Reset</button></span></div>
-    <div id="apTabs" class="seg apseg aptabs">
-      <button v-for="(l, x) in TABS" :key="x" :class="{ on: tab === x }" @click="tab = x">{{ l }}</button>
+  <div id="pop" ref="el" class="pop" :class="{ on: appearanceOpen, out }" role="dialog" aria-labelledby="apTitle" :aria-modal="isPhone ? 'true' : undefined" :inert="!appearanceOpen || undefined">
+    <div class="aph"><b id="apTitle" role="heading" aria-level="2">Appearance</b><span class="aphb"><button class="btn o s" @click="openSave">Save…</button><button class="btn o s" @click="reset">Reset</button></span></div>
+    <div id="apTabs" class="seg apseg aptabs" role="tablist" aria-label="Appearance sections" @keydown="tabKey">
+      <button v-for="(l, x) in TABS" :id="`apTab-${x}`" :key="x" type="button" role="tab" :aria-selected="tab === x" aria-controls="apBody" :tabindex="tab === x ? 0 : -1" :class="{ on: tab === x }" @click="tab = x">{{ l }}</button>
     </div>
-    <div class="apb">
+    <div id="apBody" class="apb" role="tabpanel" :aria-labelledby="`apTab-${tab}`">
       <div class="apbt" :class="{ on: tab === 'col' }">
-        <div class="aps"><h4>Mode</h4>
+        <div class="aps"><h4 role="heading" aria-level="3">Mode</h4>
           <div class="seg apseg">
-            <button :class="{ on: theme.mode === 'light' }" @click="opt('mode', 'light')">Light</button>
-            <button :class="{ on: theme.mode === 'dark' }" @click="opt('mode', 'dark')">Dark</button>
-            <button :class="{ on: theme.mode === 'auto' }" @click="opt('mode', 'auto')">Auto</button>
+            <button :class="{ on: theme.mode === 'light' }" :aria-pressed="theme.mode === 'light'" @click="opt('mode', 'light')">Light</button>
+            <button :class="{ on: theme.mode === 'dark' }" :aria-pressed="theme.mode === 'dark'" @click="opt('mode', 'dark')">Dark</button>
+            <button :class="{ on: theme.mode === 'auto' }" :aria-pressed="theme.mode === 'auto'" @click="opt('mode', 'auto')">Auto</button>
           </div>
         </div>
-        <div class="aps"><h4>Colour palette</h4>
+        <div class="aps"><h4 role="heading" aria-level="3">Colour palette</h4>
           <div class="sw">
-            <button v-for="(_, n) in ATM" :key="n" :class="{ on: theme.atm === n }" :title="String(n)" @click="opt('atm', n)"><span class="swd" :style="{ background: swatch(String(n)) }" /><span class="swn">{{ n }}</span></button>
-            <button :class="{ on: theme.atm === 'Custom' }" title="Custom colour" @click="opt('atm', 'Custom')"><span class="swd" :class="{ any: theme.atm !== 'Custom' }" :style="theme.atm === 'Custom' ? { background: swatch('Custom') } : undefined" /><span class="swn">Custom</span></button>
+            <button v-for="(_, n) in ATM" :key="n" :class="{ on: theme.atm === n }" :aria-pressed="theme.atm === n" :title="String(n)" @click="opt('atm', n)"><span class="swd" :style="{ background: swatch(String(n)) }" /><span class="swn">{{ n }}</span></button>
+            <button :class="{ on: theme.atm === 'Custom' }" :aria-pressed="theme.atm === 'Custom'" title="Custom colour" @click="opt('atm', 'Custom')"><span class="swd" :class="{ any: theme.atm !== 'Custom' }" :style="theme.atm === 'Custom' ? { background: swatch('Custom') } : undefined" /><span class="swn">Custom</span></button>
           </div>
         </div>
         <div v-if="theme.atm === 'Custom'" class="aps cust">
@@ -136,12 +150,12 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
         </div>
       </div>
       <div class="apbt" :class="{ on: tab === 'bg' }">
-        <div class="aps"><h4>Background</h4>
-          <div class="apg c5"><button v-for="v in BGS" :key="v" class="apt" :class="{ on: theme.bg === v }" @click="opt('bg', v)"><span class="apv bgv" :class="'bg-' + v" /><span class="apl">{{ BGL[v] }}</span></button></div>
+        <div class="aps"><h4 role="heading" aria-level="3">Background</h4>
+          <div class="apg c5"><button v-for="v in BGS" :key="v" class="apt" :class="{ on: theme.bg === v }" :aria-pressed="theme.bg === v" @click="opt('bg', v)"><span class="apv bgv" :class="'bg-' + v" /><span class="apl">{{ BGL[v] }}</span></button></div>
           <div class="apr" :class="{ off: theme.bg === 'flat' }"><span>Gradient strength</span><input type="range" min="0" max="200" step="5" :value="theme.gi ?? 100" @input="range('gi', ($event.target as HTMLInputElement).value)"><output>{{ Math.round(theme.gi ?? 100) }}%</output></div>
         </div>
-        <div class="aps"><h4>Texture</h4>
-          <div class="apg c5"><button v-for="[v, l] in TEX" :key="v" class="apt" :class="{ on: theme.tex === v }" @click="opt('tex', v)"><span class="apv txv" :class="'tx-' + v" /><span class="apl">{{ l }}</span></button></div>
+        <div class="aps"><h4 role="heading" aria-level="3">Texture</h4>
+          <div class="apg c5"><button v-for="[v, l] in TEX" :key="v" class="apt" :class="{ on: theme.tex === v }" :aria-pressed="theme.tex === v" @click="opt('tex', v)"><span class="apv txv" :class="'tx-' + v" /><span class="apl">{{ l }}</span></button></div>
           <div class="apsub" :class="{ off: theme.tex === 'none' }">
             <div class="apr"><span>Texture density</span><input type="range" min="40" max="240" step="10" :value="+theme.tsc || 100" @input="range('tsc', ($event.target as HTMLInputElement).value)"><output>{{ Math.round(+theme.tsc || 100) }}%</output></div>
             <div class="apr"><span>Texture opacity</span><input type="range" min="5" max="100" step="5" :value="theme.toa ?? 50" @input="range('toa', ($event.target as HTMLInputElement).value)"><output>{{ Math.round(theme.toa ?? 50) }}%</output></div>
@@ -149,50 +163,50 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
         </div>
       </div>
       <div class="apbt" :class="{ on: tab === 'sty' }">
-        <div class="aps"><h4>Surface</h4>
-          <div class="apg c5"><button v-for="[v, l] in SURF" :key="v" class="apt" :class="{ on: theme.surf === v }" @click="opt('surf', v)"><span class="apv sfv" :class="'sf-' + v"><i /></span><span class="apl">{{ l }}</span></button></div>
+        <div class="aps"><h4 role="heading" aria-level="3">Surface</h4>
+          <div class="apg c5"><button v-for="[v, l] in SURF" :key="v" class="apt" :class="{ on: theme.surf === v }" :aria-pressed="theme.surf === v" @click="opt('surf', v)"><span class="apv sfv" :class="'sf-' + v"><i /></span><span class="apl">{{ l }}</span></button></div>
           <div v-if="theme.surf === 'glass'" class="apsub">
             <div v-for="g in GLASS" :key="g[0]" class="apr"><span :title="g[7]">{{ g[1] }}</span><input type="range" :min="g[2]" :max="g[3]" :step="g[4]" :value="gval(g)" @input="range(g[0], ($event.target as HTMLInputElement).value)"><output>{{ Math.round(gval(g)) }}{{ g[6] }}</output></div>
           </div>
         </div>
-        <div class="aps"><h4>Corners</h4>
-          <div class="apg"><button v-for="[v, r, l] in RAD" :key="v" class="apt" :class="{ on: theme.rad === v }" @click="opt('rad', v)"><span class="apv rv"><i :style="{ borderTopLeftRadius: r + 'px' }" /></span><span class="apl">{{ l }}</span></button></div>
+        <div class="aps"><h4 role="heading" aria-level="3">Corners</h4>
+          <div class="apg"><button v-for="[v, r, l] in RAD" :key="v" class="apt" :class="{ on: theme.rad === v }" :aria-pressed="theme.rad === v" @click="opt('rad', v)"><span class="apv rv"><i :style="{ borderTopLeftRadius: r + 'px' }" /></span><span class="apl">{{ l }}</span></button></div>
         </div>
-        <div class="aps"><h4>Calculator keys</h4>
-          <div class="apg"><button v-for="[v, l] in KSH" :key="v" class="apt" :class="{ on: theme.ksh === v }" @click="opt('ksh', v)"><span class="apv kpv" :class="'ks-' + v"><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
-          <div class="apr"><span>Key press</span><div class="seg apseg"><button v-for="[v, l] in KFB" :key="v" :class="{ on: theme.kfb === v }" @click="opt('kfb', v)">{{ l }}</button></div></div>
+        <div class="aps"><h4 role="heading" aria-level="3">Calculator keys</h4>
+          <div class="apg"><button v-for="[v, l] in KSH" :key="v" class="apt" :class="{ on: theme.ksh === v }" :aria-pressed="theme.ksh === v" @click="opt('ksh', v)"><span class="apv kpv" :class="'ks-' + v"><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
+          <div class="apr"><span>Key press</span><div class="seg apseg"><button v-for="[v, l] in KFB" :key="v" :class="{ on: theme.kfb === v }" :aria-pressed="theme.kfb === v" @click="opt('kfb', v)">{{ l }}</button></div></div>
         </div>
-        <div class="aps"><h4>Font</h4>
-          <div class="apg c4"><button v-for="[v, l] in FNT" :key="v" class="apt" :class="{ on: theme.fnt === v }" @click="opt('fnt', v)"><span class="apv fv" :style="{ fontFamily: FONTS[v] }">Aa</span><span class="apl">{{ l }}</span></button></div>
+        <div class="aps"><h4 role="heading" aria-level="3">Font</h4>
+          <div class="apg c4"><button v-for="[v, l] in FNT" :key="v" class="apt" :class="{ on: theme.fnt === v }" :aria-pressed="theme.fnt === v" @click="opt('fnt', v)"><span class="apv fv" :style="{ fontFamily: FONTS[v] }">Aa</span><span class="apl">{{ l }}</span></button></div>
         </div>
       </div>
       <div class="apbt" :class="{ on: tab === 'lay' }">
-        <div class="aps"><h4>Density</h4><div class="sm aph4">Also sets the size of the calculator keys.</div>
-          <div class="apg"><button v-for="[v, g, l] in DEN" :key="v" class="apt" :class="{ on: theme.den === v }" @click="opt('den', v)"><span class="apv dv" :style="{ '--g': g + 'px' }"><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
+        <div class="aps"><h4 role="heading" aria-level="3">Density</h4><div class="sm aph4">Also sets the size of the calculator keys.</div>
+          <div class="apg"><button v-for="[v, g, l] in DEN" :key="v" class="apt" :class="{ on: theme.den === v }" :aria-pressed="theme.den === v" @click="opt('den', v)"><span class="apv dv" :style="{ '--g': g + 'px' }"><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
         </div>
-        <div class="aps"><h4>Layout spacing</h4>
-          <div class="apg c4"><button v-for="[v, g, l] in SPC" :key="v" class="apt" :class="{ on: theme.spc === v }" @click="opt('spc', v)"><span class="apv spv" :style="{ '--g': g + 'px' }"><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
+        <div class="aps"><h4 role="heading" aria-level="3">Layout spacing</h4>
+          <div class="apg c4"><button v-for="[v, g, l] in SPC" :key="v" class="apt" :class="{ on: theme.spc === v }" :aria-pressed="theme.spc === v" @click="opt('spc', v)"><span class="apv spv" :style="{ '--g': g + 'px' }"><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
         </div>
-        <div class="aps only-d"><h4>Sidebar spacing</h4>
-          <div class="apg c3"><button v-for="[v, g, l] in NSP" :key="v" class="apt" :class="{ on: theme.nsp === v }" @click="opt('nsp', v)"><span class="apv spv sbv" :style="{ '--g': g + 'px' }"><i /><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
+        <div class="aps only-d"><h4 role="heading" aria-level="3">Sidebar spacing</h4>
+          <div class="apg c3"><button v-for="[v, g, l] in NSP" :key="v" class="apt" :class="{ on: theme.nsp === v }" :aria-pressed="theme.nsp === v" @click="opt('nsp', v)"><span class="apv spv sbv" :style="{ '--g': g + 'px' }"><i /><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
         </div>
-        <div class="aps only-d"><h4>Navigation</h4>
-          <div class="seg apseg"><button :class="{ on: theme.nav === 'full' }" @click="opt('nav', 'full')">Labels</button><button :class="{ on: theme.nav === 'mini' }" @click="opt('nav', 'mini')">Icons only</button></div>
+        <div class="aps only-d"><h4 role="heading" aria-level="3">Navigation</h4>
+          <div class="seg apseg"><button :class="{ on: theme.nav === 'full' }" :aria-pressed="theme.nav === 'full'" @click="opt('nav', 'full')">Labels</button><button :class="{ on: theme.nav === 'mini' }" :aria-pressed="theme.nav === 'mini'" @click="opt('nav', 'mini')">Icons only</button></div>
         </div>
       </div>
       <div class="apbt" :class="{ on: tab === 'sav' }">
-        <div class="aps"><h4>Save current look</h4>
+        <div class="aps"><h4 role="heading" aria-level="3">Save current look</h4>
           <div class="apr apname"><input ref="nameEl" v-model="lookName" type="text" maxlength="30" placeholder="Name" @keydown.enter="saveLook"><button class="btn s" @click="saveLook">Save</button></div>
           <div class="sm apnote">The mode (light, dark, auto) is not saved with a look.</div>
         </div>
-        <div class="aps"><h4>Your looks</h4>
+        <div class="aps"><h4 role="heading" aria-level="3">Your looks</h4>
           <div id="tpList">
             <div v-for="x in looks" :key="x.id" class="tpr">
               <span class="tpd" :style="lookDot(x)" /><b>{{ x.name }}</b>
               <span class="tpa">
                 <button class="btn o s" @click="useLook(x)">Use</button>
-                <button class="btn o s" :class="{ on: lookFor.L === x.id }" title="Use in light mode" @click="assign(x, 'L')">Light</button>
-                <button class="btn o s" :class="{ on: lookFor.D === x.id }" title="Use in dark mode" @click="assign(x, 'D')">Dark</button>
+                <button class="btn o s" :class="{ on: lookFor.L === x.id }" :aria-pressed="lookFor.L === x.id" title="Use in light mode" @click="assign(x, 'L')">Light</button>
+                <button class="btn o s" :class="{ on: lookFor.D === x.id }" :aria-pressed="lookFor.D === x.id" title="Use in dark mode" @click="assign(x, 'D')">Dark</button>
                 <button class="btn o s" title="Replace with the current look" @click="updLook(x)">Update</button>
                 <button class="btn o s" aria-label="Delete" @click="delLook(x)">×</button>
               </span>

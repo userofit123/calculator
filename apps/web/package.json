@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "a11y": "node scripts/a11y.mjs"
   },
   "dependencies": {
     "@calc/core": "workspace:*",
@@ -14,6 +15,7 @@
   "devDependencies": {
     "@types/node": "22.10.2",
     "@vitejs/plugin-vue": "5.2.1",
+    "axe-core": "4.10.2",
     "typescript": "5.7.2",
     "vite": "6.0.11",
     "vue-tsc": "2.2.0"

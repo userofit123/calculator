@@ -65,7 +65,7 @@ const KEYS = computed<{ k: string; label?: string; kind: Kind; aria?: string; ic
   { k: "7", kind: "n" }, { k: "8", kind: "n" }, { k: "9", kind: "n" }, { k: "×", kind: "op", aria: "Multiply" },
   { k: "4", kind: "n" }, { k: "5", kind: "n" }, { k: "6", kind: "n" }, { k: "−", kind: "op", aria: "Minus" },
   { k: "1", kind: "n" }, { k: "2", kind: "n" }, { k: "3", kind: "n" }, { k: "+", kind: "op", aria: "Plus" },
-  { k: "±", kind: "n", aria: "Change sign" }, { k: "0", kind: "n" }, { k: "⌫", kind: "fn", aria: "Delete", icon: "backspace" }, { k: "=", kind: "eq", aria: "Equals" },
+  { k: "±", kind: "n", aria: "Change sign" }, { k: "0", kind: "n" }, { k: "⌫", kind: "fn", aria: "Backspace", icon: "backspace" }, { k: "=", kind: "eq", aria: "Equals" },
 ]);
 const HEX = ["A", "B", "C", "D", "E", "F"];
 const DIGITS = "0123456789ABCDEF";
@@ -80,22 +80,23 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
       <button type="button" class="cflag" title="Word size" :aria-label="`Word size ${prog.wordSize} bits`" @click="cycleWord">{{ prog.wordSize }}-bit</button>
       <button type="button" class="cflag" :class="{ on: prog.signed }" title="Signed numbers (two's complement)" :aria-pressed="prog.signed" @click="prog.signed = !prog.signed">{{ prog.signed ? "Signed" : "Unsigned" }}</button>
       <span class="grow" />
-      <div v-if="isPhone" class="seg sm"><button type="button" :class="{ on: panel === 'bases' }" @click="panel = 'bases'">Bases</button><button type="button" :class="{ on: panel === 'bits' }" @click="panel = 'bits'">Bits</button></div>
+      <div v-if="isPhone" class="seg sm" role="tablist" aria-label="Show"><button type="button" role="tab" :aria-selected="panel === 'bases'" :class="{ on: panel === 'bases' }" @click="panel = 'bases'">Bases</button><button type="button" role="tab" :aria-selected="panel === 'bits'" :class="{ on: panel === 'bits' }" @click="panel = 'bits'">Bits</button></div>
     </div>
   </Teleport>
   <div class="ppanel">
     <div v-if="!isPhone || panel === 'bases'" class="pbases" role="group" aria-label="Number base">
-      <button v-for="r in rows" :key="r.base" type="button" class="pbase" :class="{ on: prog.base === r.base }" :aria-pressed="prog.base === r.base" :title="prog.base === r.base ? 'Copy' : `Switch to ${r.name}`" @click="pickBase(r.base, r.text)">
+      <button v-for="r in rows" :key="r.base" type="button" class="pbase" :class="{ on: prog.base === r.base }" :aria-pressed="prog.base === r.base" :title="prog.base === r.base ? 'Copy' : `Switch to ${r.name}`"
+        :aria-label="`${r.name} ${r.text || 'empty'}. ${prog.base === r.base ? 'Copy' : 'Switch to ' + r.name}`" @click="pickBase(r.base, r.text)">
         <span class="plab">{{ r.label }}</span><span class="pval num">{{ r.text || "-" }}</span>
       </button>
     </div>
-    <div v-if="!isPhone || panel === 'bits'" class="pbits num" role="group" aria-label="Bits (tap to flip)" :class="{ off: value === null }">
+    <div v-if="!isPhone || panel === 'bits'" class="pbits num" role="group" aria-label="Bits, highest first" :class="{ off: value === null }">
       <div v-for="row in bitRows" :key="row.hi" class="prow">
-        <span class="pidx">{{ row.hi }}</span>
+        <span class="pidx" aria-hidden="true">{{ row.hi }}</span>
         <span v-for="(nb, j) in row.nibbles" :key="j" class="pnib">
-          <button v-for="b in nb" :key="b.i" type="button" class="pbit" :class="{ on: b.on }" :aria-label="`Bit ${b.i}`" :aria-pressed="b.on" :disabled="value === null" @click="flip(b.i)">{{ b.on ? 1 : 0 }}</button>
+          <button v-for="b in nb" :key="b.i" type="button" class="pbit" :class="{ on: b.on }" :aria-label="`Flip bit ${b.i}`" :aria-pressed="b.on" :disabled="value === null" @click="flip(b.i)">{{ b.on ? 1 : 0 }}</button>
         </span>
-        <span class="pidx">{{ row.lo }}</span>
+        <span class="pidx" aria-hidden="true">{{ row.lo }}</span>
       </div>
     </div>
   </div>
@@ -119,7 +120,7 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
 <style>
 /* Programming mode. Tokens only, like the rest of the calculator (calc.css). */
 .ppanel { display: flex; flex-direction: column; gap: calc(var(--kg) * .6); }
-.pbar { display: flex; flex-direction: row; align-items: center; gap: calc(var(--hg) * .6); }
+.pbar { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: calc(var(--hg) * .6); }
 .cflag.on { color: var(--acc); background: color-mix(in srgb, var(--acc) 16%, var(--bg)); }
 .pbar .seg { margin: 0; }
 .pbar .seg button { padding-block: calc(var(--lpy) * .3); font-size: 12.5px; }
@@ -164,7 +165,7 @@ html.phone .pbases, html.phone .pbits { min-height: 92px; justify-content: cente
 html.phone .pbit { line-height: 1.45; }
 
 /* a computer: the bit keys and hex digits beside the number pad */
-html:not(.phone) .calc.prog { max-width: 900px; }
+html:not(.phone) .calc.prog { max-width: 56.25rem; }
 html:not(.phone) .calc.prog .cpad { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: calc(var(--kg) * 2); align-items: end; }
 html:not(.phone) .calc.prog .fkeys, html:not(.phone) .calc.prog .hexk { grid-auto-rows: minmax(var(--kh), auto); }
 @media (max-width: 760px) { html:not(.phone) .calc.prog .cpad { display: flex; } }

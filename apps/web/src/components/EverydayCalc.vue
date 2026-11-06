@@ -135,7 +135,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
 
     <div v-if="st.tab === 'percent'" class="egrid">
       <div class="card ecard">
-        <h3 class="eh">Percent of a number</h3>
+        <h3 class="eh" role="heading" aria-level="2">Percent of a number</h3>
         <div class="epair">
           <div class="fld"><label for="e-ofx">Percent</label><input id="e-ofx" v-model="st.ofX" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="15" /></div>
           <div class="fld"><label for="e-ofy">Of</label><input id="e-ofy" v-model="st.ofY" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="80" /></div>
@@ -147,7 +147,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
         </template>
       </div>
       <div class="card ecard">
-        <h3 class="eh">What percent is it</h3>
+        <h3 class="eh" role="heading" aria-level="2">What percent is it</h3>
         <div class="epair">
           <div class="fld"><label for="e-whx">Number</label><input id="e-whx" v-model="st.whatX" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="30" /></div>
           <div class="fld"><label for="e-why">Of</label><input id="e-why" v-model="st.whatY" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="120" /></div>
@@ -159,7 +159,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
         </template>
       </div>
       <div class="card ecard">
-        <h3 class="eh">Percent change</h3>
+        <h3 class="eh" role="heading" aria-level="2">Percent change</h3>
         <div class="epair">
           <div class="fld"><label for="e-cha">From</label><input id="e-cha" v-model="st.chA" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="80" /></div>
           <div class="fld"><label for="e-chb">To</label><input id="e-chb" v-model="st.chB" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="100" /></div>
@@ -171,8 +171,8 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
         </template>
       </div>
       <div class="card ecard">
-        <h3 class="eh">Add or take away a percent</h3>
-        <div class="seg sm eseg2"><button type="button" :class="{ on: !st.pmSub }" @click="st.pmSub = false">Plus</button><button type="button" :class="{ on: st.pmSub }" @click="st.pmSub = true">Minus</button></div>
+        <h3 class="eh" role="heading" aria-level="2">Add or take away a percent</h3>
+        <div class="seg sm eseg2"><button type="button" :class="{ on: !st.pmSub }" :aria-pressed="!st.pmSub" @click="st.pmSub = false">Plus</button><button type="button" :class="{ on: st.pmSub }" :aria-pressed="st.pmSub" @click="st.pmSub = true">Minus</button></div>
         <div class="epair">
           <div class="fld"><label for="e-pma">Number</label><input id="e-pma" v-model="st.pmA" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="200" /></div>
           <div class="fld"><label for="e-pmx">Percent</label><input id="e-pmx" v-model="st.pmX" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="15" /></div>
@@ -210,7 +210,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
         <div class="fld"><label for="e-bill">Bill</label><input id="e-bill" v-model="st.bill" class="num" type="text" inputmode="decimal" autocomplete="off" :placeholder="ph" /></div>
         <div class="fld">
           <label for="e-tip">Tip %</label>
-          <div class="seg sm eseg2" role="group" aria-label="Quick tip"><button v-for="t in TIPS" :key="t" type="button" :class="{ on: st.tip.trim() === t }" @click="st.tip = t">{{ t }}%</button></div>
+          <div class="seg sm eseg2" role="group" aria-label="Quick tip"><button v-for="t in TIPS" :key="t" type="button" :class="{ on: st.tip.trim() === t }" :aria-pressed="st.tip.trim() === t" @click="st.tip = t">{{ t }}%</button></div>
           <input id="e-tip" v-model="st.tip" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="Other" />
         </div>
         <div class="fld"><label for="e-people">People</label><input id="e-people" v-model="st.people" class="num" type="text" inputmode="numeric" autocomplete="off" placeholder="1" /></div>
@@ -232,7 +232,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
 
     <div v-else class="egrid">
       <div class="card ecard">
-        <div class="seg sm eseg2"><button type="button" :class="{ on: !st.vatRemove }" @click="st.vatRemove = false">Add VAT</button><button type="button" :class="{ on: st.vatRemove }" @click="st.vatRemove = true">Remove VAT</button></div>
+        <div class="seg sm eseg2"><button type="button" :class="{ on: !st.vatRemove }" :aria-pressed="!st.vatRemove" @click="st.vatRemove = false">Add VAT</button><button type="button" :class="{ on: st.vatRemove }" :aria-pressed="st.vatRemove" @click="st.vatRemove = true">Remove VAT</button></div>
         <div class="fld"><label for="e-amount">{{ st.vatRemove ? "Amount with VAT" : "Amount without VAT" }}</label><input id="e-amount" v-model="st.amount" class="num" type="text" inputmode="decimal" autocomplete="off" :placeholder="ph" /></div>
         <div class="fld"><label for="e-rate">VAT rate %</label><input id="e-rate" v-model="st.rate" class="num" type="text" inputmode="decimal" autocomplete="off" placeholder="20" /></div>
         <div class="enote">The rate is remembered for next time.</div>

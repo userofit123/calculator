@@ -145,7 +145,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
       <section class="cvall">
         <div class="sh first"><h2>All units</h2><span v-if="isCurrency" class="cvsrc">{{ ratesLine }}</span></div>
         <div class="card flush">
-          <button v-for="r in all" :key="r.unit.id" type="button" class="li click lib cvli" :class="{ on: r.unit.id === to, cur: r.unit.id === from }" @click="pickTo(r.unit)">
+          <button v-for="r in all" :key="r.unit.id" type="button" class="li click lib cvli" :class="{ on: r.unit.id === to, cur: r.unit.id === from }" :aria-pressed="r.unit.id === to" @click="pickTo(r.unit)">
             <span class="cvsym">{{ label(r.unit) }}</span>
             <span class="grow"><span class="t">{{ r.unit.name }}</span><span v-if="r.unit.hint" class="s">{{ r.unit.hint }}</span></span>
             <span class="cvv">{{ "value" in r.result ? show(r.result.value) : r.result.error }}</span>
@@ -185,7 +185,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
 .cvli .t { font-size: var(--fs); }
 .cvli .s { font-size: var(--fs-xs); color: var(--tx2); }
 .cvsym { flex: none; min-width: 4.2em; font-size: var(--fs-sm); color: var(--tx2); }
-.cvv { flex: none; max-width: 55%; text-align: end; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cvv { flex: 0 1 auto; min-width: 0; max-width: 55%; text-align: end; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .cvli.on .cvv, .cvli.on .t { color: var(--acc); font-weight: 600; }
 .cvli.cur .cvsym { color: var(--acc); }
 .cvnone { color: var(--tx2); }

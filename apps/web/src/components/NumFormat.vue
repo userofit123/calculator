@@ -55,13 +55,15 @@ onBeforeUnmount(() => close(false));
     type="button" class="cflag" :title="`Number format: ${fmt.label}. Click for the next one; right-click or long-press for all`"
     :aria-label="`Number format ${fmt.label}, next`" @click="cycleFormat" @contextmenu.prevent="show"
   >{{ fmt.short }}</button>
-  <button ref="chip" type="button" class="cflag" title="Number format and decimal places" aria-haspopup="dialog" :aria-expanded="open" @click.stop="show">{{ settings.decimals }} dp</button>
+  <button ref="chip" type="button" class="cflag" title="Number format and decimal places" :aria-label="`${settings.decimals} decimal places. Number format and decimal places`" aria-haspopup="dialog" :aria-expanded="open" @click.stop="show">{{ settings.decimals }} dp</button>
   <span class="cnote" :title="note">{{ note }}</span>
   <Teleport to="body">
     <div v-if="open" ref="el" class="mnu nfpop" role="dialog" aria-label="Number format" :style="{ top: pos.top + 'px', left: pos.left + 'px' }">
-      <button v-for="f in FORMATS" :key="f.id" type="button" role="menuitemradio" :aria-checked="settings.format === f.id" :class="{ on: settings.format === f.id }" @click="settings.format = f.id">
-        <span class="mh"><span>{{ f.label }}</span><small>{{ f.hint }}</small></span><Icon v-if="settings.format === f.id" name="check" :size="16" class="mck" />
-      </button>
+      <div role="radiogroup" aria-label="Number format" class="nfgrp">
+        <button v-for="f in FORMATS" :key="f.id" type="button" role="radio" :aria-checked="settings.format === f.id" :class="{ on: settings.format === f.id }" @click="settings.format = f.id">
+          <span class="mh"><span>{{ f.label }}</span><small>{{ f.hint }}</small></span><Icon v-if="settings.format === f.id" name="check" :size="16" class="mck" />
+        </button>
+      </div>
       <hr />
       <div class="nfstep">
         <span class="grow">Decimal places</span>

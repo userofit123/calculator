@@ -17,6 +17,7 @@ import Icon from "../components/Icon.vue";
 import ProgPad from "../components/ProgPad.vue";
 import KeyboardCalc from "../components/KeyboardCalc.vue";
 import NumFormat from "../components/NumFormat.vue";
+import { speak } from "../core/speak";
 
 // a first-ever open picks its mode before the first paint: Keyboard on a computer with no touch screen, else Basic
 chooseStartMode(isPhone.value);
@@ -46,14 +47,21 @@ const MEM = [{ k: "MC", aria: "Clear memory" }, { k: "MR", aria: "Recall memory"
 // The function pad: label and key on the normal layer, and on the 2nd layer (inverse functions) where different.
 // Trig keys also follow hyp. The 5×4 grid is the same on the phone and a computer.
 interface FKey { k: string; label: string; aria: string; k2?: string; label2?: string; aria2?: string; on?: boolean }
+const TRIG: Record<string, string> = { sin: "sine", cos: "cosine", tan: "tangent" };
 const trig = (f: string): FKey => {
-  const h = calc.hyp ? "h" : "";
-  return { k: `fn:${calc.second ? "a" : ""}${f}${h}(`, label: `${f}${h}${calc.second ? "⁻¹" : ""}`, aria: `${calc.second ? "Inverse " : ""}${calc.hyp ? "hyperbolic " : ""}${f}` };
+  const h = calc.hyp ? "h" : "", name = `${calc.second ? "inverse " : ""}${calc.hyp ? "hyperbolic " : ""}${TRIG[f]}`;
+  return { k: `fn:${calc.second ? "a" : ""}${f}${h}(`, label: `${f}${h}${calc.second ? "⁻¹" : ""}`, aria: name[0]!.toUpperCase() + name.slice(1) };
 };
 const angleLabel = computed(() => ANGLES.find((a) => a.id === settings.angle)!.label);
+// the angle chip and key say what they switch to: "Degrees. Switch to radians"
+const ANGLE_NAMES: Record<string, string> = { deg: "degrees", rad: "radians", grad: "gradians" };
+const angleAria = computed(() => {
+  const i = ANGLES.findIndex((a) => a.id === settings.angle), next = ANGLES[(i + 1) % ANGLES.length]!.id;
+  return `Angle in ${ANGLE_NAMES[settings.angle]}. Switch to ${ANGLE_NAMES[next]}`;
+});
 const FKEYS = computed<FKey[]>(() => [
   { k: "2nd", label: "2nd", aria: "Second functions", on: calc.second }, { k: "hyp", label: "hyp", aria: "Hyperbolic", on: calc.hyp },
-  { k: "angle", label: angleLabel.value, aria: "Angle unit" }, { k: "(", label: "(", aria: "Open bracket" }, { k: ")", label: ")", aria: "Close bracket" },
+  { k: "angle", label: angleLabel.value, aria: angleAria.value }, { k: "(", label: "(", aria: "Open bracket" }, { k: ")", label: ")", aria: "Close bracket" },
   trig("sin"), trig("cos"), trig("tan"),
   { k: "fn:ln(", label: "ln", aria: "Natural logarithm", k2: "fn:e^", label2: "eˣ", aria2: "e to the power" },
   { k: "fn:log(", label: "log", aria: "Logarithm", k2: "fn:10^", label2: "10ˣ", aria2: "10 to the power" },
@@ -61,7 +69,7 @@ const FKEYS = computed<FKey[]>(() => [
   { k: "op:^", label: "xʸ", aria: "Power", k2: "nroot", label2: "ⁿ√x", aria2: "Nth root" },
   { k: "fn:√", label: "√x", aria: "Square root", k2: "fn:∛", label2: "∛x", aria2: "Cube root" },
   { k: "op:⁻¹", label: "x⁻¹", aria: "Reciprocal" },
-  { k: "fn:π", label: "π", aria: "Pi", k2: "fn:e", label2: "e", aria2: "e" },
+  { k: "fn:π", label: "π", aria: "Pi", k2: "fn:e", label2: "e", aria2: "Euler's number e" },
   { k: "!", label: "n!", aria: "Factorial" }, { k: "op: mod ", label: "mod", aria: "Modulo" }, { k: "fn:abs(", label: "|x|", aria: "Absolute value" },
   { k: "fn:ans", label: "ans", aria: "Last answer" }, { k: "op:×10^", label: "×10ʸ", aria: "Times ten to the power (Ctrl+E)" },
 ].map((f: FKey) => (calc.second && f.k2 ? { ...f, k: f.k2, label: f.label2!, aria: f.aria2! } : f)));
@@ -88,6 +96,18 @@ const note = computed(() => (calc.answer && !calc.error && !progMode.value ? [an
 const big = computed(() => calc.error || show(calc.answer ? withUnit(calc.answer, calc.unit) : pv.value) || (calc.expr ? "" : "0"));
 // long answers get smaller instead of running off the edge
 const size = computed(() => { const n = big.value.length; return n > 18 ? "xs" : n > 13 ? "s" : n > 9 ? "m" : ""; });
+
+// For a screen reader: the sum in words, and the answer (or error) announced once = is pressed, not every key's preview.
+// The same answer twice in a row is announced again (the region is emptied first).
+const said = computed(() => speak(show(calc.expr)));
+const bigSaid = computed(() => (calc.error ? calc.error : speak(big.value)));
+const announce = ref("");
+watch(() => [calc.answer, calc.error, calc.unit] as const, ([a, e]) => {
+  announce.value = "";
+  if (!a && !e) return;
+  const t = e ? `Error: ${e}` : `Equals ${speak(show(withUnit(a, calc.unit)))}`;
+  setTimeout(() => { announce.value = t; }, 60);
+});
 
 // the end of a long expression stays in view
 const exprEl = ref<HTMLElement | null>(null);
@@ -146,6 +166,8 @@ async function copyAnswer() {
 
 <template>
   <div class="page calc" :class="{ phone: isPhone, adv, prog: progMode, fin, dmode: dateMode, kbd }">
+    <h1 class="sr">Calculator</h1>
+    <div class="sr" aria-live="polite" aria-atomic="true">{{ announce }}</div>
     <div class="calc-top">
       <Menu :items="modeItems" :text="modeLabel" label="Calculator mode" align="start" />
       <button v-if="adv || kbd" type="button" class="cvars" @click="varsOpen = true">Variables</button>
@@ -153,16 +175,17 @@ async function copyAnswer() {
     <EverydayCalc v-if="calc.mode === 'everyday'" />
     <DateCalc v-else-if="dateMode" />
     <KeyboardCalc v-else-if="kbd" />
-    <div v-else class="cdisp" aria-live="polite">
+    <div v-else class="cdisp" role="group" aria-label="Display">
       <div class="cbar">
-        <button v-if="adv" type="button" class="cflag" title="Angle unit" @click="fkey('angle')">{{ angleLabel }}</button>
-        <span v-if="calc.mem" class="cflag" title="Memory in use">M</span>
+        <button v-if="adv" type="button" class="cflag" title="Angle unit" :aria-label="angleAria" @click="fkey('angle')">{{ angleLabel }}</button>
+        <span v-if="calc.mem" class="cflag" title="Memory in use"><span aria-hidden="true">M</span><span class="sr">Memory in use</span></span>
         <NumFormat v-if="!progMode" :note="note" />
         <span v-else class="grow" />
-        <button type="button" class="ib sm plain" aria-label="Delete" :disabled="!calc.expr" @click="tap('⌫')"><Icon name="backspace" /></button>
+        <button type="button" class="ib sm plain" aria-label="Backspace" :disabled="!calc.expr" @click="tap('⌫')"><Icon name="backspace" /></button>
       </div>
-      <div ref="exprEl" class="cexp num" :title="show(calc.expr)">{{ show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></div>
-      <button type="button" class="cres num" :class="[size, { pre: !calc.answer && !calc.error && !!pv, err: !!calc.error }]" title="Copy" @click="copyAnswer">{{ big }}</button>
+      <div ref="exprEl" class="cexp num" :title="show(calc.expr)"><span aria-hidden="true">{{ show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></span><span v-if="said" class="sr">{{ said }}</span></div>
+      <button type="button" class="cres num" :class="[size, { pre: !calc.answer && !calc.error && !!pv, err: !!calc.error }]" title="Copy"
+        :aria-label="`${calc.error ? '' : calc.answer ? 'Answer ' : pv ? 'Preview ' : ''}${bigSaid}. Copy`" @click="copyAnswer">{{ big }}</button>
     </div>
     <template v-if="dateMode || kbd" />
     <ProgPad v-else-if="progMode" :hit="hit" :clear="clearKey" @tap="tap" />

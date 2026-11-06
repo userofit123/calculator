@@ -22,7 +22,7 @@ function open() {
     <button v-if="phone" type="button" class="updrow" @click="open">
       <Icon name="download" :size="18" /><span class="grow">{{ upd.ready ? `Version ${upd.latest} is ready to install` : `Version ${upd.latest} is available` }}</span><b>Update</b>
     </button>
-    <button v-else type="button" class="nb upd" :title="`Version ${upd.latest} is available`" @click="open">
+    <button v-else type="button" class="nb upd" :title="`Version ${upd.latest} is available`" :aria-label="`Update: version ${upd.latest} is available`" @click="open">
       <span class="ic"><Icon name="download" :size="22" /></span>Update
     </button>
   </template>

@@ -134,7 +134,9 @@ button.li.lib { width: 100%; border: 0; background: none; text-align: start; fon
 .sht.full { width: min(1100px, 100%); height: calc(100vh - 48px - var(--st) - var(--sb)); }
 /* a sheet's sides follow the density like a card's (a little wider on a computer), so its content lines up with cards in it */
 .sht .sh_h { display: flex; align-items: center; gap: 10px; padding: 16px calc(var(--cpx) + 2px) 12px calc(var(--cpx) + 6px); flex: none; }
-.sht .sh_h b { font-size: 17px; font-weight: 600; flex: 1; letter-spacing: -.2px; }
+.sht .sh_h b, .sht .sh_h .sh_t { font-size: 17px; font-weight: 600; flex: 1; letter-spacing: -.2px; }
+.sht .sh_h .sh_t { margin: 0; color: var(--tx); text-transform: none; display: block; } /* the title is a heading for screen readers, styled as before */
+.sht:focus { outline: none; } /* focused only to carry the keyboard into the sheet; its controls show the ring */
 .sht .sh_b { padding: 4px calc(var(--cpx) + 6px) calc(var(--cpy) + 3px); overflow: auto; overscroll-behavior: contain; flex: 1; min-height: 0; }
 .sht .sh_f { padding: 12px calc(var(--cpx) + 6px) calc(16px + var(--sb)); border-top: 1px solid var(--ol); display: flex; gap: 10px; justify-content: flex-end; flex: none; }
 @keyframes su { from { transform: translateY(16px); opacity: 0; } }

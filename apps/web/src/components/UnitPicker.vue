@@ -48,12 +48,12 @@ function btnKey(e: KeyboardEvent) {
 </script>
 
 <template>
-  <button ref="btn" type="button" class="fpick upk" role="combobox" aria-haspopup="listbox" :aria-expanded="open" :aria-label="title" @click="open ? close() : show()" @keydown="btnKey">
+  <button ref="btn" type="button" class="fpick upk" role="combobox" aria-haspopup="listbox" :aria-expanded="open" :aria-label="cur ? `${title}: ${cur.label}` : title" @click="open ? close() : show()" @keydown="btnKey">
     <span class="v"><span v-if="cur?.lead" class="ld">{{ cur.lead }}</span>{{ cur?.label ?? "" }}</span><Icon name="down" :size="16" />
   </button>
   <PickerPop v-if="open" :anchor="btn" :title="title" @close="close(false)">
     <div class="upf">
-      <input ref="field" v-model="find" type="search" :placeholder="`Search ${title.toLowerCase()}`" autocomplete="off" spellcheck="false" enterkeyhint="done"
+      <input ref="field" v-model="find" type="search" :placeholder="`Search ${title.toLowerCase()}`" :aria-label="`Search ${title.toLowerCase()}`" autocomplete="off" spellcheck="false" enterkeyhint="done"
         role="searchbox" :aria-controls="`${id}-l`" :aria-activedescendant="shown.length ? `${id}-${hi}` : undefined" @keydown="key" />
     </div>
     <div :id="`${id}-l`" class="asl upl" role="listbox">

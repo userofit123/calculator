@@ -17,6 +17,7 @@ import NumFormat from "./NumFormat.vue";
 import { history, histPrefs } from "../core/history";
 import { freshRecall, recallLines, recallStep, pushCapped, pageKeyTarget } from "../core/keyboard";
 import { isPhone } from "../core/device";
+import { speak } from "../core/speak";
 
 const inp = ref<HTMLInputElement | null>(null);
 const listEl = ref<HTMLElement | null>(null);
@@ -36,6 +37,11 @@ const pv = computed(() => linePreview(line.value));
 // (a unit conversion's answer keeps its unit: "8.04672 km")
 const answers = computed(() => items.value.map((h) => (h.x ? withUnit(valueText(h.x), h.u) : h.r)));
 const angleLabel = computed(() => ANGLES.find((a) => a.id === settings.angle)!.label);
+const ANGLE_NAMES: Record<string, string> = { deg: "degrees", rad: "radians", grad: "gradians" };
+const angleAria = computed(() => { const i = ANGLES.findIndex((a) => a.id === settings.angle); return `Angle in ${ANGLE_NAMES[settings.angle]}. Switch to ${ANGLE_NAMES[ANGLES[(i + 1) % ANGLES.length]!.id]}`; });
+// a screen reader hears the answer once Enter works the line out (or why it couldn't), not every key's preview
+const announce = ref("");
+const say = (t: string) => { announce.value = ""; setTimeout(() => { announce.value = t; }, 60); };
 function nextAngle() { const i = ANGLES.findIndex((a) => a.id === settings.angle); settings.angle = ANGLES[(i + 1) % ANGLES.length]!.id; }
 
 const toBottom = () => nextTick(() => { if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight; });
@@ -81,8 +87,9 @@ function onKey(e: KeyboardEvent) {
   if (e.key === "Enter") {
     e.preventDefault();
     const er = enterLine(line.value);
-    if (er) { err.value = er; return; }
+    if (er) { err.value = er; say(`Error: ${er}`); return; }
     if (!line.value.trim()) return;
+    say(`${speak(show(calc.expr))} equals ${speak(show(withUnit(calc.answer, calc.unit)))}`);
     if (!histPrefs.keep) pushCapped(session, { id: ++sessionId, e: calc.expr, r: withUnit(calc.answer, calc.unit), x: calc.ans, u: calc.unit || undefined }, 200);
     synced = calc.expr;
     line.value = ""; err.value = ""; rc = freshRecall(); toBottom();
@@ -124,15 +131,15 @@ onBeforeUnmount(() => { removeEventListener("keydown", onPageKey); document.remo
   <div ref="root" class="kcalc">
     <ol ref="listEl" class="klist" aria-label="Earlier lines">
       <li v-for="(h, i) in items" :key="'id' in h ? h.id : h.t" class="krow">
-        <button type="button" class="kexp num" title="Type in this sum" @click="useExpr(h.e)">{{ show(h.e) }}</button>
-        <button type="button" class="kres num" title="Type in this answer" @click="useAnswer(h.x)">= {{ show(answers[i] ?? h.r) }}</button>
+        <button type="button" class="kexp num" title="Type in this sum" :aria-label="`${speak(show(h.e))}. Type in this sum`" @click="useExpr(h.e)">{{ show(h.e) }}</button>
+        <button type="button" class="kres num" title="Type in this answer" :aria-label="`Equals ${speak(show(answers[i] ?? h.r))}. Type in this answer`" @click="useAnswer(h.x)">= {{ show(answers[i] ?? h.r) }}</button>
       </li>
       <li v-if="!items.length" class="kempty">Type a sum below and press Enter. ArrowUp brings back earlier lines.</li>
     </ol>
     <div class="kline">
       <div class="cbar">
-        <button type="button" class="cflag" title="Angle unit" @click="nextAngle">{{ angleLabel }}</button>
-        <span v-if="calc.mem" class="cflag" title="Memory in use">M</span>
+        <button type="button" class="cflag" title="Angle unit" :aria-label="angleAria" @click="nextAngle">{{ angleLabel }}</button>
+        <span v-if="calc.mem" class="cflag" title="Memory in use"><span aria-hidden="true">M</span><span class="sr">Memory in use</span></span>
         <NumFormat :note="calc.answer ? [answerNote(calc.ans), calc.note].filter(Boolean).join(' · ') : ''" />
         <span v-if="calc.ans" class="kans" title="The last answer, as ans">ans = {{ show(valueText(calc.ans)) }}</span>
       </div>
@@ -141,7 +148,8 @@ onBeforeUnmount(() => { removeEventListener("keydown", onPageKey); document.remo
         autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Sum to work out" placeholder="2 × (3 + 4)"
         @input="onInput" @keydown="onKey"
       />
-      <div class="kpre num" :class="{ err: !!err }" aria-live="polite">{{ err || (pv ? "= " + show(pv) : "") }}</div>
+      <div class="kpre num" :class="{ err: !!err }">{{ err || (pv ? "= " + show(pv) : "") }}</div>
+      <div class="sr" aria-live="polite" aria-atomic="true">{{ announce }}</div>
     </div>
   </div>
 </template>

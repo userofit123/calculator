@@ -3,13 +3,17 @@
    the key press feedback. On the phone the keypad fills the space between the display and the tabs. */
 
 /* key size and gaps per density (Cozy is the default) */
-html { --kh: 58px; --kg: 10px; --kfs: 24px; --kr: var(--r-md); }
-html[data-den="compact"] { --kh: 48px; --kg: 6px; --kfs: 21px; }
-html[data-den="roomy"] { --kh: 68px; --kg: 14px; --kfs: 27px; }
+/* heights and label sizes in rem (the same as 58px / 24px at the browser's usual 16px), so a larger text setting in the
+   browser grows the keys with their labels instead of overfilling them */
+html { --kh: 3.625rem; --kg: 10px; --kfs: 1.5rem; --kr: var(--r-md); }
+html[data-den="compact"] { --kh: 3rem; --kg: 6px; --kfs: 1.3125rem; }
+html[data-den="roomy"] { --kh: 4.25rem; --kg: 14px; --kfs: 1.6875rem; }
 html[data-ksh="round"] { --kr: 999px; }
 
-.calc { display: flex; flex-direction: column; gap: var(--hg); max-width: 460px; }
-.calc-top { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
+/* widths in rem (460px at the usual text size): larger text widens the calculator with its labels */
+.calc { display: flex; flex-direction: column; gap: var(--hg); max-width: 28.75rem; }
+.calc-top { flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; row-gap: 4px; min-height: 36px; }
+.cflag { white-space: nowrap; }
 
 /* the mode switch: a quiet button with the mode's name, like the GNOME calculator's mode menu */
 .mnub { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--tx); font-size: 17px; font-weight: 600; letter-spacing: -.2px; padding: 6px 8px 6px 10px; margin-inline-start: -10px; border-radius: var(--pill); cursor: pointer; transition: background .2s; }
@@ -66,6 +70,12 @@ button.cflag:hover { color: var(--acc); }
 html:not([data-kfb="glow"]):not([data-kfb="none"]) .key:is(:active, .hit) { transform: scale(.93); }
 html[data-kfb="glow"] .key:is(:active, .hit) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 45%, transparent); background: color-mix(in srgb, var(--acc) 34%, var(--bg)); color: var(--tx); }
 html[data-kfb="glow"] .k-eq:is(:active, .hit) { background: linear-gradient(135deg, var(--acc2), var(--acc)); color: var(--on); }
+/* reduced motion: a key that is pressed lights up (a colour change, no movement) instead of shrinking */
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-kfb="none"]) .key:is(:active, .hit) { transform: none; background: color-mix(in srgb, var(--acc) 30%, var(--bg)); }
+  html:not([data-kfb="none"]) .k-eq:is(:active, .hit) { background: linear-gradient(135deg, var(--acc2), var(--acc)); }
+  .btn:active, .ib:active, .btn:active:not(:disabled) { transform: none; }
+}
 
 /* surfaces (Appearance > Style > Surface) reach the display and the keys like the cards */
 body.outline .cdisp { background: none; }
@@ -92,7 +102,7 @@ html.phone .fkeys { grid-auto-rows: minmax(calc(var(--kh) * .62), auto); }
 /* a computer: the calculator sits in the middle of the page */
 html:not(.phone) .calc { margin: 0 auto; padding-top: 4vh; }
 /* Advanced on a computer: the function pad beside the keypad, so nothing scrolls */
-html:not(.phone) .calc.adv { max-width: 900px; }
+html:not(.phone) .calc.adv { max-width: 56.25rem; }
 html:not(.phone) .calc.adv .cpad { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: calc(var(--kg) * 2); align-items: end; }
 html:not(.phone) .calc.adv .fkeys { grid-auto-rows: minmax(var(--kh), auto); }
 @media (max-width: 760px) { html:not(.phone) .calc.adv .cpad { display: flex; } }
@@ -145,12 +155,12 @@ html.phone .card .li:has(> .seg, > .fpick) > :is(.seg, .fpick) { margin-inline-s
 .kline .cbar { margin-bottom: 0; min-height: 24px; }
 .kans { font-size: var(--fs-sm); color: var(--tx2); margin-inline-start: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
 .kline .kin, .kline .kin:focus { width: 100%; min-width: 0; border: 0; outline: none; background: none; padding: 0; font-family: inherit; font-size: 30px; font-weight: 500; color: var(--tx); caret-color: var(--acc); box-shadow: none; } /* the box around it shows the focus */
-.kin::placeholder { color: var(--tx2); opacity: .5; }
+.kin::placeholder { color: var(--tx2); opacity: .8; } /* readable (AA) hint text, still quieter than what is typed */
 .kpre { min-height: 1.4em; font-size: 20px; color: var(--tx2); text-align: end; overflow-wrap: anywhere; }
 .kpre.err { color: var(--neg); font-size: 16px; }
 body.outline .klist, body.outline .kline { background: none; }
 body.glass .klist, body.glass .kline { background: color-mix(in srgb, var(--s2) calc(var(--gop) * 100%), transparent); backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); -webkit-backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); }
-html:not(.phone) .calc.kbd { max-width: 720px; }
+html:not(.phone) .calc.kbd { max-width: 45rem; }
 html.phone .calc.kbd { min-height: 320px; }
 html.phone .klist { flex: 1 1 auto; height: auto; min-height: 0; }
 html.phone .kline .kin, html.phone .kline .kin:focus { font-size: 24px; }
