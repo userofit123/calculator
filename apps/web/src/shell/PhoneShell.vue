@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // The phone layout (Motus's): the page under the status bar, and the tabs in a blurred dock above the navigation bar.
-// Moving between tabs slides towards the tab chosen; a sideways swipe on a page's empty space goes to the next tab.
+// Moving between tabs slides towards the tab chosen; a sideways swipe on a page's empty space goes to the next tab
+// (never one that starts in something scrolling sideways).
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { canMove, dur } from "../core/motion";
 import { NAV, PAGES, page, go } from "./nav";
@@ -40,12 +41,21 @@ onMounted(() => {
 });
 onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(); });
 
+/** Whether the touch starts in something that scrolls sideways (the converter's category chips, a wide table...):
+ *  a sideways swipe there scrolls it and must not also change the page. Checked from the target up to the shell. */
+function inSideScroller(el: Element | null, shell: Element): boolean {
+  for (; el && el !== shell; el = el.parentElement) {
+    if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+  }
+  return false;
+}
 let x0 = 0, y0 = 0, t0 = 0, ok = false;
 function ts(e: TouchEvent) {
   const t = e.touches[0]!;
   x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
   ok = e.touches.length === 1 && !sheetIsOpen()
     && !(e.target as HTMLElement).closest(".dock, .keys, .cdisp, input, textarea, select, .seg, .tabs, [data-noswipe]")
+    && !inSideScroller(e.target as Element, e.currentTarget as Element)
     && x0 > 24 && x0 < innerWidth - 24; // the screen edges belong to the phone's own back gesture
 }
 function te(e: TouchEvent) {

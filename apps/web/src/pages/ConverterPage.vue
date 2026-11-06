@@ -6,7 +6,7 @@
 // @calc/core; this page is loaded only when opened, so none of it holds up the calculator's first screen. The last
 // category, units and amount are remembered on this device.
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
-import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, sourceDayOf, shortDay, RATE_SOURCES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
+import { UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, sourceDayOf, shortDay, RATE_SOURCES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
 import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
 import { readJson, writeJson } from "../core/prefs";
@@ -70,10 +70,13 @@ const catName = (c: Category) => tMaybe("conv.cat." + c.id, c.name);
 const name = (u: Unit) => (isCurrency.value ? currencyName(u.id, u.name) : unitName(u.id, u.name));
 
 // the same engine and options as the calculator (its variables and ans too); money to at most 4 decimals
-const evalOptions = computed<EvalOptions>(() => ({
+const fullOptions = computed<EvalOptions>(() => ({
   decimals: isCurrency.value ? Math.min(settings.decimals, 4) : settings.decimals, format: settings.format, angle: settings.angle,
   variables: calc.vars, ans: calc.ans, maxBits: 110_000,
 }));
+// units are shown to CONVERT_DIGITS significant digits (2204.622622 lb, not 2204.6226218488), copying gives the full
+// value; money keeps its cents however large the amount, so currencies stay at their 4 decimals
+const evalOptions = computed<EvalOptions>(() => (isCurrency.value ? fullOptions.value : { ...fullOptions.value, significant: CONVERT_DIGITS }));
 const typed = computed(() => sanitizeInput(st.amount, settings.decimalMark));
 const result = computed(() => (noRate.value.length ? { error: t("msg.noRate", { x: noRate.value.join(lang.value === "he" ? ", " : " and ") }) } : typed.value ? convert(cat.value, from.value, to.value, typed.value, evalOptions.value) : null));
 const all = computed(() => {
@@ -82,6 +85,8 @@ const all = computed(() => {
   return Array.isArray(r) ? r : [];
 });
 const text = (r: { value: string } | { error: string } | null) => (r && "value" in r ? show(r.value) : "");
+/** the result to all the decimals chosen in Settings: what Copy gives, and the result's tooltip when it is longer */
+const full = computed(() => (result.value && "value" in result.value ? text(convert(cat.value, from.value, to.value, typed.value, fullOptions.value)) : ""));
 /** core's errors are English; the "No rate for" one above is already in the language shown (tMsg leaves it be) */
 const errText = computed(() => (result.value && "error" in result.value ? (noRate.value.length ? result.value.error : tMsg(result.value.error)) : ""));
 const label = (u: Unit) => u.symbol;
@@ -163,19 +168,20 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
               enterkeyhint="done" :aria-label="t('conv.amountIn', { unit: name(unit(from)) })" :placeholder="t('conv.amount')" />
             <div class="cvu"><UnitPicker v-model="from" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
           </div>
+          <!-- the "To" label shares the swap button's row, so the button sits halfway between the two fields -->
           <div class="cvsw">
+            <span class="cvl">{{ t("c.to") }}</span>
             <button type="button" class="ib" :title="t('conv.swap')" :aria-label="t('conv.swap')" @click="swap(); play(($event.currentTarget as HTMLElement).firstElementChild, 'spin')"><Icon name="convert" /></button>
           </div>
-          <span class="cvl">{{ t("c.to") }}</span>
           <div class="cvrow">
-            <output v-swap:tick="errText || text(result)" class="cvout" :class="errText ? 'err' : 'num'" for="cv-amount" aria-live="polite">
+            <output v-swap:tick="errText || text(result)" class="cvout" :class="errText ? 'err' : 'num'" for="cv-amount" aria-live="polite" :title="full !== text(result) ? full : undefined">
               {{ errText || text(result) || "0" }}
             </output>
             <div class="cvu"><UnitPicker v-model="to" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
           </div>
           <div class="cvact">
             <span class="cvsum num">{{ text(result) ? `${show(typed)} ${label(unit(from))} = ${text(result)} ${label(unit(to))}` : "" }}</span>
-            <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" :disabled="!text(result)" @click="copy(text(result))">
+            <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" :disabled="!text(result)" @click="copy(full || text(result))">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
             </button>
           </div>
@@ -185,7 +191,10 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
             <div v-for="n in unreachedNotes" :key="n" class="s">{{ n }}</div>
             <div class="s">
               <span>{{ ratesState }}</span>
-              <button v-if="rates.online" type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">{{ t("conv.refresh") }}</button><span v-if="rates.loading" class="spin" aria-hidden="true" />
+              <!-- one v-if / v-else pair: a v-else after the spinner's v-if would belong to the spinner and show "off" while on -->
+              <template v-if="rates.online">
+                <button type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">{{ t("conv.refresh") }}</button><span v-if="rates.loading" class="spin" aria-hidden="true" />
+              </template>
               <button v-else type="button" class="lnk" @click="go('settings')">{{ t("conv.onlineOff") }}</button>
             </div>
           </div>
@@ -218,7 +227,8 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
 .cvin { width: 100%; font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
 .cvout { display: block; min-width: 0; font-size: var(--fs-val); font-weight: 600; line-height: 1.2; color: var(--acc); overflow-wrap: anywhere; user-select: text; font-variant-numeric: tabular-nums; }
 .cvout.err { font-size: var(--fs); font-weight: 400; color: var(--neg); }
-.cvsw { display: flex; justify-content: center; }
+.cvsw { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; }
+.cvsw .cvl { align-self: end; }
 .cvsw .ib :deep(svg) { transform: rotate(90deg); }
 .cvact { display: flex; align-items: center; gap: var(--hg); }
 .cvsum { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--tx2); overflow-wrap: anywhere; }
@@ -228,7 +238,10 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
 .cvrates .s { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-sm); color: var(--tx2); }
 .lnk { font: inherit; background: none; border: 0; padding: 0; color: var(--acc); cursor: pointer; text-decoration: underline; }
 .lnk:disabled { opacity: .5; cursor: default; }
-.cvsrc { font-size: var(--fs-xs); color: var(--tx2); text-align: end; }
+/* "All units" stays on one line; the rates line beside it takes what is left and wraps in itself when narrow */
+.cvall .sh { gap: var(--hg); }
+.cvall .sh h2 { flex: none; white-space: nowrap; }
+.cvsrc { flex: 0 1 auto; min-width: 0; font-size: var(--fs-xs); line-height: 1.3; color: var(--tx2); text-align: end; }
 .cvli { gap: 12px; }
 .cvli .grow { display: flex; flex-direction: column; }
 .cvli .t { font-size: var(--fs); }

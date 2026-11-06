@@ -56,6 +56,9 @@ export interface FormatOptions {
   decimals?: number;
   /** auto: plain, switching to ×10ⁿ for very large or small numbers; fixed: always plain; sci / eng: always ×10ⁿ */
   format?: NumberFormat;
+  /** Most significant digits shown in plain (auto / fixed) form: the decimals stop there, a whole number's digits are
+   *  never cut (the converter: 1000 kg is 2204.622622 lb, not 2204.6226218488). Unset: only `decimals` limits. */
+  significant?: number;
 }
 
 const SUP: Record<string, string> = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻" };
@@ -96,16 +99,17 @@ export function formatValue(v: Value, o: FormatOptions = {}): string {
   if (a.n === 0n) return "0";
   if (fmt === "sci" || fmt === "eng") return sci(a, Math.min(places, 15), fmt === "eng");
   const e = exponent10(a);
+  const plainPlaces = o.significant ? Math.min(places, Math.max(0, Math.floor(o.significant) - 1 - e)) : places;
   // an approximation is never written out past its trustworthy digits: they would be made-up zeros
   // (2^0.5×10^30 is not 1414213562373100000000000000000), also in fixed format
   if (!("q" in v) && e >= precision(v)) return sci(a, Math.min(places, 15), false);
   if (fmt === "fixed") {
-    const t = toFixed(a, places);
+    const t = toFixed(a, plainPlaces);
     return "a" in v && (t === "0" || t === "-0") ? sci(a, Math.min(places, 15), false) : t;
   }
   // whole numbers are written out in full while they still fit on a wide screen (2^100 = 1267650600228229401496703205376)
   if (isInt(a) && "q" in v ? e >= 40 : e >= 21) return sci(a, Math.min(places, 15), false);
-  const plain = toFixed(a, places);
+  const plain = toFixed(a, plainPlaces);
   // too small to show at this many decimals: switch to ×10ⁿ instead of showing 0
   if (e < -6 || (plain === "0" || plain === "-0")) return sci(a, Math.min(places, 15), false);
   return plain;

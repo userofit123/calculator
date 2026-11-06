@@ -10,7 +10,7 @@ export {
 } from "./programming";
 // The converter (units and ECB currency rates); only the Converter page and Settings use these, so they stay out of the first screen's bundle
 export { UNIT_CATEGORIES, type Category, type Unit } from "./units";
-export { convert, convertAll, formatDms, parseDms } from "./convert";
+export { convert, convertAll, formatDms, parseDms, CONVERT_DIGITS } from "./convert";
 // "5 km in mi" typed into the calculator (loaded with the first such sum)
 export { convertExpression, evaluateUnits, findUnits } from "./unitexpr";
 export { parseEcbCsv, mergeRates, rateDayOf, rateSourceOf, sourceDayOf, rateSourceLine, shortDay, retryDelayMs, refreshDue, RETRY_MIN_MS, AUTO_EVERY_MS, MAX_RATE_AGE_DAYS, currencyCategory, currencyFlag, CURRENCY_NAMES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, RATE_SOURCES, ECB_RATES_URL, ECB_SOURCE, type RateSet } from "./currency";

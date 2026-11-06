@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   parseNbuJson, parseBcraJson, rateSourceLine, sourceDayOf, CENTRAL_BANK_SOURCES, USD_PEGS, RATE_SOURCES,
-  UNIT_CATEGORIES, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions,
+  UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions,
 } from "../src";
 
 const cat = (id: string) => UNIT_CATEGORIES.find((c) => c.id === id)!;
@@ -309,5 +309,24 @@ describe("rate source ids are own keys", () => {
   it("RATE_SOURCES has no inherited ids", () => {
     expect(Object.hasOwn(RATE_SOURCES, "nbu")).toBe(true);
     for (const k of ["toString", "constructor", "__proto__"]) expect(Object.hasOwn(RATE_SOURCES, k)).toBe(false);
+  });
+});
+
+describe("shown to the converter's significant digits", () => {
+  const o: EvalOptions = { decimals: 10, significant: CONVERT_DIGITS };
+  it("cuts the long decimals", () => {
+    expect(cv("mass", "kg", "pound", "1000", o)).toBe("2204.622622");
+    expect(cv("mass", "kg", "pound", "1000", { decimals: 10 })).toBe("2204.6226218488");
+    expect(cv("speed", "kmh", "mph", "100", o)).toBe("62.13711922");
+    expect(cv("length", "meter", "foot", "1", o)).toBe("3.280839895");
+  });
+  it("keeps every digit of a whole number and short values as they are", () => {
+    expect(cv("storage", "terabyte", "byte", "123", o)).toBe("123000000000000");
+    expect(cv("length", "km", "meter", "1.5", o)).toBe("1500");
+    expect(cv("length", "meter", "cm", "0.25", o)).toBe("25");
+  });
+  it("small values keep their significant digits, up to the decimals chosen", () => {
+    expect(cv("length", "mm", "meter", "1.23456789", o)).toBe("0.0012345679");
+    expect(cv("length", "foot", "meter", "1", { decimals: 3, significant: CONVERT_DIGITS })).toBe("0.305");
   });
 });

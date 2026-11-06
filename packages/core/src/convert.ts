@@ -90,6 +90,10 @@ function attempt<T>(f: () => T): T | { error: string } {
   }
 }
 
+/** The significant digits a converted amount is shown to (FormatOptions.significant): enough for any real use, short
+ *  enough to read at a glance; whole numbers keep all their digits and copying gives the value in full */
+export const CONVERT_DIGITS = 10;
+
 /** The amount (an expression) in unit `from` converted to unit `to`: value as shown (decimal "."), exact in full */
 export function convert(c: Category, from: string, to: string, amount: string, o: EvalOptions = {}): EvalResult {
   return attempt(() => {
