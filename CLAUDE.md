@@ -23,6 +23,11 @@ Windows) and Android app (Capacitor). No server, no account, no tracking.
 - **Opens instantly.** The first paint must not wait for anything: the saved look and layout are applied by an inline script
   in index.html, the calculator is the first screen and is in the main bundle, everything else (converter tables, settings,
   Appearance panel) loads lazily. No splash delays. The service worker precaches the built files so later opens are offline.
+- **Works completely offline.** Every screen and feature works with no internet at all, from the first open after install:
+  nothing (fonts, icons, scripts, data) is loaded from the internet; the service worker caches the whole app on install;
+  currency rates ship with the app and the last downloaded rates are kept on the device.
+- **Official currency data only**: the European Central Bank's daily reference rates fetched from the ECB itself (and
+  official central-bank sources for anything it lacks), never a third-party rates API. Show the source and rate date.
 - Styles only through the theme tokens (`--acc`, `--s1`, `--tx2`, …); never hard-coded colours.
 - Spacing inside blocks from the density tokens, between blocks from `--spg` / `--hg`; no fixed paddings on cards, rows, keys.
 - Both desktop and phone layouts for every screen; full keyboard support on desktop.
