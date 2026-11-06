@@ -1,0 +1,58 @@
+<script setup lang="ts">
+// The number format and decimal places, chosen from the display: the format chip steps through Decimal, Fraction,
+// Mixed, Sci and Eng (right-click or long-press it for the full list), the places chip opens a small popover with the
+// formats and a decimal places stepper. Both are the same settings as Settings → Calculator. Small, so it is in the main
+// bundle with the calculator. `note` says why an answer is a decimal although Fraction or Mixed is chosen.
+import { computed, nextTick, onBeforeUnmount, ref } from "vue";
+import { settings, FORMATS, cycleFormat } from "../core/calc";
+import { safeArea } from "../core/device";
+import Icon from "./Icon.vue";
+
+defineProps<{ note?: string }>();
+const MAX_PLACES = 15;
+const fmt = computed(() => FORMATS.find((f) => f.id === settings.format) ?? FORMATS[0]!);
+const open = ref(false), pos = ref({ top: 0, left: 0 }), el = ref<HTMLElement | null>(null), chip = ref<HTMLElement | null>(null);
+
+async function show() {
+  if (open.value) return close();
+  open.value = true;
+  const b = chip.value!.getBoundingClientRect();
+  pos.value = { top: b.bottom + 6, left: b.left };
+  await nextTick();
+  const m = el.value!.getBoundingClientRect(), sa = safeArea();
+  pos.value = {
+    top: b.bottom + 6 + m.height > innerHeight - sa.bottom - 8 ? Math.max(sa.top + 8, b.top - m.height - 6) : b.bottom + 6,
+    left: Math.max(sa.left + 8, Math.min(b.left, innerWidth - sa.right - m.width - 8)),
+  };
+  setTimeout(() => { addEventListener("click", away, true); addEventListener("keydown", onKey, true); });
+}
+const away = (e: Event) => { if (!el.value?.contains(e.target as Node)) { e.stopPropagation(); close(); } };
+// Escape closes the popover only (it would clear the calculator otherwise)
+const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); chip.value?.focus(); } };
+function close() { open.value = false; removeEventListener("click", away, true); removeEventListener("keydown", onKey, true); }
+const step = (d: number) => { settings.decimals = Math.max(0, Math.min(MAX_PLACES, settings.decimals + d)); };
+onBeforeUnmount(close);
+</script>
+
+<template>
+  <button
+    type="button" class="cflag" :title="`Number format: ${fmt.label}. Click for the next one; right-click or long-press for all`"
+    :aria-label="`Number format ${fmt.label}, next`" @click="cycleFormat" @contextmenu.prevent="show"
+  >{{ fmt.short }}</button>
+  <button ref="chip" type="button" class="cflag" title="Number format and decimal places" aria-haspopup="dialog" :aria-expanded="open" @click.stop="show">{{ settings.decimals }} dp</button>
+  <span class="cnote" :title="note">{{ note }}</span>
+  <Teleport to="body">
+    <div v-if="open" ref="el" class="mnu nfpop" role="dialog" aria-label="Number format" :style="{ top: pos.top + 'px', left: pos.left + 'px' }">
+      <button v-for="f in FORMATS" :key="f.id" type="button" role="menuitemradio" :aria-checked="settings.format === f.id" :class="{ on: settings.format === f.id }" @click="settings.format = f.id">
+        <span class="mh"><span>{{ f.label }}</span><small>{{ f.hint }}</small></span><Icon v-if="settings.format === f.id" name="check" :size="16" class="mck" />
+      </button>
+      <hr />
+      <div class="nfstep">
+        <span class="grow">Decimal places</span>
+        <button type="button" class="ib sm" aria-label="Fewer decimal places" :disabled="settings.decimals <= 0" @click="step(-1)">−</button>
+        <span class="num nfn" aria-live="polite">{{ settings.decimals }}</span>
+        <button type="button" class="ib sm" aria-label="More decimal places" :disabled="settings.decimals >= MAX_PLACES" @click="step(1)">+</button>
+      </div>
+    </div>
+  </Teleport>
+</template>

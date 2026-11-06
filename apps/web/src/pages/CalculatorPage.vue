@@ -9,13 +9,14 @@
 // a computer's first open starts in it).
 // Date has no display or keys: its forms (DateCalc, loaded when chosen) take their place, under the same mode switch.
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode, formMode } from "../core/calc";
+import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode, formMode, answerNote } from "../core/calc";
 import { isPhone } from "../core/device";
 import { toast } from "../core/toast";
 import Menu from "../components/Menu.vue";
 import Icon from "../components/Icon.vue";
 import ProgPad from "../components/ProgPad.vue";
 import KeyboardCalc from "../components/KeyboardCalc.vue";
+import NumFormat from "../components/NumFormat.vue";
 
 // a first-ever open picks its mode before the first paint: Keyboard on a computer with no touch screen, else Basic
 chooseStartMode(isPhone.value);
@@ -80,6 +81,8 @@ const dateMode = computed(() => formMode(calc.mode));
 const kbd = computed(() => calc.mode === "keyboard");
 
 const pv = computed(preview);
+/** why the answer is a decimal although Fraction or Mixed is chosen */
+const note = computed(() => (calc.answer && !calc.error && !progMode.value ? answerNote(calc.ans) : ""));
 const big = computed(() => calc.error || show(calc.answer || pv.value) || (calc.expr ? "" : "0"));
 // long answers get smaller instead of running off the edge
 const size = computed(() => { const n = big.value.length; return n > 18 ? "xs" : n > 13 ? "s" : n > 9 ? "m" : ""; });
@@ -147,7 +150,8 @@ async function copyAnswer() {
       <div class="cbar">
         <button v-if="adv" type="button" class="cflag" title="Angle unit" @click="fkey('angle')">{{ angleLabel }}</button>
         <span v-if="calc.mem" class="cflag" title="Memory in use">M</span>
-        <span class="grow" />
+        <NumFormat v-if="!progMode" :note="note" />
+        <span v-else class="grow" />
         <button type="button" class="ib sm plain" aria-label="Delete" :disabled="!calc.expr" @click="tap('⌫')"><Icon name="backspace" /></button>
       </div>
       <div ref="exprEl" class="cexp num" :title="show(calc.expr)">{{ show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></div>

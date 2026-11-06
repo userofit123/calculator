@@ -4,7 +4,7 @@
 // About with the privacy promise.
 import { appearanceOpen } from "../core/ui";
 import { layoutChoice, setLayout } from "../core/device";
-import { settings, ANGLES, type CalcSettings } from "../core/calc";
+import { settings, ANGLES, FORMATS } from "../core/calc";
 import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
 // --- History (C-26) ---
@@ -36,7 +36,7 @@ const openPage = () => { if (upd.page) window.open(upd.page, "_blank", "noopener
 
 const version = import.meta.env.VITE_VERSION || "dev";
 const DECIMALS = Array.from({ length: 16 }, (_, i) => ({ value: i, label: String(i) }));
-const FORMATS: [CalcSettings["format"], string][] = [["auto", "Auto"], ["fixed", "Fixed"], ["sci", "Sci"], ["eng", "Eng"]];
+const FORMAT_OPTIONS = FORMATS.map((f) => ({ value: f.id, label: f.label }));
 const MARKS = [".", ","] as const;
 const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phone", "Phone"], ["desktop", "Computer"]];
 </script>
@@ -69,8 +69,8 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
             <AppSelect v-model="settings.decimals" :options="DECIMALS" title="Decimal places" />
           </div>
           <div class="li">
-            <Icon name="calc" /><div class="grow"><div class="t">Number format</div><div class="s">Auto switches to ×10ⁿ for very large or small numbers</div></div>
-            <div class="seg"><button v-for="[v, l] in FORMATS" :key="v" type="button" :class="{ on: settings.format === v }" @click="settings.format = v">{{ l }}</button></div>
+            <Icon name="calc" /><div class="grow"><div class="t">Number format</div><div class="s">{{ FORMATS.find((f) => f.id === settings.format)?.hint }} · also on the calculator's display</div></div>
+            <AppSelect v-model="settings.format" :options="FORMAT_OPTIONS" title="Number format" />
           </div>
           <div class="li">
             <Icon name="calc" /><div class="grow"><div class="t">Decimal mark</div><div class="s">{{ settings.decimalMark === "," ? "1.234,5" : "1,234.5" }}</div></div>

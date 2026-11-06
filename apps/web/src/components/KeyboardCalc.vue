@@ -12,7 +12,8 @@ let sessionId = 0;
 // ArrowUp/Down bring back earlier lines; clicking an earlier expression or answer types it in at the caret.
 // Small, so in the main bundle: a computer's first open starts here and shouldn't wait for a chunk.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, settings, show, linePreview, enterLine, lineExpr, typedValue, valueText, ANGLES } from "../core/calc";
+import { calc, settings, show, linePreview, enterLine, lineExpr, typedValue, valueText, answerNote, ANGLES } from "../core/calc";
+import NumFormat from "./NumFormat.vue";
 import { history, histPrefs } from "../core/history";
 import { freshRecall, recallLines, recallStep, pushCapped, pageKeyTarget } from "../core/keyboard";
 import { isPhone } from "../core/device";
@@ -31,6 +32,8 @@ let rc = freshRecall();
 const items = computed(() => (histPrefs.keep ? history.filter((h) => !h.b).slice(0, 200).reverse() : session));
 const recallList = computed(() => recallLines(items.value.map((h) => show(h.e)).reverse()));
 const pv = computed(() => linePreview(line.value));
+// earlier answers follow the number format and decimal places chosen now, worked out again from each answer in full
+const answers = computed(() => items.value.map((h) => (h.x ? valueText(h.x) : h.r)));
 const angleLabel = computed(() => ANGLES.find((a) => a.id === settings.angle)!.label);
 function nextAngle() { const i = ANGLES.findIndex((a) => a.id === settings.angle); settings.angle = ANGLES[(i + 1) % ANGLES.length]!.id; }
 
@@ -119,9 +122,9 @@ onBeforeUnmount(() => { removeEventListener("keydown", onPageKey); document.remo
 <template>
   <div ref="root" class="kcalc">
     <ol ref="listEl" class="klist" aria-label="Earlier lines">
-      <li v-for="h in items" :key="'id' in h ? h.id : h.t" class="krow">
+      <li v-for="(h, i) in items" :key="'id' in h ? h.id : h.t" class="krow">
         <button type="button" class="kexp num" title="Type in this sum" @click="useExpr(h.e)">{{ show(h.e) }}</button>
-        <button type="button" class="kres num" title="Type in this answer" @click="useAnswer(h.x)">= {{ show(h.r) }}</button>
+        <button type="button" class="kres num" title="Type in this answer" @click="useAnswer(h.x)">= {{ show(answers[i] ?? h.r) }}</button>
       </li>
       <li v-if="!items.length" class="kempty">Type a sum below and press Enter. ArrowUp brings back earlier lines.</li>
     </ol>
@@ -129,6 +132,7 @@ onBeforeUnmount(() => { removeEventListener("keydown", onPageKey); document.remo
       <div class="cbar">
         <button type="button" class="cflag" title="Angle unit" @click="nextAngle">{{ angleLabel }}</button>
         <span v-if="calc.mem" class="cflag" title="Memory in use">M</span>
+        <NumFormat :note="calc.answer ? answerNote(calc.ans) : ''" />
         <span v-if="calc.ans" class="kans" title="The last answer, as ans">ans = {{ show(valueText(calc.ans)) }}</span>
       </div>
       <input

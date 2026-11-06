@@ -154,3 +154,11 @@ html:not(.phone) .calc.kbd { max-width: 720px; }
 html.phone .calc.kbd { min-height: 320px; }
 html.phone .klist { flex: 1 1 auto; height: auto; min-height: 0; }
 html.phone .kline .kin, html.phone .kline .kin:focus { font-size: 24px; }
+
+/* number format and decimal places on the display (NumFormat) */
+.cnote { flex: 1; min-width: 0; font-size: 11.5px; color: var(--tx2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nfstep { display: flex; align-items: center; gap: 6px; padding: calc(var(--lpy) - 4px) calc(var(--cpx) - 6px); font-size: 14px; }
+.mnu .nfstep button { width: 36px; justify-content: center; padding: 0; font-size: 18px; border-radius: var(--pill); }
+.mnu .nfstep button:disabled { opacity: .35; cursor: default; }
+.nfn { min-width: 2ch; text-align: center; font-weight: 600; }
+.kline .cnote { flex: 0 1 auto; }

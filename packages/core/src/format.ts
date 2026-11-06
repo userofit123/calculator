@@ -21,7 +21,34 @@ export function approx(x: Q, p: number): Value {
   const d = Math.min(Math.floor(p), APPROX_DIGITS);
   return { a: roundSig(x, d + 2), p: d }; // two guard digits so rounding steps don't add up
 }
-export type NumberFormat = "auto" | "fixed" | "sci" | "eng";
+/** fraction: an exact answer as a fraction (7/4); mixed: as a mixed number (1 3/4). Both show anything else (an
+ *  approximation, a fraction too big to read) like auto, see fractionNote. */
+export type NumberFormat = "auto" | "fixed" | "sci" | "eng" | "fraction" | "mixed";
+
+// A fraction is only worth showing while it can be taken in at a glance: 355/113 is useful, 1234567/7654321 isn't
+/** The largest denominator shown as a fraction */
+export const MAX_DENOMINATOR = 1_000_000n;
+/** The largest whole part (or numerator of a proper fraction) a fraction is shown with: past it ×10ⁿ reads better */
+export const MAX_FRACTION_WHOLE = 10n ** 15n;
+
+/** An exact non-whole value as a fraction: improper "-7/4" or mixed "-1 3/4" (a proper one is "3/4" either way), with a
+ *  plain "/" (it can be typed and pasted back; the Unicode fraction slash needs font support and can't be typed) and a
+ *  plain "-". null when it isn't one worth showing (whole, denominator past maxDen, whole part past MAX_FRACTION_WHOLE). */
+export function fractionText(x: Q, mixed: boolean, maxDen: bigint = MAX_DENOMINATOR): string | null {
+  if (x.d === 1n || x.d > maxDen) return null;
+  const sign = x.n < 0n ? "-" : "", n = x.n < 0n ? -x.n : x.n, whole = n / x.d;
+  if (whole >= MAX_FRACTION_WHOLE) return null;
+  return mixed && whole > 0n ? `${sign}${whole} ${n % x.d}/${x.d}` : `${sign}${n}/${x.d}`;
+}
+/** Why an answer is shown as a decimal although fraction or mixed format is chosen ("" when it isn't) */
+export function fractionNote(v: Value, format: NumberFormat | undefined, maxDen: bigint = MAX_DENOMINATOR): string {
+  if (format !== "fraction" && format !== "mixed") return "";
+  if (!("q" in v)) return "Not exact, so shown as a decimal";
+  const x = v.q;
+  if (x.d === 1n) return "";
+  if (x.d > maxDen) return "Denominator over 1,000,000, so shown as a decimal";
+  return fractionText(x, format === "mixed", maxDen) === null ? "Too large for a fraction, so shown as a decimal" : "";
+}
 
 export interface FormatOptions {
   /** Most digits after the decimal point (default 12) */
@@ -56,7 +83,14 @@ function sci(a: Q, places: number, eng: boolean): string {
 
 /** The value as plain text with "." as the decimal point and no grouping (the form expressions are typed in) */
 export function formatValue(v: Value, o: FormatOptions = {}): string {
-  const places = Math.max(0, Math.min(30, o.decimals ?? 12)), fmt = o.format ?? "auto";
+  const places = Math.max(0, Math.min(30, o.decimals ?? 12));
+  let fmt = o.format ?? "auto";
+  if (fmt === "fraction" || fmt === "mixed") {
+    // only an exact value is ever a fraction: an approximation shown as one would pass off made-up digits as exact
+    const f = "q" in v ? fractionText(v.q, fmt === "mixed") : null;
+    if (f !== null) return f;
+    fmt = "auto";
+  }
   const a = asQ(v);
   if (a.n === 0n) return "0";
   if (fmt === "fixed") return "a" in v ? sci(a, Math.min(places, 15), false) : toFixed(a, places);

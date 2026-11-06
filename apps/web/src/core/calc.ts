@@ -3,7 +3,7 @@
 // Memory, variables, the last answer and the calculator settings are kept on this device.
 import { reactive, watch } from "vue";
 import {
-  evaluate, formatDisplay, sanitizeInput, storable, RESERVED, isFunction, type AngleUnit, type EvalOptions, type EvalResult, type NumberFormat,
+  evaluate, formatDisplay, fractionNote, parseStored, sanitizeInput, storable, RESERVED, isFunction, type AngleUnit, type EvalOptions, type EvalResult, type NumberFormat,
   evaluateProgramming, formatInt, fitsWord, literal, rebase, toProgramming, fromProgramming, type Base, type WordSize, type ProgOptions,
 } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
@@ -31,6 +31,21 @@ export interface CalcSettings { angle: AngleUnit; decimals: number; format: Numb
 const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;
 export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: ".", everyday: false, ...readJson<Partial<CalcSettings>>("calcSettings", {}) });
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
+/** The number formats: label for Settings and the display's menu, short label for the display's chip */
+export const FORMATS: { id: NumberFormat; label: string; short: string; hint: string }[] = [
+  { id: "auto", label: "Auto", short: "Auto", hint: "Decimal, ×10ⁿ for very large or small numbers" },
+  { id: "fixed", label: "Fixed", short: "Fixed", hint: "Always plain decimals" },
+  { id: "fraction", label: "Fraction", short: "a/b", hint: "Exact answers as a fraction: 7/4" },
+  { id: "mixed", label: "Mixed", short: "a b/c", hint: "Exact answers as a mixed number: 1 3/4" },
+  { id: "sci", label: "Sci", short: "Sci", hint: "Scientific: 1.2345×10³" },
+  { id: "eng", label: "Eng", short: "Eng", hint: "Engineering, powers of 3: 12.345×10³" },
+];
+// the display's chip steps through the everyday ones (Fixed is in the menu and Settings, as it rarely changes)
+const CYCLE: NumberFormat[] = ["auto", "fraction", "mixed", "sci", "eng"];
+/** The next number format for the display's chip: Decimal → Fraction → Mixed → Sci → Eng → Decimal */
+export function cycleFormat() { const i = CYCLE.indexOf(settings.format); settings.format = CYCLE[(i + 1) % CYCLE.length]!; }
+/** Why the answer is shown as a decimal although Fraction or Mixed is chosen ("" when it isn't) */
+export function answerNote(exact: string): string { return exact ? fractionNote(parseStored(exact), settings.format) : ""; }
 export const ANGLES: { id: AngleUnit; label: string }[] = [{ id: "deg", label: "DEG" }, { id: "rad", label: "RAD" }, { id: "grad", label: "GRAD" }];
 
 const savedMode = readJson<Mode | null>("calcMode", null);
@@ -211,7 +226,8 @@ function fromAnswer(keepAnswer: boolean) {
   if (keepAnswer && isProg()) calc.expr = /^-?\d+$/.test(calc.ans) ? literal(BigInt(calc.ans), prog) : "ans";
   else if (keepAnswer) {
     const r = evaluate(calc.answer);
-    calc.expr = "value" in r && r.exact === calc.ans ? calc.answer.replace(/^-/, "−") : "ans";
+    // a fraction on the display (7/4, 1 3/4) carries on as ans: 7/4 then ^2 must square the whole of it
+    calc.expr = !/[/ ]/.test(calc.answer) && "value" in r && r.exact === calc.ans ? calc.answer.replace(/^-/, "−") : "ans";
   } else calc.expr = "";
   calc.answer = ""; calc.error = "";
 }
@@ -252,6 +268,11 @@ export function typedValue(exact: string): string {
   const m = /^(-?)(\d+)\/(\d+)$/.exec(exact);
   return m ? `(${m[1] ? "−" : ""}${m[2]}÷${m[3]})` : exact.replace(/-/g, "−");
 }
+// the answer on the display follows the number format and decimal places (chosen from the display or in Settings); it
+// is worked out again from the answer in full, so a fraction shown as a decimal can go back to the fraction
+watch(() => [settings.format, settings.decimals], () => {
+  if (calc.answer && !calc.error && !isProg() && calc.ans) rewrite(() => { calc.answer = valueText(calc.ans); });
+});
 /** A stored value as it is shown: rounded like an answer */
 export function valueText(exact: string): string {
   const r = evaluate(exact, { decimals: settings.decimals, format: settings.format });
@@ -360,7 +381,9 @@ function progPress(k: string): boolean {
 export function fieldText(text: string): string { return sanitizeInput(text, settings.decimalMark); }
 // (to at least 6 decimals: an interest rate of 0.05/12 shown as 0 or 4.17×10⁻³ would be no help)
 export function workOut(text: string): EvalResult {
-  return evaluate(fieldText(text), { ...evalOptions(), decimals: Math.max(settings.decimals, 6), maxBits: PREVIEW_BITS });
+  // a form's figures are amounts and rates, read as decimals even with Fraction or Mixed chosen
+  const format = settings.format === "fraction" || settings.format === "mixed" ? "auto" : settings.format;
+  return evaluate(fieldText(text), { ...evalOptions(), format, decimals: Math.max(settings.decimals, 6), maxBits: PREVIEW_BITS });
 }
 /** A function call filled in on a form: worked out like =, so it is on the display with its answer and in history.
  *  A sum being typed that waits for a number (2 ×) takes the call in instead. "" when done, else the error. */
