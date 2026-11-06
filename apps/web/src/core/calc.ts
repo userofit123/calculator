@@ -10,6 +10,7 @@ import { readJson, writeJson } from "./prefs";
 import { addHistory, history, type HistItem } from "./history";
 import { toast } from "./toast";
 import { startMode, deviceHints, isFirstOpen } from "./keyboard";
+import { unitOptions, waiting, ready } from "./unitCalc";
 
 export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date" | "everyday";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
@@ -63,7 +64,15 @@ export const calc = reactive({
   /** advanced keys: the 2nd layer (inverse functions) and hyperbolic functions */
   second: false,
   hyp: false,
+  /** a unit conversion's answer: the unit it is in ("mi") and, for currencies, where the rate came from ("" otherwise) */
+  unit: "",
+  note: "",
 });
+// an answer cleared or replaced by a sum being typed takes its unit with it
+watch(() => calc.answer, (v) => { if (!v) { calc.unit = ""; calc.note = ""; } }, { flush: "sync" });
+/** An answer with its unit, as shown and kept in history: "8.04672 km" */
+export const withUnit = (value: string, unit?: string) => (unit ? `${value} ${unit}` : value);
+const unitOf = (r: object) => ("unit" in r && typeof r.unit === "string" ? r.unit : "");
 /** the mode a first-ever open started in by itself: not saved, so it is decided again until the user picks one */
 let autoMode: Mode | null = null, started = false;
 // Everyday mode is there only while switched on: switched off (or saved from before), the calculator goes back to Basic
@@ -99,7 +108,7 @@ watch(prog, (s) => writeJson("calcProg", s), { deep: true });
 const isProg = () => calc.mode === "programming";
 const progOptions = (): ProgOptions => ({ ...prog, ans: calc.ans });
 /** Works out the expression in the current mode */
-const run = (expr: string, maxBits?: number) => (isProg() ? evaluateProgramming(expr, progOptions()) : evaluate(expr, { ...evalOptions(), maxBits }));
+const run = (expr: string, maxBits?: number) => (isProg() ? evaluateProgramming(expr, progOptions()) : evaluate(expr, { ...evalOptions(), ...unitOptions(expr), maxBits }));
 /** Text of the display as shown: programming mode has no decimal mark or grouping (hex digits aren't decimal ones) */
 export const showCalc = (s: string) => (isProg() ? s.replace(/-/g, "−") : show(s));
 /** The value on the display in programming mode (the answer, or what = would give now), for the bases and the bits */
@@ -206,8 +215,8 @@ const PREVIEW_BITS = 110_000;
 export function preview(): string {
   if (!calc.expr || calc.answer || calc.error) return "";
   const r = run(calc.expr, PREVIEW_BITS);
-  if (!("value" in r)) return r.error === "Number is too large" ? r.error : ""; // 2^1000000: no point pressing =
-  return r.value !== calc.expr ? r.value : "";
+  if (!("value" in r)) { waiting(r); return r.error === "Number is too large" ? r.error : ""; } // 2^1000000: no point pressing =
+  return r.value !== calc.expr ? withUnit(r.value, unitOf(r)) : "";
 }
 /** The answer, or what = would give now, in full (for copying, M+, saving as a variable) */
 export function current(): { value: string; exact: string } | null {
@@ -296,14 +305,20 @@ export function press(k: string) {
     if (!calc.expr || calc.answer) return;
     // "x" then = starts an assignment (x = …) instead of working out x
     if (!isProg() && /^[\p{L}_][\p{L}_₀-₉]*$/u.test(calc.expr) && !Object.prototype.hasOwnProperty.call(calc.vars, calc.expr) && !RESERVED.has(calc.expr) && !isFunction(calc.expr)) { calc.expr += " = "; return; }
-    const r = run(calc.expr);
+    const expr = calc.expr, r = run(expr);
+    // a unit conversion whose code or rates are still loading: = again once they are there (same sum, nothing pressed since)
+    if (waiting(r)) { void ready(() => run(expr)).then(() => { if (calc.expr === expr && !calc.answer && !calc.error) press("="); }); return; }
     if (!("value" in r)) { calc.error = r.error; return; }
     if (open() > 0) calc.expr += ")".repeat(open()); // the brackets closed for you show in the sum and its history
     calc.answer = r.value; calc.error = ""; calc.ans = r.exact;
+    calc.unit = unitOf(r); calc.note = "note" in r && typeof r.note === "string" ? r.note : "";
     if ("assigned" in r && typeof r.assigned === "string") calc.vars[r.assigned] = r.exact;
-    addHistory(calc.expr, r.value, r.exact, isProg() ? { ...prog } : undefined, calc.mode);
+    addHistory(calc.expr, withUnit(r.value, calc.unit), r.exact, isProg() ? { ...prog } : undefined, calc.mode, calc.unit);
     return;
   }
+  // a space after a word, for a unit conversion typed on the keyboard ("5km in mi"); after a digit it isn't typed, so
+  // 2 3 stays 23 as before
+  if (k === " ") { if (!isProg() && !calc.answer && !calc.error && /\p{L}$/u.test(calc.expr)) calc.expr += " "; return; }
   if (k === "MC") { calc.mem = ""; return; }
   if (k === "MR") { if (calc.mem) { const v = typedValue(calc.mem); if (v) operand(v); } return; }
   if (k === "M+") return memAdd("+");
@@ -437,21 +452,23 @@ export const lineExpr = (text: string) => sanitizeInput(text, settings.decimalMa
 export function linePreview(text: string): string {
   const s = lineExpr(text);
   if (!s) return "";
-  const r = evaluate(s, { ...evalOptions(), maxBits: PREVIEW_BITS });
-  if (!("value" in r)) return r.error === "Number is too large" ? r.error : "";
-  return r.value !== s ? r.value : "";
+  const r = evaluate(s, { ...evalOptions(), ...unitOptions(s), maxBits: PREVIEW_BITS });
+  if (!("value" in r)) { waiting(r); return r.error === "Number is too large" ? r.error : ""; }
+  return r.value !== s ? withUnit(r.value, r.unit) : "";
 }
 /** Enter: works the line out like =, so it is the answer (ans), sets a variable (x = 5) and goes into history.
  *  "" when done, else the error. */
 export function enterLine(text: string): string {
   let s = lineExpr(text);
   if (!s) return "";
-  const r = evaluate(s, evalOptions());
-  if (!("value" in r)) return r.error;
+  const r = evaluate(s, { ...evalOptions(), ...unitOptions(s) });
+  // (the preview has started loading what a conversion needs; Enter again once it is there)
+  if (!("value" in r)) { waiting(r); return r.error; }
   const o = (s.match(/\(/g)?.length ?? 0) - (s.match(/\)/g)?.length ?? 0);
   if (o > 0) s += ")".repeat(o); // the brackets closed for you show in the line and its history
   calc.expr = s; calc.answer = r.value; calc.error = ""; calc.ans = r.exact;
+  calc.unit = r.unit ?? ""; calc.note = r.note ?? "";
   if ("assigned" in r && typeof r.assigned === "string") calc.vars[r.assigned] = r.exact;
-  addHistory(s, r.value, r.exact, undefined, "keyboard");
+  addHistory(s, withUnit(r.value, r.unit), r.exact, undefined, "keyboard", r.unit);
   return "";
 }

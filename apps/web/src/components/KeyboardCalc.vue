@@ -1,7 +1,7 @@
 <script lang="ts">
 import { reactive } from "vue";
 /** This session's lines, listed when history isn't kept (kept across pages until the app closes) */
-const session = reactive<{ id: number; e: string; r: string; x: string }[]>([]);
+const session = reactive<{ id: number; e: string; r: string; x: string; u?: string }[]>([]);
 let sessionId = 0;
 </script>
 
@@ -12,7 +12,7 @@ let sessionId = 0;
 // ArrowUp/Down bring back earlier lines; clicking an earlier expression or answer types it in at the caret.
 // Small, so in the main bundle: a computer's first open starts here and shouldn't wait for a chunk.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, settings, show, linePreview, enterLine, lineExpr, typedValue, valueText, answerNote, ANGLES } from "../core/calc";
+import { calc, settings, show, linePreview, enterLine, lineExpr, typedValue, valueText, answerNote, withUnit, ANGLES } from "../core/calc";
 import NumFormat from "./NumFormat.vue";
 import { history, histPrefs } from "../core/history";
 import { freshRecall, recallLines, recallStep, pushCapped, pageKeyTarget } from "../core/keyboard";
@@ -33,7 +33,8 @@ const items = computed(() => (histPrefs.keep ? history.filter((h) => !h.b).slice
 const recallList = computed(() => recallLines(items.value.map((h) => show(h.e)).reverse()));
 const pv = computed(() => linePreview(line.value));
 // earlier answers follow the number format and decimal places chosen now, worked out again from each answer in full
-const answers = computed(() => items.value.map((h) => (h.x ? valueText(h.x) : h.r)));
+// (a unit conversion's answer keeps its unit: "8.04672 km")
+const answers = computed(() => items.value.map((h) => (h.x ? withUnit(valueText(h.x), h.u) : h.r)));
 const angleLabel = computed(() => ANGLES.find((a) => a.id === settings.angle)!.label);
 function nextAngle() { const i = ANGLES.findIndex((a) => a.id === settings.angle); settings.angle = ANGLES[(i + 1) % ANGLES.length]!.id; }
 
@@ -82,7 +83,7 @@ function onKey(e: KeyboardEvent) {
     const er = enterLine(line.value);
     if (er) { err.value = er; return; }
     if (!line.value.trim()) return;
-    if (!histPrefs.keep) pushCapped(session, { id: ++sessionId, e: calc.expr, r: calc.answer, x: calc.ans }, 200);
+    if (!histPrefs.keep) pushCapped(session, { id: ++sessionId, e: calc.expr, r: withUnit(calc.answer, calc.unit), x: calc.ans, u: calc.unit || undefined }, 200);
     synced = calc.expr;
     line.value = ""; err.value = ""; rc = freshRecall(); toBottom();
   } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -132,7 +133,7 @@ onBeforeUnmount(() => { removeEventListener("keydown", onPageKey); document.remo
       <div class="cbar">
         <button type="button" class="cflag" title="Angle unit" @click="nextAngle">{{ angleLabel }}</button>
         <span v-if="calc.mem" class="cflag" title="Memory in use">M</span>
-        <NumFormat :note="calc.answer ? answerNote(calc.ans) : ''" />
+        <NumFormat :note="calc.answer ? [answerNote(calc.ans), calc.note].filter(Boolean).join(' · ') : ''" />
         <span v-if="calc.ans" class="kans" title="The last answer, as ans">ans = {{ show(valueText(calc.ans)) }}</span>
       </div>
       <input

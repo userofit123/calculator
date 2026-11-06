@@ -9,7 +9,7 @@
 // a computer's first open starts in it).
 // Date has no display or keys: its forms (DateCalc, loaded when chosen) take their place, under the same mode switch.
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode, formMode, answerNote } from "../core/calc";
+import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode, formMode, answerNote, withUnit } from "../core/calc";
 import { isPhone } from "../core/device";
 import { toast } from "../core/toast";
 import Menu from "../components/Menu.vue";
@@ -82,8 +82,10 @@ const kbd = computed(() => calc.mode === "keyboard");
 
 const pv = computed(preview);
 /** why the answer is a decimal although Fraction or Mixed is chosen */
-const note = computed(() => (calc.answer && !calc.error && !progMode.value ? answerNote(calc.ans) : ""));
-const big = computed(() => calc.error || show(calc.answer || pv.value) || (calc.expr ? "" : "0"));
+// (and for a currency conversion, where its rate came from and for which day)
+const note = computed(() => (calc.answer && !calc.error && !progMode.value ? [answerNote(calc.ans), calc.note].filter(Boolean).join(" · ") : ""));
+// a unit conversion's answer shows its unit after the number: "8.04672 km"
+const big = computed(() => calc.error || show(calc.answer ? withUnit(calc.answer, calc.unit) : pv.value) || (calc.expr ? "" : "0"));
 // long answers get smaller instead of running off the edge
 const size = computed(() => { const n = big.value.length; return n > 18 ? "xs" : n > 13 ? "s" : n > 9 ? "m" : ""; });
 
@@ -105,14 +107,19 @@ const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".c
 const onKeyUp = (e: KeyboardEvent) => { if (e.key === " " && onPadKey(e)) e.preventDefault(); };
 function onKey(e: KeyboardEvent) {
   if (busy(e) || dateMode.value || kbd.value) return; // Keyboard mode's line takes the keys (KeyboardCalc)
-  if (e.key === " " && !e.ctrlKey) { if (onPadKey(e)) e.preventDefault(); return; }
+  if (e.key === " " && !e.ctrlKey) {
+    // on the keys, or with nothing focused, Space after a word types one (5km in mi); otherwise it is left alone
+    if (onPadKey(e) || e.target === document.body) { e.preventDefault(); press(" "); }
+    return;
+  }
   let k = keyFor(e); // with Ctrl only Ctrl+E (×10ʸ): Ctrl+C, Ctrl+V and the browser's own shortcuts are left alone
   if (!k) return;
   if (k === "C") k = clearKey.value; // Delete clears the number being typed, or everything when that is all there is
   e.preventDefault();
   tap(k);
 }
-// Ctrl+C with nothing selected copies the answer; Ctrl+V types the clipboard in (cleaned up)
+// Ctrl+C with nothing selected copies the answer; Ctrl+V types the clipboard in (cleaned up). A unit conversion's answer
+// is copied as the number alone (8.04672, not "8.04672 km"), so it pastes into another sum or a spreadsheet as a number.
 const copyText = () => { const c = current(); return c ? formatCopy(c.value) : ""; };
 const formatCopy = (v: string) => (settings.decimalMark === "," ? v.replace(/\./g, ",") : v);
 function onCopy(e: ClipboardEvent) {

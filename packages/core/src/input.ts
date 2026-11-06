@@ -18,6 +18,8 @@ export function sanitizeInput(text: string, decimalMark: "." | "," = "."): strin
     s = s.replace(/(\d),(?=\d{3}(?!\d))/g, "$1").replace(/(\d) (?=\d{3}(?!\d))/g, "$1"); // 1,234,567.5 → 1234567.5
   }
   s = s.replace(/[-–—]/g, "−").replace(/[*·⋅]/g, "×").replace(/[/∕]/g, "÷").replace(/,/g, ";");
-  s = s.replace(/[^\p{L}\d.+−×÷^()|!%=;√∛∜⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀₁₂₃₄₅₆₇₈₉π ]/gu, "");
+  // the degree sign stays in a unit conversion (100 °F in °C), where it is part of a unit
+  const deg = /\s(?:in|to)\s/i.test(s) ? "°℃℉" : "";
+  s = s.replace(new RegExp(`[^\\p{L}\\d.+−×÷^()|!%=;√∛∜⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀₁₂₃₄₅₆₇₈₉π ${deg}]`, "gu"), "");
   return s.replace(/\s+/g, " ").replace(/\s*=\s*$/, "").trim();
 }

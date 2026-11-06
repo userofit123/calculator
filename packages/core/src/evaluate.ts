@@ -10,6 +10,7 @@ import {
 import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored, approx, precision, cleanFloat, APPROX_DIGITS } from "./format";
 import { parse, type Node } from "./parse";
 import { financial, financialName, type FinOps } from "./financial";
+import type { RateSet } from "./currency";
 
 export type AngleUnit = "deg" | "rad" | "grad";
 export interface EvalOptions extends FormatOptions {
@@ -22,14 +23,36 @@ export interface EvalOptions extends FormatOptions {
   /** A lower size limit in bits, for a preview worked out on every key press: anything bigger is not worked out
    *  (an error), so the preview of 3^200000 ÷ 2^330000 can't hold up typing. The = key leaves it out. */
   maxBits?: number;
+  /** Works out a unit conversion ("5 km in mi", unitexpr.ts's convertExpression). Passed in by the caller, so the unit
+   *  tables stay out of a bundle that never converts; without it a conversion says "Unit conversions are loading". */
+  convert?: (expression: string, o: EvalOptions) => EvalResult;
+  /** The currency rates for a conversion between currencies ("20 USD in EUR") */
+  rates?: RateSet;
 }
 /** value: the answer as shown (decimal "."); exact: the answer in full, to keep as ans, memory or a variable;
  *  assigned: the variable the expression stored ("x = 5") */
-export type EvalResult = { value: string; exact: string; assigned?: string } | { error: string };
+export type EvalResult = { value: string; exact: string; assigned?: string; unit?: string; note?: string } | { error: string };
+// unit: the symbol of the unit a conversion's answer is in ("mi"; the answer itself is a plain number), note: where a
+// currency conversion's rate came from and for which day
+
+/** Shown while the conversion code or the currency rates are still being loaded (the caller loads them) */
+export const UNITS_LOADING = "Unit conversions are loading", RATES_LOADING = "Currency rates are loading";
+/** "in" and "to" between an amount and units, outside any brackets: "5 km in mi", "100 degF to degC" (GNOME's syntax).
+ *  Both words are reserved for it (they can't be variables), so no other expression changes meaning. */
+export function isConversion(src: string): boolean {
+  let depth = 0;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]!;
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+    else if (depth <= 0 && /\s/.test(c) && /^\s(?:in|to)\s/i.test(src.slice(i, i + 4))) return true;
+  }
+  return false;
+}
 
 const CONSTANTS: Record<string, Value> = { "π": { f: Math.PI }, pi: { f: Math.PI }, e: { f: Math.E } };
 /** Names that can't be variables (functions can't either, see FUNCTIONS) */
-export const RESERVED = new Set(["ans", "mod", ...Object.keys(CONSTANTS)]);
+export const RESERVED = new Set(["ans", "mod", "in", "to", ...Object.keys(CONSTANTS)]);
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 
 const exact = (v: Value): v is { q: Q } => "q" in v;
@@ -498,7 +521,12 @@ function unknownFunction(src: string, msg: string): string {
 
 export function evaluate(expression: string, options: EvalOptions = {}): EvalResult {
   try {
+    if (isConversion(expression)) {
+      if (!options.convert) return { error: UNITS_LOADING };
+      return options.convert(expression, options);
+    }
     const st = parse(expression);
+    if (st.assign === "in" || st.assign === "to") throw new CalcError(`${st.assign} is kept for unit conversions (5 km in mi)`);
     if (st.assign && RESERVED.has(st.assign)) throw new CalcError(`Can't change ${st.assign}`);
     return withBudget(options.maxBits, () => {
       const v = ev(st.expr, options);

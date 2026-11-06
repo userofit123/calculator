@@ -13,6 +13,8 @@ docs/apps.md, Releases.
 - Converter: currency, length, weight, temperature, area, volume, speed, time, data and more. Currency rates are the
   European Central Bank's daily reference rates, shown with their date; rates ship with the app and can be refreshed
   (or the refresh switched off) in Settings.
+- Unit conversions typed straight into the calculator, like the Linux calculator: "5 km in mi", "100 degF to degC",
+  "20 USD in EUR", with the Converter's units and rates (the rate's source and date shown under the answer).
 - Look and Appearance: themes, colour sets, backgrounds, textures, density and fonts, in place from the first moment.
 - Works completely offline from the first open, opens instantly, and can be installed as a web app.
 - Hosted web version at https://userofit123.github.io/calculator/, updated with every release: open it in a browser
