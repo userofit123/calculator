@@ -5,7 +5,7 @@ vi.hoisted(() => {
   const m = new Map<string, string>();
   (globalThis as { localStorage?: unknown }).localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, String(v)), removeItem: (k: string) => void m.delete(k) };
 });
-import { checkDue, autoDownloadDue, nothingNew, EVERY, GAP, EVERY_CHOICES, RETRY_GAP, NO_RELEASE, NO_ANDROID } from "../src/core/appUpdate";
+import { checkNow, checkedThisRunNow, checkDue, autoDownloadDue, nothingNew, EVERY, GAP, EVERY_CHOICES, RETRY_GAP, NO_RELEASE, NO_ANDROID } from "../src/core/appUpdate";
 import { readRelease, shareOf, pctOf, progressText } from "../src/core/releases";
 import { tMsg, knownMsg } from "../src/core/msg";
 
@@ -114,5 +114,19 @@ describe("download progress (C-52)", () => {
     expect(progressText(null, Number.NaN)).toBe("Downloading");
     for (const m of [progressText(0.42), progressText(null, 3_140_000), progressText(null)]) expect(knownMsg(m)).toBe(true);
     expect(tMsg("Downloading 3.1 MB")).toBe("Downloading 3.1 MB");
+  });
+});
+
+describe("checkNow and \"every time the app opens\"", () => {
+  const g = globalThis as { calcUpdate?: unknown };
+  const bridge = (latest: () => Promise<unknown>) => ({ version: async () => "1.0.0", mode: async () => "link", kind: async () => "AppImage", latest });
+  it("a failed check (offline) does not count as this run's check; a made one does", async () => {
+    g.calcUpdate = bridge(async () => { throw new Error("Could not reach GitHub"); });
+    await checkNow();
+    expect(checkedThisRunNow()).toBe(false);
+    g.calcUpdate = bridge(async () => ({ tag_name: "v1.0.0", html_url: "https://github.com/x/y/releases/tag/v1.0.0", body: "", draft: false, prerelease: false }));
+    await checkNow();
+    expect(checkedThisRunNow()).toBe(true);
+    delete g.calcUpdate;
   });
 });

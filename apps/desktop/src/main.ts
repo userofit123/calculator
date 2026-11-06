@@ -231,7 +231,7 @@ function startUpdates() {
   ipcMain.handle("update:version", (e) => (fromApp(e) ? app.getVersion() : ""));
   ipcMain.handle("update:mode", (e) => (fromApp(e) ? updateMode() : "link"));
   // what kind of copy this is, for Settings → App & updates
-  ipcMain.handle("update:kind", (e) => (!fromApp(e) ? "" : !app.isPackaged ? "dev" : process.platform === "win32" ? "Windows" : process.env.APPIMAGE ? "AppImage" : "package"));
+  ipcMain.handle("update:kind", (e) => (!fromApp(e) ? "" : !app.isPackaged ? "dev" : process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "mac" : process.env.APPIMAGE ? "AppImage" : "package"));
   // install a ready download when the app is closed: only while the person has "Download updates automatically" on
   // (C-52, as in Money Manager); otherwise only "Restart to update" installs
   ipcMain.handle("update:onQuit", (e, on: unknown) => {
@@ -264,7 +264,8 @@ function startUpdates() {
     autoUpdater.on("download-progress", (p) => {
       // only a sensible share (0-1) reaches the taskbar and the page; anything else means "size unknown" (-1)
       const share = Number.isFinite(p?.total) && p.total > 0 && Number.isFinite(p.percent) ? Math.min(1, Math.max(0, p.percent / 100)) : -1;
-      win?.setProgressBar(share >= 0 ? share : 2); // 2: Electron's moving bar while the size is unknown
+      // 2: Electron's moving bar while the size is unknown, which only Windows draws; elsewhere no bar until there is a share
+      win?.setProgressBar(share >= 0 ? share : process.platform === "win32" ? 2 : -1);
       win?.webContents.send("update:progress", share);
     });
     try {

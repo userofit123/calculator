@@ -22,7 +22,7 @@ interface DesktopBridge {
   version(): Promise<string>;
   /** "install": AppImage or Windows installer, electron-updater replaces the app; "link": deb/rpm, the release page. */
   mode(): Promise<"install" | "link">;
-  /** what kind of copy this is, for App & updates: "AppImage", "Windows", "package" (deb/rpm) or "dev" */
+  /** what kind of copy this is, for App & updates: "AppImage", "Windows", "mac", "package" (deb/rpm) or "dev" */
   kind?(): Promise<string>;
   latest(): Promise<unknown>;
   /** onQuit: install the download when the app is closed (only when the person chose automatic downloads) */
@@ -62,7 +62,7 @@ export const upd = reactive({
   wifiOnly: saved.wifiOnly === true,
   lastCheck: typeof saved.lastCheck === "number" ? saved.lastCheck : 0,
   current: "",
-  /** what kind of copy: "android", "AppImage", "Windows", "package", "dev" ("" until known) */
+  /** what kind of copy: "android", "AppImage", "Windows", "mac", "package", "dev" ("" until known) */
   kind: "",
   /** Android's version code, shown as the build */
   build: "",
@@ -112,6 +112,8 @@ export function autoDownloadDue(s: { auto: boolean; autoDownload: boolean; lates
 }
 /** When the last check failed, and the last automatic download (this run only; a restart may try again at once). */
 let lastFail = 0, lastDlFail = 0, checkedThisRun = false;
+/** Whether a check has got an answer in this run of the app (for tests). */
+export const checkedThisRunNow = () => checkedThisRun;
 
 async function androidGet(url: string): Promise<unknown> {
   const r = (await android()!.get!({ url })) as { status?: number; body?: string };
@@ -166,7 +168,6 @@ export async function askNotify(): Promise<void> {
 export async function checkNow(): Promise<void> {
   if (!appUpdates() || upd.checking || upd.downloading) return;
   upd.checking = true; upd.error = "";
-  checkedThisRun = true;
   try {
     await start();
     const d = desktop();
@@ -174,6 +175,7 @@ export async function checkNow(): Promise<void> {
     const rel = readRelease(raw);
     if (typeof rel === "string") throw new Error(rel);
     upd.lastCheck = Date.now(); save();
+    checkedThisRun = true; // only a check that got an answer counts for "every time the app opens"
     if (!newer(rel.version, upd.current)) {
       upd.latest = ""; upd.ready = false; upd.status = upd.current ? `Version ${upd.current} is the latest` : ""; return;
     }
@@ -193,7 +195,7 @@ export async function checkNow(): Promise<void> {
     const msg = said(e, "Could not reach GitHub");
     if (nothingNew(msg)) {
       // GitHub answered: nothing (usable) to update to, so this is a made check, not one to retry soon
-      upd.lastCheck = Date.now(); save(); lastFail = 0;
+      upd.lastCheck = Date.now(); save(); lastFail = 0; checkedThisRun = true;
       upd.latest = ""; upd.ready = false; upd.status = msg;
     } else { upd.error = msg; lastFail = Date.now(); }
   } finally { upd.checking = false; }

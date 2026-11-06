@@ -347,6 +347,8 @@ public class CalcUpdaterPlugin extends Plugin {
 
     private void installFrom(Intent i) {
         if (i == null || !ACTION_INSTALL.equals(i.getAction())) return;
+        // reopened from Recents: the old notification intent comes back with it, and the installer must not
+        if ((i.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) { i.setAction(null); return; }
         i.setAction(null); // once: turning the phone or coming back doesn't open the installer again
         final Context ctx = getContext();
         new Thread(() -> installChecked(ctx)).start();
