@@ -36,7 +36,6 @@ button.cflag { cursor: pointer; }
 button.cflag:hover { color: var(--acc); }
 .cvars { border: 0; background: none; font-family: inherit; font-size: 14px; font-weight: 600; color: var(--acc); padding: 6px 10px; border-radius: var(--pill); cursor: pointer; }
 .cvars:hover { background: var(--s2); }
-.cnote { display: flex; align-items: center; gap: 8px; padding: calc(var(--cpy) * .5) var(--cpx); border-radius: var(--r-sm); background: var(--s1); }
 
 /* the keypad: numbers on a surface tone, operators tinted with the accent, functions quieter, = the one filled key */
 .keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(var(--kh), auto); gap: var(--kg); }

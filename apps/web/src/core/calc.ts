@@ -3,7 +3,7 @@
 // Memory, variables, the last answer and the calculator settings are kept on this device.
 import { reactive, watch } from "vue";
 import {
-  evaluate, formatDisplay, sanitizeInput, storable, RESERVED, type AngleUnit, type EvalOptions, type NumberFormat,
+  evaluate, formatDisplay, sanitizeInput, storable, RESERVED, type AngleUnit, type EvalOptions, type EvalResult, type NumberFormat,
   evaluateProgramming, formatInt, fitsWord, literal, rebase, type Base, type WordSize, type ProgOptions,
 } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
@@ -258,6 +258,24 @@ function progPress(k: string): boolean {
     calc.expr += k; return true;
   }
   return /^[\p{L}_]$/u.test(k); // other letters are not typed (they aren't digits here)
+}
+
+/** A field of a form (Financial mode's functions): its text cleaned like pasted text (the user's decimal mark, - for −)
+ *  and worked out with the calculator's settings, variables and ans */
+export function fieldText(text: string): string { return sanitizeInput(text, settings.decimalMark); }
+// (to at least 6 decimals: an interest rate of 0.05/12 shown as 0 or 4.17×10⁻³ would be no help)
+export function workOut(text: string): EvalResult {
+  return evaluate(fieldText(text), { ...evalOptions(), decimals: Math.max(settings.decimals, 6), maxBits: PREVIEW_BITS });
+}
+/** A function call filled in on a form: worked out like =, so it is on the display with its answer and in history.
+ *  A sum being typed that waits for a number (2 ×) takes the call in instead. "" when done, else the error. */
+export function enterCall(expr: string): string {
+  const r = run(expr);
+  if (!("value" in r)) return r.error;
+  if (!calc.answer && !calc.error && /[+−×÷^(]$/.test(calc.expr)) { calc.expr += expr; return ""; }
+  calc.expr = expr; calc.answer = ""; calc.error = "";
+  press("=");
+  return "";
 }
 
 /** Pasted text, cleaned into an expression: it carries on from an answer when it starts with an operator */

@@ -5,10 +5,11 @@
 // Every step takes bounded time, whatever is typed: the preview works it out on every key press.
 import {
   type Q, CalcError, q, ZERO, ONE, add, sub, mul, div, neg, isInt, cmp, floor, trunc, powInt, rootExact, rootApprox, lnQ, toNumber, parseDecimal, withBudget, OverBudget,
-  powNum, fromLog10, exponent10,
+  powNum, fromLog10, exponent10, bitLength,
 } from "./rational";
 import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored, approx, precision, cleanFloat } from "./format";
 import { parse, type Node } from "./parse";
+import { financial, financialName, type FinOps } from "./financial";
 
 export type AngleUnit = "deg" | "rad" | "grad";
 export interface EvalOptions extends FormatOptions {
@@ -211,6 +212,24 @@ function logBase(v: Value, base: Value): Value {
   return fl(r);
 }
 
+// The financial functions' arithmetic: exact while the numbers stay a sensible size. A compounding factor of thousands
+// of digits ((241/240)^360 for a 30-year mortgage) is worked out as a double instead: nobody needs a payment as a
+// 1,400-digit fraction, and it would fill history and ans. A whole-power check too big to try is skipped the same way.
+const tooBig = (e: unknown) => e instanceof OverBudget || (e instanceof CalcError && e.message === "Number is too large");
+const FIN_POW_BITS = 1000;
+const FIN: FinOps<Value> = {
+  int: (n) => ({ q: q(n) }),
+  add: (a, b) => arith("+", a, b), sub: (a, b) => arith("-", a, b), mul: (a, b) => arith("*", a, b), div: (a, b) => arith("/", a, b),
+  pow: (a, b) => {
+    if (exact(a) && exact(b) && isInt(b.q) && (bitLength(a.q.n) + bitLength(a.q.d)) * Math.abs(toNumber(b.q)) > FIN_POW_BITS) return pow(fl(num(a)), b);
+    try { return pow(a, b); } catch (e) { if (exact(a) && tooBig(e)) return pow(fl(num(a)), b); throw e; }
+  },
+  log: (x, base) => {
+    try { return logBase(x, base); } catch (e) { if (tooBig(e)) return fl(lnOf(x) / lnOf(base)); throw e; }
+  },
+  sgn, whole: intOf,
+};
+
 const ALIAS: Record<string, string> = { arcsin: "asin", arccos: "acos", arctan: "atan", arsinh: "asinh", arcosh: "acosh", artanh: "atanh", sqrt: "√", cbrt: "∛", fact: "!" };
 
 function call(name: string, args: Value[], o: EvalOptions): Value {
@@ -224,6 +243,7 @@ function call(name: string, args: Value[], o: EvalOptions): Value {
     if (args.length === 2) return logBase(args[0]!, args[1]!);
     need(1); return logBase(args[0]!, { q: q(10n) });
   }
+  if (financialName(f)) return financial(f, args, FIN);
   if (f === "root") { need(2); const n = intOf(args[1]!); if (n === null) throw new CalcError("Root needs a whole number"); return root(args[0]!, Number(n)); }
   need(1);
   const a = args[0]!, x = () => num(a);

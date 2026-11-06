@@ -2,6 +2,7 @@
 // The first screen: the mode switch, the display (what is typed above, the answer or a live preview below), memory keys
 // and the keypad; Advanced adds a function pad (with a 2nd layer for inverse functions, so it fits a phone). Full
 // keyboard support on a computer, including typing a free expression (sin(30)+2^10, x = 5), copy and paste.
+// Financial adds GNOME's ten financial functions above the basic keys, each with a form (FinPad, loaded when chosen).
 // Programming has its own keys, bases and bit view (ProgPad, loaded only when that mode is chosen).
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES } from "../core/calc";
@@ -13,6 +14,7 @@ import Icon from "../components/Icon.vue";
 const VariablesSheet = defineAsyncComponent(() => import("../components/VariablesSheet.vue"));
 const varsOpen = ref(false);
 const ProgPad = defineAsyncComponent(() => import("../components/ProgPad.vue"));
+const FinPad = defineAsyncComponent(() => import("../components/FinPad.vue"));
 
 // kind: n = number, op = operator (accent tint), fn = function (quiet), eq = the one filled key
 type Kind = "n" | "op" | "fn" | "eq";
@@ -62,6 +64,7 @@ const modeItems = computed(() => MODES.map((m) => ({ label: m.label, hint: m.hin
 const modeLabel = computed(() => MODES.find((m) => m.id === calc.mode)?.label ?? "Basic");
 const adv = computed(() => calc.mode === "advanced");
 const progMode = computed(() => calc.mode === "programming");
+const fin = computed(() => calc.mode === "financial");
 
 const pv = computed(preview);
 const big = computed(() => calc.error || show(calc.answer || pv.value) || (calc.expr ? "" : "0"));
@@ -119,7 +122,7 @@ async function copyAnswer() {
 </script>
 
 <template>
-  <div class="page calc" :class="{ phone: isPhone, adv, prog: progMode }">
+  <div class="page calc" :class="{ phone: isPhone, adv, prog: progMode, fin }">
     <div class="calc-top">
       <Menu :items="modeItems" :text="modeLabel" label="Calculator mode" align="start" />
       <button v-if="adv" type="button" class="cvars" @click="varsOpen = true">Variables</button>
@@ -134,9 +137,9 @@ async function copyAnswer() {
       <div ref="exprEl" class="cexp num" :title="show(calc.expr)">{{ show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></div>
       <button type="button" class="cres num" :class="[size, { pre: !calc.answer && !calc.error && !!pv, err: !!calc.error }]" title="Copy" @click="copyAnswer">{{ big }}</button>
     </div>
-    <div v-if="calc.mode === 'financial'" class="cnote sm"><Icon name="info" :size="16" />{{ modeLabel }} keys are coming next. The basic keys work meanwhile.</div>
     <ProgPad v-if="progMode" :hit="hit" :clear="clearKey" @tap="tap" />
     <div v-else class="cpad">
+      <FinPad v-if="fin" />
       <div v-if="adv" class="fkeys" role="group" aria-label="Functions">
         <button v-for="f in FKEYS" :key="f.aria" type="button" class="key k-fn" :class="{ on: f.on, hit: hit === f.k }" :aria-label="f.aria" :aria-pressed="f.on ?? undefined" @click="fkey(f.k)">{{ f.label }}</button>
       </div>

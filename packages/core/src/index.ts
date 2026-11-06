@@ -2,6 +2,7 @@
 export { evaluate, RESERVED, type EvalOptions, type EvalResult, type AngleUnit } from "./evaluate";
 export { formatDisplay, storable, type DisplayOptions, type NumberFormat } from "./format";
 export { FUNCTIONS } from "./parse";
+export { FINANCIAL, financialName } from "./financial";
 export { sanitizeInput } from "./input";
 export {
   evaluateProgramming, formatInt, groupDigits, literal, rebase, fitsWord, toWord, fromWord, toggleBit, BASES, WORD_SIZES,

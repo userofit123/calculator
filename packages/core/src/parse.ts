@@ -3,6 +3,7 @@
 // open at the end, scientific entry (1.2e5), functions with or without brackets (sin 30, log₂(8), log(8; 2)) and
 // "name = expression" to store a variable.
 import { CalcError } from "./rational";
+import { FINANCIAL_NAMES } from "./financial";
 
 export type Node =
   | { k: "num"; text: string }
@@ -66,6 +67,7 @@ export const FUNCTIONS = new Set([
   "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh",
   "arcsin", "arccos", "arctan", "arsinh", "arcosh", "artanh",
   "ln", "log", "exp", "sqrt", "cbrt", "root", "abs", "floor", "ceil", "round", "frac", "int", "sgn", "gamma", "fact",
+  ...FINANCIAL_NAMES,
 ]);
 const isFunction = (n: string) => FUNCTIONS.has(n) || /^log[₀-₉]+$/.test(n);
 
