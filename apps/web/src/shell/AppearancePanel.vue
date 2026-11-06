@@ -3,7 +3,7 @@
 // the calculator's keys (shape, press feedback), density, spacing, navigation, and saved looks. Chart colours are left out:
 // the calculator draws no charts yet. Styled by styles/components/appearance.css.
 import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
-import { theme, ATM, ST0, AKEYS, BGS, FONTS, looks, lookFor, saveLooks, copy, isDark, atmOf, custVal, lookPal, setTheme, themeSwap, PKEYS, type Theme } from "../core/theme";
+import { theme, ATM, ST0, AKEYS, BGS, FONTS, looks, lookFor, saveLooks, copy, isDark, atmOf, custVal, lookPal, setTheme, themeSwap, PKEYS, known, type Theme } from "../core/theme";
 import { appearanceOpen } from "../core/ui";
 import { sheetOpened, sheetClosed } from "../core/sheets";
 import { isPhone } from "../core/device";
@@ -45,7 +45,7 @@ onBeforeUnmount(() => { unlock(); document.removeEventListener("click", outside,
 const BGL: Record<string, string> = { glow: "Glow", mesh: "Mesh", diagonal: "Diagonal", spot: "Spotlight", aurora: "Aurora", horizon: "Horizon", duo: "Two-tone", corners: "Corner glow", sweep: "Sweep", flat: "Flat" };
 const TEX: [string, string][] = [["none", "None"], ["dots", "Dots"], ["stripes", "Stripes"], ["grid", "Grid"], ["static", "Static"]];
 const SURF: [string, string][] = [["solid", "Solid"], ["outline", "Outline"], ["raised", "Raised"], ["glass", "Glass"]];
-const GLASS: [keyof Theme, string, number, number, number, number, string, string][] = [
+const GLASS: [NumKey, string, number, number, number, number, string, string][] = [
   ["gbl", "Blur", 0, 100, 5, 50, "%", "How blurred the background looks through the blocks"],
   ["gsat", "Vibrance", 50, 250, 10, 140, "%", "How bright and colourful the background looks through the blocks"],
   ["gop", "Opacity", 0, 100, 5, 55, "%", "How solid the blocks are: 100% hides the background"],
@@ -63,17 +63,19 @@ const CNAME: Record<string, string> = { acc: "Accent", acc2: "Gradient colour", 
 
 const opt = (key: keyof Theme, v: unknown) => setTheme({ [key]: v } as Partial<Theme>);
 const swatch = (n: string) => { const c = n === "Custom" ? atmOf("Custom")[k.value] : ATM[n]![k.value]; return `linear-gradient(135deg,${c[0]} 0 52%,${c[4]} 52% 100%)`; };
-const range = (key: keyof Theme, v: string) => { (theme as any)[key] = +v; };
+// the settings a slider moves (all plain numbers)
+type NumKey = { [K in keyof Theme]: Theme[K] extends number ? K : never }[keyof Theme];
+const range = (key: NumKey, v: string) => { theme[key] = +v; };
 const fromPreset = (n: string) => {
   const a = ATM[n]; if (!a) return;
   const cu: Record<string, Record<string, string>> = { L: {}, D: {} };
   (["L", "D"] as const).forEach((m) => AKEYS.forEach((x, j) => { cu[m]![x] = a[m][j]!; }));
-  setTheme({ cc: a.L[0], cu, cp: { L: {}, D: {} }, atm: "Custom" });
+  setTheme({ cc: a.L[0], cu, atm: "Custom" });
 };
-const setBase = (v: string) => Object.assign(theme, { cc: v, atm: "Custom", cu: { L: {}, D: {} }, cp: { L: {}, D: {} } });
+const setBase = (v: string) => Object.assign(theme, { cc: v, atm: "Custom", cu: { L: {}, D: {} } });
 const setCust = (n: string, v: string) => { const cu = copy(theme.cu || { L: {}, D: {} }); (cu[k.value] = cu[k.value] || {})[n] = v; Object.assign(theme, { cu, atm: "Custom" }); };
-const custReset = () => setTheme({ cu: { L: {}, D: {} }, cp: { L: {}, D: {} }, cc: ST0.cc });
-const reset = () => themeSwap(() => { const keep = { ls: theme.ls }; Object.keys(theme).forEach((x) => delete (theme as any)[x]); Object.assign(theme, copy(ST0), keep); });
+const custReset = () => setTheme({ cu: { L: {}, D: {} }, cc: ST0.cc });
+const reset = () => themeSwap(() => { const keep = { ls: theme.ls }; (Object.keys(theme) as (keyof Theme)[]).forEach((x) => delete theme[x]); Object.assign(theme, copy(ST0), keep); });
 
 const lookName = ref(""), nameEl = ref<HTMLInputElement | null>(null);
 const snap = () => copy(Object.fromEntries(PKEYS.map((x) => [x, theme[x]]))) as Partial<Theme>;
@@ -85,11 +87,11 @@ function saveLook() {
   looks.value = [...looks.value, { id: Date.now().toString(36), name: nm, v: snap() }];
   lookName.value = ""; saveLooks();
 }
-const useLook = (x: { v: Partial<Theme> }) => setTheme(copy(x.v));
+const useLook = (x: { v: Partial<Theme> }) => setTheme(known(copy(x.v)));
 function assign(x: { id: string }, sc: "L" | "D") {
   lookFor.value = { ...lookFor.value, [sc]: lookFor.value[sc] === x.id ? null : x.id }; saveLooks();
   const y = looks.value.find((z) => z.id === lookFor.value[sc]);
-  if (y && (sc === "D") === isDark()) setTheme(copy(y.v));
+  if (y && (sc === "D") === isDark()) setTheme(known(copy(y.v)));
 }
 const updLook = (x: { id: string; name: string }) => { looks.value = looks.value.map((y) => (y.id === x.id ? { ...y, v: snap() } : y)); saveLooks(); toast(`Saved “${x.name}” with the current look`); };
 const delLook = (x: { id: string }) => { looks.value = looks.value.filter((y) => y.id !== x.id); const a = { ...lookFor.value }; (["L", "D"] as const).forEach((s) => { if (a[s] === x.id) a[s] = null; }); lookFor.value = a; saveLooks(); };
@@ -116,7 +118,7 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
         <div class="aps"><h4>Colour palette</h4>
           <div class="sw">
             <button v-for="(_, n) in ATM" :key="n" :class="{ on: theme.atm === n }" :title="String(n)" @click="opt('atm', n)"><span class="swd" :style="{ background: swatch(String(n)) }" /><span class="swn">{{ n }}</span></button>
-            <button :class="{ on: theme.atm === 'Custom' }" title="Custom colour" @click="opt('atm', 'Custom')"><span class="swd" :style="{ background: theme.atm === 'Custom' ? swatch('Custom') : 'conic-gradient(#f55,#fb3,#9d4,#3cb,#49f,#a6e,#f55)' }" /><span class="swn">Custom</span></button>
+            <button :class="{ on: theme.atm === 'Custom' }" title="Custom colour" @click="opt('atm', 'Custom')"><span class="swd" :class="{ any: theme.atm !== 'Custom' }" :style="theme.atm === 'Custom' ? { background: swatch('Custom') } : undefined" /><span class="swn">Custom</span></button>
           </div>
         </div>
         <div v-if="theme.atm === 'Custom'" class="aps cust">
@@ -180,8 +182,8 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
       </div>
       <div class="apbt" :class="{ on: tab === 'sav' }">
         <div class="aps"><h4>Save current look</h4>
-          <div class="apr" style="margin-top:0"><input ref="nameEl" v-model="lookName" type="text" maxlength="30" placeholder="Name" style="flex:1;min-width:0" @keydown.enter="saveLook"><button class="btn s" @click="saveLook">Save</button></div>
-          <div class="sm" style="margin-top:8px">The mode (light, dark, auto) is not saved with a look.</div>
+          <div class="apr apname"><input ref="nameEl" v-model="lookName" type="text" maxlength="30" placeholder="Name" @keydown.enter="saveLook"><button class="btn s" @click="saveLook">Save</button></div>
+          <div class="sm apnote">The mode (light, dark, auto) is not saved with a look.</div>
         </div>
         <div class="aps"><h4>Your looks</h4>
           <div id="tpList">

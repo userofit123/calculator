@@ -2,7 +2,10 @@
 import { ref } from "vue";
 import { readStr, writeStr } from "./prefs";
 
-export const layoutChoice = ref<"auto" | "desktop" | "phone">((readStr("calcLayout", "auto") as any) || "auto");
+export type Layout = "auto" | "desktop" | "phone";
+const LAYOUTS: readonly string[] = ["auto", "desktop", "phone"] satisfies Layout[];
+const saved = readStr("calcLayout", "auto");
+export const layoutChoice = ref<Layout>(LAYOUTS.includes(saved) ? (saved as Layout) : "auto");
 const auto = () => {
   const w = Math.min(innerWidth, document.documentElement.clientWidth || innerWidth);
   return w <= 860 || (matchMedia("(pointer:coarse)").matches && w <= 1100);
@@ -13,14 +16,8 @@ const update = () => {
   document.documentElement.classList.toggle("phone", isPhone.value);
 };
 addEventListener("resize", update);
-export function setLayout(v: "auto" | "desktop" | "phone") { layoutChoice.value = v; writeStr("calcLayout", v); update(); }
+export function setLayout(v: Layout) { layoutChoice.value = v; writeStr("calcLayout", v); update(); }
 update();
-
-/** The Android app (Capacitor) or the desktop app (Electron), when running inside one. */
-export const native = {
-  android: typeof (globalThis as any).Capacitor !== "undefined" && (globalThis as any).Capacitor?.getPlatform?.() === "android",
-  desktop: typeof (globalThis as any).calcDesktop !== "undefined",
-};
 
 /** The safe-area insets in px as the page uses them (--st / --sb / --sl / --sr in tokens.css: env() or the Android
  *  app's bar sizes), for popups placed by script, so they stop short of the clock and the navigation bar. */

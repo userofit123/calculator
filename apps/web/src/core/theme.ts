@@ -32,8 +32,7 @@ export const FONTS: Record<string, string> = {
   round: '"MM Rounded",Inter,ui-rounded,system-ui,sans-serif',
   mono: 'ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace',
 };
-export const CP: Pal = { L: ["#4355b9", "#c2185b", "#e68a00", "#00897b", "#7cb342", "#8e24aa", "#546e7a"], D: ["#9fb0ff", "#f48fb1", "#ffcc80", "#80cbc4", "#c5e1a5", "#ce93d8", "#b0bec5"] };
-export const ST0 = { mode: "dark", atm: "Ember", cc: "#954523", cu: { L: {}, D: {} } as Record<string, Record<string, string>>, cp: { L: {}, D: {} } as Record<string, Record<number, string>>, gi: 100,
+export const ST0 = { mode: "dark", atm: "Ember", cc: "#954523", cu: { L: {}, D: {} } as Record<string, Record<string, string>>, gi: 100,
   surf: "solid", gbl: 50, gsat: 140, gop: 55, bg: "glow", tex: "none", tsc: 100, toa: 50, rad: "round", den: "cozy", spc: "standard", nsp: "standard", fnt: "sans", nav: "full", ksh: "corners", kfb: "press", ls: "" as string };
 export type Theme = typeof ST0;
 export const BGS = ["glow", "mesh", "diagonal", "spot", "aurora", "horizon", "duo", "corners", "sweep", "flat"];
@@ -41,10 +40,13 @@ export const AKEYS = ["acc", "accc", "onc", "bg", "acc2", "on"];
 const XDEF: Record<string, Record<string, string>> = { L: { tx: "#1b1b22", pos: "#1b7f4b", neg: "#c0392b" }, D: { tx: "#e6e4ea", pos: "#6fd69b", neg: "#ff9c8f" } };
 /** The choices put on <html> as data-* attributes (index.html applies the same list before the first paint) */
 export const DKEYS = ["bg", "tex", "rad", "den", "spc", "nsp", "fnt", "nav", "ksh", "kfb"] as const;
-export const PKEYS = ["atm", "cc", "cu", "cp", "gi", "surf", "gbl", "gsat", "gop", "bg", "tex", "tsc", "toa", "rad", "den", "spc", "nsp", "fnt", "nav", "ksh", "kfb"] as const;
+export const PKEYS = ["atm", "cc", "cu", "gi", "surf", "gbl", "gsat", "gop", "bg", "tex", "tsc", "toa", "rad", "den", "spc", "nsp", "fnt", "nav", "ksh", "kfb"] as const;
 
 export const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v));
-export const theme = reactive<Theme>({ ...copy(ST0), ...(readJson("calcTheme", {}) as Partial<Theme>) });
+/** Only the settings this version knows: a look saved by an older version can hold ones since dropped (Motus's chart
+ *  colours, "cp"), which would otherwise ride along in every save. */
+export const known = (v: object): Partial<Theme> => Object.fromEntries(Object.entries(v).filter(([k]) => k in ST0)) as Partial<Theme>;
+export const theme = reactive<Theme>({ ...copy(ST0), ...known(readJson("calcTheme", {})) });
 
 export interface Look { id: string; name: string; v: Partial<Theme> }
 export const looks = ref<Look[]>(readJson("calcThemes", []));
@@ -76,7 +78,6 @@ export const atmOf = (n: string): Pal => {
   (["L", "D"] as const).forEach((k) => { const o = cuOf(k); AKEYS.forEach((x, i) => { if (o[x]) b[k][i] = o[x]!; }); });
   return b;
 };
-export const cpOf = (k: "L" | "D") => CP[k].map((c, i) => (theme.atm === "Custom" && theme.cp?.[k]?.[i]) || c);
 export const custVal = (n: string, k: "L" | "D"): string => { const o = cuOf(k); if (o[n]) return o[n]!; const i = AKEYS.indexOf(n); return i >= 0 ? atmOf("Custom")[k][i]! : XDEF[k]![n]!; };
 export const lookPal = (v: Partial<Theme>, k: "L" | "D") => {
   const b = v.atm === "Custom" ? customAtm(v.cc ?? "")[k] : (ATM[v.atm ?? "Ember"] ?? ATM.Ember!)[k];
@@ -89,7 +90,7 @@ declare global { interface Window { calcApp?: { setBars?: (bg: string, dark: boo
 export function applyTheme() {
   if (typeof document === "undefined") return;
   const d = isDark(), k = d ? "D" : "L";
-  if (theme.ls !== k) { theme.ls = k; const x = looks.value.find((y) => y.id === lookFor.value[k]); if (x) Object.assign(theme, copy(x.v)); }
+  if (theme.ls !== k) { theme.ls = k; const x = looks.value.find((y) => y.id === lookFor.value[k]); if (x) Object.assign(theme, known(copy(x.v))); }
   const a = atmOf(theme.atm)[k], ex = cuOf(k), h = document.documentElement, r = h.style;
   r.colorScheme = d ? "dark" : "light";
   // index.html paints <html> with the last session's colour before the app loads; follow the current one, or a mode or
@@ -108,7 +109,6 @@ export function applyTheme() {
     ["--tx2", ex.tx ? "color-mix(in srgb,var(--tx) 68%,var(--bg))" : d ? "#a9a7b3" : "#5a5865"], ["--pos", ex.pos || XDEF[k]!.pos], ["--neg", ex.neg || XDEF[k]!.neg],
     ["--s1", "color-mix(in srgb,var(--tx) " + (d ? "5" : "3") + "%,var(--bg))"], ["--s2", "color-mix(in srgb,var(--tx) " + (d ? "10" : "7") + "%,var(--bg))"],
     ["--ol", "color-mix(in srgb,var(--tx) " + (d ? "13" : "11") + "%,transparent)"]] as [string, string][]).forEach(([p, v]) => r.setProperty(p, v));
-  cpOf(k).forEach((c, i) => r.setProperty("--c" + i, c));
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", a[3]!);
   try { window.calcApp?.setBars?.(a[3]!, d, a[0]!, a[5]!, getComputedStyle(h).getPropertyValue("--tx").trim()); } catch { /* the bars keep their colour */ }
   if (window.desktopFrame) { h.classList.add("dframe"); try { window.desktopFrame.setTitleBar(a[3]!, ex.tx || XDEF[k]!.tx!); } catch { /* keeps its colours */ } }
@@ -120,18 +120,19 @@ export function applyTheme() {
   writeJson("calcBoot", { bg: a[3], d, f: r.getPropertyValue("--font"), v: V });
 }
 
-const still = () => typeof document === "undefined" || !(document as any).startViewTransition || matchMedia("(prefers-reduced-motion:reduce)").matches;
+// Browsers without view transitions just switch
+const still = () => typeof document === "undefined" || typeof document.startViewTransition !== "function" || matchMedia("(prefers-reduced-motion:reduce)").matches;
 export function themeSwap(fn: () => void) {
   const go = () => { const h = document.documentElement; h.classList.add("nt"); fn(); requestAnimationFrame(() => requestAnimationFrame(() => h.classList.remove("nt"))); };
-  if (still()) go(); else (document as any).startViewTransition(go);
+  if (still()) go(); else document.startViewTransition(go);
 }
 export function themeSwapFrom(el: Element | null, fn: () => void) {
   if (still() || !el) { fn(); return; }
   const h = document.documentElement, b = el.getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2;
   const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)), F = Math.round(Math.min(260, Math.max(140, R * 0.22)));
   h.style.setProperty("--vt-x", x + "px"); h.style.setProperty("--vt-y", y + "px"); h.style.setProperty("--vt-f", F + "px"); h.style.setProperty("--vt-r", "0px"); h.classList.add("vt-r");
-  const t = (document as any).startViewTransition(() => { fn(); });
-  t.ready.then(() => h.animate({ "--vt-r": ["0px", R + F + "px"] } as any, { duration: 600, easing: "cubic-bezier(.35,.15,.65,.85)", fill: "forwards", pseudoElement: "::view-transition-new(root)" })).catch(() => {});
+  const t = document.startViewTransition(() => { fn(); });
+  t.ready.then(() => h.animate({ "--vt-r": ["0px", R + F + "px"] } as PropertyIndexedKeyframes, { duration: 600, easing: "cubic-bezier(.35,.15,.65,.85)", fill: "forwards", pseudoElement: "::view-transition-new(root)" })).catch(() => {});
   t.finished.finally(() => { h.classList.remove("vt-r"); ["--vt-x", "--vt-y", "--vt-f", "--vt-r"].forEach((p) => h.style.removeProperty(p)); });
 }
 export const setTheme = (o: Partial<Theme>, from?: Element | null) => (from ? themeSwapFrom(from, () => Object.assign(theme, o)) : themeSwap(() => Object.assign(theme, o)));

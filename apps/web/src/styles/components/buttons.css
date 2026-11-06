@@ -24,51 +24,13 @@
   stroke-linejoin: round;
 }
 
-.ib .badge {
-  top: -3px;
-  right: -3px; /* fixed side */
-}
-
 .btn {
   transition: transform .12s, filter .15s, background .2s, opacity .2s;
-}
-
-@keyframes sp {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid currentColor;
-  border-right-color: transparent; /* fixed side */
-  border-radius: 50%;
-  animation: sp .8s linear infinite;
-  vertical-align: -2px;
-  margin-right: 8px; /* fixed side */
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation-duration: 3s;
-  }
 }
 
 .btn:disabled {
   opacity: .55;
   cursor: not-allowed;
-}
-
-.btn.running:disabled {
-  opacity: 1;
-  cursor: progress;
-}
-
-#jobBar .spinner {
-  color: var(--acc);
 }
 
 .btn {
@@ -112,61 +74,9 @@
   color: var(--neg);
 }
 
-.cx {
-  border: 0;
-  background: none;
-  color: var(--tx2);
-  cursor: pointer;
-  font: inherit;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 2px;
-  margin: 0 -2px 0 0;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  display: inline-grid;
-  place-items: center;
-  opacity: .7;
-}
-
-.cx:hover {
-  opacity: 1;
-  background: var(--s2);
-  color: var(--neg);
-}
-
-.jmore {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border-radius: 50%;
-}
-
-.jmore svg {
-  width: 18px;
-  height: 18px;
-  display: block;
-  fill: currentColor;
-}
-
 a.btn {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.upl {
-  cursor: pointer;
-}
-
-.cls {
-  margin: 12px 0 4px;
-  font-size: 11px;
-  letter-spacing: .8px;
-  text-transform: uppercase;
-  color: var(--tx2);
 }

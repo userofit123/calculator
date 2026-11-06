@@ -69,7 +69,8 @@ const isFunction = (n: string) => FUNCTIONS.has(n) || /^log[₀-₉]+$/.test(n);
 export function parse(src: string): Statement {
   const toks = tokenize(src);
   if (!toks.length) throw new CalcError("Malformed expression");
-  let p = 0, absDepth = 0;
+  // depth: brackets open around the current point, so a ")" with none open is reported as one too many, not as malformed
+  let p = 0, absDepth = 0, depth = 0;
   const peek = (o = 0) => toks[p + o];
   const isOp = (v: string, o = 0) => { const t = peek(o); return !!t && t.t === "op" && t.v === v; };
   const isName = (v: string) => { const t = peek(); return !!t && t.t === "name" && t.v === v; };
@@ -125,9 +126,10 @@ export function parse(src: string): Statement {
     }
   }
   function args(): Node[] {
-    p++; // "("
+    p++; depth++; // "("
     const list = [expr()];
     while (isOp(";")) { p++; list.push(expr()); }
+    depth--;
     if (isOp(")")) p++;
     else if (p < toks.length) throw new CalcError("Malformed expression");
     return list;
@@ -143,8 +145,9 @@ export function parse(src: string): Statement {
     }
     if (t.t === "op") {
       if (t.v === "(") {
-        p++;
+        p++; depth++;
         const a = expr();
+        depth--;
         if (isOp(")")) p++; // a bracket left open at the end is closed for you
         else if (p < toks.length) throw new CalcError("Malformed expression");
         return a;
@@ -161,7 +164,7 @@ export function parse(src: string): Statement {
         p++;
         return { k: "root", n: t.v === "√" ? 2 : t.v === "∛" ? 3 : 4, a: unaryOperand() };
       }
-      throw new CalcError("Malformed expression");
+      throw new CalcError(t.v === ")" && depth === 0 ? "Too many closing brackets" : "Malformed expression");
     }
     // a name: a function, a constant or a variable
     p++;

@@ -1,21 +1,5 @@
 /* The Appearance panel: colour sets, backgrounds, textures, surfaces and the other look options. */
 
-.rk.z {
-  display: grid;
-  grid-template-columns: 1fr 180px 1fr;
-  text-align: start;
-  align-items: center;
-}
-
-.rk.z,
-.rkz > .zend {
-  position: relative;
-}
-
-details.closing > *:not(summary) {
-  opacity: 0;
-}
-
 .aph {
   display: flex;
   align-items: center;
@@ -263,14 +247,14 @@ details.closing > *:not(summary) {
 }
 
 .sf-raised i {
-  background: linear-gradient(180deg, color-mix(in srgb, #fff 12%, var(--bg)), var(--bg));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hl) 12%, var(--bg)), var(--bg));
   border-color: color-mix(in srgb, var(--tx) 10%, transparent);
-  box-shadow: 0 5px 8px -2px rgba(0, 0, 0, .35), 0 1px 1px rgba(0, 0, 0, .2);
+  box-shadow: 0 5px 8px -2px color-mix(in srgb, var(--shc) 35%, transparent), 0 1px 1px color-mix(in srgb, var(--shc) 20%, transparent);
 }
 
 .sf-glass i {
   background: color-mix(in srgb, var(--bg) 35%, transparent);
-  border-color: color-mix(in srgb, #fff 35%, transparent);
+  border-color: color-mix(in srgb, var(--hl) 35%, transparent);
   -webkit-backdrop-filter: blur(6px) saturate(1.6);
   backdrop-filter: blur(6px) saturate(1.6);
 }
@@ -605,38 +589,6 @@ details.closing > *:not(summary) {
   border-radius: 0;
 }
 
-.cch {
-  margin-top: 16px;
-}
-
-.cch summary {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--tx2);
-  margin-bottom: 10px;
-}
-
-.cch > summary::after {
-  width: 16px;
-  height: 16px;
-}
-
-.cchips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.cchip .cpk {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-}
-
 /* extra settings that belong to the choice above them (texture and glass sliders) */
 .apsub {
   margin-top: 12px;
@@ -654,11 +606,6 @@ details.closing > *:not(summary) {
   margin-top: 10px;
 }
 
-details.closing.kvd > summary::after {
-  transform: rotate(45deg);
-  margin-top: -3px;
-}
-
 /* the side menu's spacing and style only exist on a computer: the phone has a tab bar instead */
 html.phone #pop .only-d {
   display: none;
@@ -669,3 +616,24 @@ html.phone #pop .only-d {
 .kpv i { width: 20px; height: 15px; background: var(--s2); border-radius: calc(var(--r-sm) * .5); }
 .kpv i:last-child { background: linear-gradient(135deg, var(--acc), var(--acc2)); }
 .kpv.ks-round i { border-radius: 999px; }
+
+/* the "any colour" swatch: the Custom colour set before one is chosen shows every hue, so it reads as "pick your own".
+   Its hues are the colour wheel itself, not the app's colours, so they are named here once rather than taken from tokens */
+.sw .swd.any {
+  --any-colour: conic-gradient(hsl(0 90% 67%), hsl(45 95% 60%), hsl(90 55% 55%), hsl(170 60% 50%), hsl(215 95% 64%), hsl(280 65% 67%), hsl(0 90% 67%));
+  background: var(--any-colour);
+}
+
+/* Saved tab: the name field takes the row beside its Save button, and the note sits a row-gap under it */
+.apr.apname {
+  margin-top: 0;
+}
+
+.apname input {
+  flex: 1;
+  min-width: 0;
+}
+
+.apnote {
+  margin-top: var(--hg);
+}

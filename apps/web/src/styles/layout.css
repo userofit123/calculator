@@ -1,4 +1,4 @@
-/* The app frame from Money Manager: the rail, its gliding highlight, main, the + button. */
+/* The app frame from Money Manager: the desktop rail and main. */
 /* --st / --sb / --sl / --sr: room for the Android app's bars (0 on the web and the desktop app) */
 nav {
   width: 88px;
@@ -29,10 +29,6 @@ nav .logo:hover {
   animation: lwob 1.6s ease-in-out infinite;
 }
 
-.logo.shake {
-  animation: lshake .5s cubic-bezier(.36, .07, .19, .97) !important;
-}
-
 @keyframes lwob {
   0%, 100% {
     transform: rotate(0);
@@ -48,21 +44,6 @@ nav .logo:hover {
   }
   75% {
     transform: rotate(3deg);
-  }
-}
-
-@keyframes lshake {
-  10%, 90% {
-    transform: translateX(-2px) rotate(-3deg);
-  }
-  20%, 80% {
-    transform: translateX(3px) rotate(4deg);
-  }
-  30%, 50%, 70% {
-    transform: translateX(-5px) rotate(-7deg);
-  }
-  40%, 60% {
-    transform: translateX(5px) rotate(7deg);
   }
 }
 
@@ -83,8 +64,7 @@ html.vt-r::view-transition-new(root) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  nav .logo:hover,
-  .logo.shake {
+  nav .logo:hover {
     animation: none !important;
   }
 }
@@ -175,21 +155,6 @@ html.vt-r::view-transition-new(root) {
   flex: none;
 }
 
-.syncb {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  font-size: 10.5px;
-  color: var(--tx2);
-  text-align: center;
-  line-height: 1.25;
-  cursor: pointer;
-  background: none;
-  border: 0;
-  font-family: inherit;
-}
-
 main {
   flex: 1 1 0;
   width: 100%;
@@ -205,23 +170,6 @@ header {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-}
-.fab {
-  position: fixed;
-  right: calc(22px + var(--sr)); /* fixed side */
-  bottom: calc(22px + var(--sb));
-  z-index: 40;
-  width: 58px;
-  height: 58px;
-  border-radius: 20px;
-  border: 0;
-  background: linear-gradient(135deg, var(--acc), var(--acc2));
-  color: var(--on);
-  font-size: 28px;
-  cursor: pointer;
-  box-shadow: 0 12px 30px -8px var(--acc);
-  display: grid;
-  place-items: center;
 }
 
 html.nt *,

@@ -3,17 +3,11 @@
    written only with those tokens. */
 @import "./tokens.css";
 @import "./base.css";
-@import "./components/chips.css";
 @import "./components/tabs.css";
 @import "./components/forms.css";
-@import "./components/toasts.css";
-@import "./components/menus.css";
 @import "./components/cards.css";
-@import "./components/tooltips.css";
 @import "./components/sheets.css";
-@import "./components/sections.css";
 @import "./components/dropdowns.css";
-@import "./components/choice.css";
 @import "./theme.css";
 @import "./components/buttons.css";
 @import "./layout.css";

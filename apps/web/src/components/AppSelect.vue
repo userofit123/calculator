@@ -1,4 +1,4 @@
-<script setup lang="ts">
+<script setup lang="ts" generic="T extends string | number">
 // The app's own drop-down list, in place of the browser's <select> (whose list is drawn by the browser or the phone, not
 // in the app's look). Options are plain strings or { value, label }; options with a `group` go under that heading.
 // Keys as on a <select>: arrows, Home/End, Enter or Space, Esc, and typing a name's first letters jumps to it.
@@ -9,16 +9,16 @@ import { isPhone } from "../core/device";
 import Icon from "./Icon.vue";
 import PickerPop from "./PickerPop.vue";
 
-export interface SelectOption { value: any; label: string; hint?: string; group?: string; disabled?: boolean }
+export interface SelectOption<V = string | number> { value: V; label: string; hint?: string; group?: string; disabled?: boolean }
 defineOptions({ inheritAttrs: false });
-const props = defineProps<{ modelValue: any; options: (string | SelectOption)[]; placeholder?: string; disabled?: boolean; title?: string }>();
-const emit = defineEmits<{ "update:modelValue": [v: any]; change: [v: any] }>();
+const props = defineProps<{ modelValue: T; options: (Extract<T, string> | SelectOption<T>)[]; placeholder?: string; disabled?: boolean; title?: string }>();
+const emit = defineEmits<{ "update:modelValue": [v: T]; change: [v: T] }>();
 
 const id = useId();
-const opts = computed<SelectOption[]>(() => props.options.map((o) => (typeof o === "string" ? { value: o, label: o } : o)));
+const opts = computed<SelectOption<T>[]>(() => props.options.map((o) => (typeof o === "string" ? { value: o, label: o } : o)));
 // shown under their headings, in the order the headings first appear; `flat` is that same order, for the keys
 const groups = computed(() => {
-  const m = new Map<string, SelectOption[]>();
+  const m = new Map<string, SelectOption<T>[]>();
   for (const o of opts.value) m.set(o.group ?? "", [...(m.get(o.group ?? "") ?? []), o]);
   return [...m];
 });
@@ -33,7 +33,7 @@ function show() {
   open.value = true;
 }
 function close(refocus = true) { open.value = false; if (refocus && !isPhone.value) btn.value?.focus({ preventScroll: true }); }
-function pick(o: SelectOption) {
+function pick(o: SelectOption<T>) {
   if (o.disabled) return;
   close();
   if (o.value !== props.modelValue) { emit("update:modelValue", o.value); emit("change", o.value); }

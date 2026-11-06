@@ -22,7 +22,7 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
       <section>
         <div class="sh first"><h2>Appearance</h2></div>
         <div class="card flush">
-          <button type="button" class="li click" data-theme-open style="width:100%;border:0;background:none;text-align:start;font:inherit;color:inherit" @click.stop="appearanceOpen = true">
+          <button type="button" class="li click lib" data-theme-open @click.stop="appearanceOpen = true">
             <Icon name="palette" /><div class="grow"><div class="t">Appearance</div><div class="s">Colours, background, texture, corners, keys, density and font</div></div><Icon name="right" />
           </button>
           <div class="li">

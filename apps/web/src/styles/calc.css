@@ -75,12 +75,12 @@ body.raised .cdisp, body.raised .key:not(.k-eq) { box-shadow: 0 1px 0 color-mix(
 body.glass .cdisp, body.glass .k-n, body.glass .k-fn { background: color-mix(in srgb, var(--s2) calc(var(--gop) * 100%), transparent); backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); -webkit-backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); }
 
 /* the phone: the calculator fills the screen between the top and the tabs, the keys share the height left */
-html.phone .pmain:has(> .calc) { padding-bottom: 12px; }
-html.phone .calc { max-width: none; height: calc(100dvh - var(--tabh) - var(--sb) - var(--st) - 14px - 12px - 16px); min-height: 440px; }
+html.phone .pmain:has(> .calc) { padding-bottom: var(--hg); }
+html.phone .calc { max-width: none; height: calc(100dvh - var(--tabh) - var(--sb) - var(--st) - var(--ptop) - var(--hg) - var(--pdock)); min-height: 440px; }
 html.phone .cdisp { flex: 1 1 auto; min-height: 120px; max-height: 34%; }
 html.phone .cpad, html.phone .bpad, html.phone .keys { flex: 1 1 auto; }
 html.phone .keys { grid-auto-rows: minmax(min(var(--kh), 44px), 1fr); }
-html.phone .memk button { min-height: 34px; }
+html.phone .memk button { min-height: calc(var(--kh) * .58); }
 html.phone .calc.adv { min-height: 600px; }
 /* Advanced on the phone: the display takes only what its lines need, the keys get the rest */
 html.phone .calc.adv .cdisp { flex: 0 0 auto; min-height: 0; max-height: none; gap: 0; }
@@ -88,7 +88,7 @@ html.phone .calc.adv .cbar { min-height: 28px; }
 html.phone .calc.adv .cres { font-size: 40px; }
 html.phone .calc.adv .cres.m { font-size: 34px; }
 html.phone .calc.adv .cres.s { font-size: 28px; }
-html.phone .fkeys { grid-auto-rows: minmax(36px, auto); }
+html.phone .fkeys { grid-auto-rows: minmax(calc(var(--kh) * .62), auto); }
 
 /* a computer: the calculator sits in the middle of the page */
 html:not(.phone) .calc { margin: 0 auto; padding-top: 4vh; }

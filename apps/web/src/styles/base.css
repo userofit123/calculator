@@ -1,4 +1,4 @@
-/* Base: fonts, the reset, html and body, text, links, icons, Hebrew right to left, motion settings and small helpers. */
+/* Base: fonts, the reset, html and body, text, links, icons, motion settings and small helpers. */
 
 @font-face {
   font-family: Inter;
@@ -17,10 +17,6 @@
   font-style: normal;
   font-display: swap;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-html.boot body > *:not(#splash) {
-  visibility: hidden !important;
 }
 
 * {
@@ -55,9 +51,7 @@ body {
   overflow-x: clip;
 }
 
-.num,
-td.am,
-.val {
+.num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
@@ -113,11 +107,6 @@ h2 {
   }
 }
 
-.qa .sm {
-  font-size: 12px;
-  display: block;
-}
-
 .sm {
   font-size: 12.5px;
   color: var(--tx2);
@@ -131,22 +120,10 @@ h2 {
   color: var(--neg);
 }
 
-.flex {
-  display: flex;
-  gap: 22px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
 svg text {
   font-family: inherit;
   fill: var(--tx2);
   font-size: 11px;
-}
-
-.row .grow {
-  flex: 1;
-  min-width: 0;
 }
 
 * {
@@ -167,100 +144,12 @@ svg text {
   animation-duration: .28s;
 }
 
-.mrow .grow {
-  font-size: 16px;
-}
-
-/* ===== Hebrew: right to left. The page itself stays left-to-right so the scrollbar remains on the right; only the content is mirrored ===== */
-
-html.he body {
-  direction: rtl;
-}
-
-html.he svg {
-  direction: ltr;
-}
-
-html.he .num,
-html.he .val,
-html.he b.num {
-  direction: ltr;
-  unicode-bidi: isolate;
-}
-
-.mx {
-  display: flex;
-  gap: 2px;
-  flex: none;
-}
-
-.gr {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-details > .tsb,
 details > *:not(summary) {
   transition: opacity .2s;
 }
 
-/* The open/close arrow of a fold (<details class="fold">): one thin chevron for the whole app.
-   It points down when open, and to the end side when closed (right in English, left in Hebrew).
-   Each fold places it (for example margin-inline-start: auto) and may change its size. */
-.fold > summary {
-  list-style: none;
-}
-
-.fold > summary::-webkit-details-marker {
-  display: none;
-}
-
-.fold > summary::after {
-  content: "";
-  width: 18px;
-  height: 18px;
-  flex: none;
-  background: var(--tx2);
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/100% 100% no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center/100% 100% no-repeat;
-  transition: transform .2s;
-}
-
-.fold:not([open]) > summary::after,
-.fold.closing > summary::after {
-  transform: rotate(-90deg);
-}
-
-html.he .fold:not([open]) > summary::after,
-html.he .fold.closing > summary::after {
-  transform: rotate(90deg);
-}
-
-.rel .rb .sm {
-  margin-top: 2px;
-  line-height: 1.45;
-}
-
-.ci .sm {
-  margin-top: 2px;
-  line-height: 1.5;
-}
-
-.dim {
-  color: var(--tx2);
-  opacity: .5;
-}
-
 h2 {
   margin: calc(var(--spg) * 1.75) 0 var(--hg);
-}
-
-.dt {
-  display: inline-block;
-  margin: 0 .3em;
-  opacity: .6;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -268,10 +157,6 @@ h2 {
     animation: none !important;
     transition: none !important;
   }
-}
-
-.hid {
-  display: none !important;
 }
 
 body::before,
@@ -283,8 +168,6 @@ body::after {
   pointer-events: none;
   display: none;
 }
-
-/* section rhythm */
 
 #app {
   display: contents;

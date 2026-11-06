@@ -210,3 +210,37 @@ describe("errors", () => {
   ];
   errs.forEach(([e, want]) => it(`${e || "(empty)"} → ${want}`, () => expect(err(e)).toBe(want)));
 });
+
+describe("brackets left open are closed at the end", () => cases([
+  ["(2 + 3", "5"],
+  ["2 × (3 + (4 − 1", "12"],
+  ["sin(30", "0.5"],
+  ["-(4", "-4"],
+]));
+
+describe("bracket errors", () => {
+  it("a closing bracket with none open", () => expect(err(")2")).toBe("Too many closing brackets"));
+  it("one too many after a group", () => expect(err("(1 + 2)) × 3")).toBe("Too many closing brackets"));
+  it("an empty pair", () => expect(err("()")).toBe("Malformed expression"));
+  it("only an opening bracket", () => expect(err("(")).toBe("Malformed expression"));
+});
+
+describe("rounding negative results", () => cases([
+  ["-2/3", "-0.67", { decimals: 2 }],
+  ["-1/3", "-0.33", { decimals: 2 }],
+  ["-0.125", "-0.13", { decimals: 2 }],
+  ["-2.5", "-3", { decimals: 0 }],
+  ["-0.004", "0", { format: "fixed", decimals: 2 }],
+  ["-0.006", "-0.01", { format: "fixed", decimals: 2 }],
+  ["round(-2.4)", "-2"],
+  ["round(-0.5)", "-1"],
+]));
+
+describe("numbers written with a leading or trailing point", () => cases([
+  [".5", "0.5"],
+  ["5.", "5"],
+  [".5 × 2", "1"],
+  ["5. + .5", "5.5"],
+  ["-.5", "-0.5"],
+]));
+
