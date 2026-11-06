@@ -84,3 +84,21 @@ export function plainNotes(body: unknown, max = 4000): string {
   if (s.length > max) s = s.slice(0, max).replace(/\s+\S*$/, "") + " ...";
   return s;
 }
+
+/** How far a download is, 0-1, from bytes so far and the expected size; null when the size is unknown or the numbers
+ *  are not sensible (a progress report from the desktop app or the Android plugin is never trusted blindly). */
+export function shareOf(loaded: unknown, total: unknown): number | null {
+  if (typeof loaded !== "number" || typeof total !== "number" || !Number.isFinite(loaded) || !Number.isFinite(total) || total <= 0 || loaded < 0) return null;
+  return Math.min(1, loaded / total);
+}
+/** A share as a whole percent for the bar and its label: rounded down, so 100% only shows once it is all there. */
+export function pctOf(share: number): number {
+  return Number.isFinite(share) ? Math.max(0, Math.min(100, Math.floor(share * 100))) : 0;
+}
+/** What the status line says while a download runs: "Downloading 42%", or the megabytes so far when the size is
+ *  unknown ("Downloading 3.1 MB"), or just "Downloading". English ids, shown through core/msg.ts. */
+export function progressText(share: number | null, bytes?: number): string {
+  if (share != null) return `Downloading ${pctOf(share)}%`;
+  if (typeof bytes === "number" && Number.isFinite(bytes) && bytes > 0) return `Downloading ${(bytes / 1e6).toFixed(1)} MB`;
+  return "Downloading";
+}

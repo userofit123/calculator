@@ -120,4 +120,5 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.verAvail": "גרסה {v} זמינה",
   "msg.downloading": "מוריד",
   "msg.downloadingPct": "מוריד {p}%",
+  "msg.downloadingMb": "מוריד {mb} MB",
 };

@@ -40,11 +40,28 @@ never inside the app, and only a few addresses are allowed (this project's page 
 ### Updates
 
 The AppImage and the Windows version update themselves: when a new version is out, an **Update** button appears in the
-menu (and Settings → Updates shows the version and what's new). **Download** fetches it from this project's GitHub
-release and checks it against the release's `latest-linux.yml` / `latest.yml` (SHA-512) before anything is used;
-**Restart and install** closes the app, installs it and opens the new version. Nothing is downloaded or installed
-without your click. The `.deb` and `.rpm` are installed by your system's package manager, so there the app only says a
-new version is out and links to the release page: download the new package and open it like the first time.
+menu, and **Settings → App & updates** (the same page as Motus's App & Versions) shows the installed version, what's new,
+the download's progress (a bar with the percentage, also on the taskbar icon) and the settings below. The download comes
+from this project's GitHub release and is checked against the release's `latest-linux.yml` / `latest.yml` (SHA-512)
+before anything is used; **Restart to update** closes the app, installs it and opens the new version. With "Download
+updates automatically" on, the download starts by itself after a check and the update is also installed when you close
+the app; with it off, only your click downloads, and only **Restart to update** installs. The `.deb` and `.rpm` are
+installed by your system's package manager, so there the app only says a new version is out and links to the release
+page: download the new package and open it like the first time.
+
+Settings → App & updates (desktop and Android, as in Motus):
+
+- **Check for updates automatically** (on): shortly after the app opens, then as often as **How often** says: every
+  time the app opens, every 6 hours (the default, as in Motus), once a day or once a week. Off: only **Check now**.
+- **Download updates automatically** (on, as in Motus): what a check finds is downloaded in the background and left
+  ready. Installing is always yours: one tap (Android's installer asks you to confirm), or on the computer also when you
+  close the app.
+- **Only on Wi-Fi** (Android, off): an automatic download waits while the phone is on mobile data.
+- **What's new** and **Calculator on GitHub** open the release notes and the source in the browser.
+- Nothing pops up while you work: a found or downloaded update only shows as the Update button and in Settings.
+
+The web app (and the installed PWA) updates itself: the page shows the version and that a new version loads the next
+time you open it, with the links to what's new.
 
 ### Build it yourself
 
@@ -99,9 +116,11 @@ dark or light with it. Back closes an open panel, then goes back through the pag
 ### Private
 
 - No account, no server, no analytics, no tracking, no crash reports, no Google Play services or Firebase.
-- Two permissions: internet access, used only for the European Central Bank's public currency rates and the update
-  check (each can be switched off in Settings; rates ship with the app), and "install apps", used only to hand an update
-  you chose to Android's installer. Neither sends anything about you.
+- Three permissions: internet access, used only for the European Central Bank's public currency rates and the update
+  check (each can be switched off in Settings; rates ship with the app); "install apps", used only to hand an update
+  to Android's installer, which asks you to confirm; and, on Android 13 and newer, notifications, used only to show an
+  update's download. Android asks for that one only when you turn on automatic downloads, tap Download or tap Allow in
+  Settings → App & updates; without it the download shows in the app only. None of them sends anything about you.
 - Everything (history, settings, look, the last currency rates) stays on the phone and is left out of Android's cloud
   backup.
 
@@ -111,12 +130,14 @@ Every mode and conversion works in airplane mode, from the first open after inst
 
 ### Updates
 
-When a new version is out, an **Update** row appears above the tabs (and Settings → Updates shows the version and
-what's new). **Download** fetches `calculator-x.y.z.apk` from this project's GitHub release into the app's own storage
-and checks it before it can be installed: its size and SHA-256 must be the ones in the release's `android-latest.json`,
+When a new version is out, an **Update** row appears above the tabs (and Settings → App & updates shows the version,
+what's new and the settings above). **Download** (or the automatic download) fetches `calculator-x.y.z.apk` from this
+project's GitHub release into the app's own storage, with a progress bar in the app and a notification with a progress
+bar ("App updates" channel, quiet), and checks it before it can be installed: its size and SHA-256 must be the ones in the release's `android-latest.json`,
 and it must be Calculator, exactly that version, newer than the one you have, and signed with the same key. Anything
-else is deleted. **Install** opens Android's installer, which asks you to confirm (the first time Android also asks you
-to allow Calculator to install apps). Your history and settings stay.
+else is deleted. The notification then says **Update ready - tap to install**: the tap (or **Install** in Settings) checks
+the file once more and opens Android's installer, which asks you to confirm (the first time Android also asks you to allow
+Calculator to install apps). Your history and settings stay.
 
 ### Build it yourself
 
@@ -147,9 +168,12 @@ service worker and has no update check):
 - **Who makes it:** the app itself (the desktop app's main process, the Android app's updater), never the page: the
   page's own rules still allow only the ECB rates, and the requests may reach GitHub's addresses and nothing else.
 - **When:** with "Check for updates automatically" on (the default, as in Motus), a few seconds after the app opens
-  and then every 6 hours while it is open, at most once every 6 hours; and whenever you press **Check now**.
-- **How to switch it off:** Settings → Updates → "Check for updates automatically". Then the app never checks on its
-  own; Check now still works when you press it.
+  and then as often as "How often" says (every time the app opens, every 6 hours (the default), once a day or once a
+  week), counted across restarts; and whenever you press **Check now**. After a failed check the next automatic one
+  waits at least 15 minutes. With "Download updates automatically" on, a newer version it finds is then downloaded from
+  the same release (on Android, with "Only on Wi-Fi", not on mobile data).
+- **How to switch it off:** Settings → App & updates → "Check for updates automatically". Then the app never checks or
+  downloads on its own; Check now still works when you press it.
 
 ## Releases
 

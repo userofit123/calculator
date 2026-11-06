@@ -12,14 +12,17 @@ contextBridge.exposeInMainWorld("calcApp", {
 if (process.platform !== "darwin") contextBridge.exposeInMainWorld("desktopFrame", {
   setTitleBar: (bg: string, fg: string) => ipcRenderer.send("frame:titlebar", String(bg).trim(), String(fg).trim()),
 });
-// in-app updates (Settings → Updates): the main process makes the requests, the page only asks and shows
+// in-app updates (Settings → App & updates): the main process makes the requests, the page only asks and shows
 let onProgress: ((share: number) => void) | null = null;
-ipcRenderer.on("update:progress", (_e, p: number) => onProgress?.(p));
+// a share 0-1, or -1 while the size is unknown; anything else is dropped
+ipcRenderer.on("update:progress", (_e, p: unknown) => { if (typeof p === "number" && Number.isFinite(p) && p >= -1 && p <= 1) onProgress?.(p); });
 contextBridge.exposeInMainWorld("calcUpdate", {
   version: () => ipcRenderer.invoke("update:version"),
   mode: () => ipcRenderer.invoke("update:mode"),
+  kind: () => ipcRenderer.invoke("update:kind"),
   latest: () => ipcRenderer.invoke("update:latest"),
-  download: (version: string) => ipcRenderer.invoke("update:download", String(version)),
+  download: (version: string, onQuit?: boolean) => ipcRenderer.invoke("update:download", String(version), onQuit === true),
+  installOnQuit: (on: boolean) => ipcRenderer.invoke("update:onQuit", on === true),
   onProgress: (cb: (share: number) => void) => { onProgress = typeof cb === "function" ? cb : null; },
   install: () => ipcRenderer.invoke("update:install"),
 });

@@ -12,6 +12,13 @@ export const common = {
   "upd.ready": "Version {v} is ready to install",
   "upd.available": "Version {v} is available",
   "upd.aria": "Update: version {v} is available",
+  // the Android app's notification while an update downloads (CalcUpdaterPlugin), and its channel in the phone's settings
+  "upd.nChannel": "App updates",
+  "upd.nDownloading": "Downloading Calculator {v}",
+  "upd.nReady": "Update ready - tap to install",
+  "upd.nReadyText": "Calculator {v} is downloaded and checked",
+  "upd.nFailed": "Update failed",
+  "upd.nFailedText": "The download didn't finish. Open the app to try again.",
   "c.copied": "Copied",
   "c.couldntCopy": "Couldn't copy",
   "c.copy": "Copy",

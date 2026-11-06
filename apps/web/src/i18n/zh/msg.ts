@@ -120,4 +120,5 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.verAvail": "版本 {v} 可用",
   "msg.downloading": "正在下载",
   "msg.downloadingPct": "正在下载 {p}%",
+  "msg.downloadingMb": "正在下载 {mb} MB",
 };

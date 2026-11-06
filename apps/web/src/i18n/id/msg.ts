@@ -120,4 +120,5 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.verAvail": "Versi {v} tersedia",
   "msg.downloading": "Mengunduh",
   "msg.downloadingPct": "Mengunduh {p}%",
+  "msg.downloadingMb": "Mengunduh {mb} MB",
 };

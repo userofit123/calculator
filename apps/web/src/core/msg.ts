@@ -37,6 +37,7 @@ const PATTERNS: [RegExp, (m: RegExpExecArray) => string][] = [
   [/^Version (\S+) is available: install the update from the release page$/, (m) => t("msg.verLink", { v: m[1]! })],
   [/^Version (\S+) is available$/, (m) => t("msg.verAvail", { v: m[1]! })],
   [/^Downloading (\d+)%$/, (m) => t("msg.downloadingPct", { p: m[1]! })],
+  [/^Downloading (\d+\.\d) MB$/, (m) => t("msg.downloadingMb", { mb: m[1]! })],
 ];
 
 /** A message from the core or a store, in the language shown */

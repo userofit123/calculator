@@ -120,4 +120,5 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.verAvail": "{v} sürümü mevcut",
   "msg.downloading": "İndiriliyor",
   "msg.downloadingPct": "İndiriliyor: %{p}",
+  "msg.downloadingMb": "İndiriliyor: {mb} MB",
 };

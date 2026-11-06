@@ -123,4 +123,5 @@ export const msg = {
   "msg.verAvail": "Version {v} is available",
   "msg.downloading": "Downloading",
   "msg.downloadingPct": "Downloading {p}%",
+  "msg.downloadingMb": "Downloading {mb} MB",
 } as const;

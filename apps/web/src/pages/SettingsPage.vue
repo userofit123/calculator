@@ -34,14 +34,31 @@ import { rates, refreshRates } from "../core/rates";
 const rateDate = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 // --- end Converter / Currency rates ---
 
-// --- Updates (C-27) ---
-import { appUpdates, upd, checkNow, download, install, setAuto } from "../core/appUpdate";
+// --- App & updates (C-27, C-52: Motus's App & Versions) ---
+import { appUpdates, onAndroid, upd, checkNow, download, install, setAuto, setEvery, setAutoDownload, setWifiOnly, askNotify, refreshNotify, EVERY_CHOICES, type Every } from "../core/appUpdate";
+import { pctOf, REPO_URL } from "../core/releases";
 const inApp = appUpdates();
+const isAndroid = onAndroid();
 const onDesktop = !!(globalThis as { calcUpdate?: unknown }).calcUpdate;
+if (isAndroid) void refreshNotify();
 const when = (ms: number) => new Date(ms).toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" });
-/** the release page (deb/rpm): a link, which the desktop app opens in the browser (its allowlist has this repository) */
-const openPage = () => { if (upd.page) window.open(upd.page, "_blank", "noopener"); };
-// --- end Updates ---
+/** a GitHub page (the release, all releases, the repository): a link, which the desktop app opens in the browser (its
+ *  allowlist has this repository) and the Android app in the phone's browser */
+const openUrl = (u: string) => { if (u) window.open(u, "_blank", "noopener"); };
+const EVERY_OPTIONS = computed(() => EVERY_CHOICES.map((v) => ({ value: v, label: t(`set.every.${v}` as const) })));
+/** what kind of copy this is: "Android app", "Desktop app (AppImage)", "Web app", ... */
+const KINDS: Record<string, "set.kind.android" | "set.kind.appimage" | "set.kind.windows" | "set.kind.package" | "set.kind.dev"> = { android: "set.kind.android", AppImage: "set.kind.appimage", Windows: "set.kind.windows", package: "set.kind.package", dev: "set.kind.dev" };
+const kindLabel = computed(() => (!inApp ? t("set.kind.web") : KINDS[upd.kind] ? t(KINDS[upd.kind]!) : onDesktop ? t("set.kind.desktop") : t("set.kind.android")));
+const updTitle = computed(() => (upd.checking ? t("set.checking") : upd.error ? tMsg(upd.error) : upd.latest ? (upd.ready ? t("upd.ready", { v: upd.latest }) : t("upd.available", { v: upd.latest }))
+  : upd.status && !upd.status.endsWith("is the latest") ? tMsg(upd.status) : upd.lastCheck ? t("set.upToDate") : t("set.notChecked")));
+const updHint = computed(() => {
+  if (upd.downloading) return tMsg(upd.status);
+  if (upd.latest && upd.mode === "link") return t("set.linkHint");
+  if (upd.latest && upd.ready) return onDesktop ? (upd.autoDownload ? t("set.readyDesktopQuit") : t("set.readyDesktop")) : t("set.readyAndroid");
+  if (upd.latest) return t("set.downloadHint");
+  return upd.lastCheck ? t("set.checkedAtCap", { when: when(upd.lastCheck) }) : "";
+});
+// --- end App & updates ---
 
 const version = import.meta.env.VITE_VERSION || "dev";
 const DECIMALS = Array.from({ length: 16 }, (_, i) => ({ value: i, label: String(i) }));
@@ -143,33 +160,64 @@ const LANG_OPTIONS = computed(() => [
         </div>
       </section>
       <!-- end Converter / Currency rates -->
-      <!-- Updates (C-27) -->
+      <!-- App & updates (C-27, C-52) -->
       <section id="updates">
         <div class="sh"><h2>{{ t("set.updates") }}</h2></div>
+        <div class="card flush">
+          <div class="li">
+            <Icon name="info" /><div class="grow"><div class="t">{{ t("set.installed") }}</div>
+              <div class="s"><bdi>{{ upd.current || version }}</bdi> · {{ kindLabel }}<template v-if="upd.build"> · {{ t("set.build", { b: upd.build }) }}</template></div></div>
+            <button v-if="inApp" type="button" class="btn o s" :disabled="upd.checking || upd.downloading" @click="checkNow()">{{ t("set.checkNow") }}</button>
+          </div>
+          <div v-if="inApp" class="li" aria-live="polite">
+            <Icon name="download" /><div class="grow"><div class="t">{{ updTitle }}</div>
+              <div v-if="updHint" class="s">{{ updHint }}</div>
+              <div v-if="upd.downloading" class="pbar" role="progressbar" :aria-label="t('set.progress')" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="upd.progress != null ? pctOf(upd.progress) : undefined"><i :class="{ busy: upd.progress == null }" :style="upd.progress != null ? { width: pctOf(upd.progress) + '%' } : undefined"></i></div></div>
+            <template v-if="upd.latest && !upd.checking">
+              <button v-if="upd.mode === 'link'" type="button" class="btn s" @click="openUrl(upd.page)">{{ t("set.releasePage") }}</button>
+              <button v-else-if="!upd.ready" type="button" class="btn s" :disabled="upd.downloading" @click="download(true)">{{ upd.downloading ? (upd.progress != null ? t("set.pct", { p: pctOf(upd.progress) }) : t("msg.downloading")) : t("set.download") }}</button>
+              <button v-else type="button" class="btn s" @click="install()">{{ onDesktop ? t("set.restartUpdate") : t("set.install") }}</button>
+            </template>
+          </div>
+          <div v-else class="li"><Icon name="download" /><div class="grow"><div class="t">{{ t("set.webSelf") }}</div><div class="s">{{ t("set.webUpdates") }}</div></div></div>
+        </div>
         <div v-if="inApp" class="card flush">
           <label class="li tg">
-            <Icon name="download" /><div class="grow"><div class="t">{{ t("set.autoUpdate") }}</div><div class="s">{{ t("set.autoUpdateHint") }}</div></div>
+            <Icon name="check" /><div class="grow"><div class="t">{{ t("set.autoUpdate") }}</div><div class="s">{{ t("set.autoCheckHint") }}</div></div>
             <input :checked="upd.auto" type="checkbox" @change="setAuto(($event.target as HTMLInputElement).checked)" />
           </label>
-          <div class="li">
-            <Icon name="info" /><div class="grow"><div class="t">{{ t("set.version", { v: upd.current || version }) }}</div>
-              <div class="s">{{ upd.checking ? t("set.checking") : upd.error ? tMsg(upd.error) : tMsg(upd.status) || (upd.lastCheck ? t("set.upToDate") : t("set.notChecked")) }}{{ upd.lastCheck && !upd.checking ? " · " + t("set.checkedAt", { when: when(upd.lastCheck) }) : "" }}</div></div>
-            <button type="button" class="btn o s" :disabled="upd.checking || upd.downloading" @click="checkNow()">{{ t("set.checkNow") }}</button>
+          <!-- the rest only acts on what an automatic check finds, so it shows only while that is on (as in Motus) -->
+          <div v-if="upd.auto" class="li">
+            <Icon name="history" /><div class="grow"><div class="t">{{ t("set.howOften") }}</div><div class="s">{{ t("set.howOftenHint") }}</div></div>
+            <AppSelect :model-value="upd.every" :options="EVERY_OPTIONS" :title="t('set.howOften')" @update:model-value="(v: Every) => setEvery(v)" />
           </div>
-          <template v-if="upd.latest">
-            <div class="li">
-              <Icon name="download" /><div class="grow"><div class="t">{{ t("set.version", { v: upd.latest }) }}</div>
-                <div class="s">{{ upd.mode === "link" ? t("set.linkHint") : upd.ready ? t("set.downloaded") : upd.downloading ? tMsg(upd.status) : t("set.downloadHint") }}</div></div>
-              <button v-if="upd.mode === 'link'" type="button" class="btn s" @click="openPage">{{ t("set.releasePage") }}</button>
-              <button v-else-if="!upd.ready" type="button" class="btn s" :disabled="upd.downloading" @click="download()">{{ upd.downloading ? (upd.progress != null ? t("set.pct", { p: Math.round(upd.progress * 100) }) : t("msg.downloading")) : t("set.download") }}</button>
-              <button v-else type="button" class="btn s" @click="install()">{{ onDesktop ? t("set.restartInstall") : t("set.install") }}</button>
-            </div>
-            <div v-if="upd.notes" class="li"><div class="grow"><div class="t">{{ t("set.whatsNew") }}</div><div class="s" style="white-space: pre-wrap">{{ upd.notes }}</div></div></div>
-          </template>
+          <label v-if="upd.auto && upd.mode === 'install'" class="li tg">
+            <Icon name="download" /><div class="grow"><div class="t">{{ t("set.autoDownload") }}</div><div class="s">{{ onDesktop ? t("set.autoDownloadDesktop") : t("set.autoDownloadAndroid") }}</div></div>
+            <input :checked="upd.autoDownload" type="checkbox" @change="setAutoDownload(($event.target as HTMLInputElement).checked)" />
+          </label>
+          <label v-if="upd.auto && upd.autoDownload && upd.mode === 'install' && upd.canTellMetered" class="li tg">
+            <Icon name="convert" /><div class="grow"><div class="t">{{ t("set.wifiOnly") }}</div><div class="s">{{ t("set.wifiOnlyHint") }}</div></div>
+            <input :checked="upd.wifiOnly" type="checkbox" @change="setWifiOnly(($event.target as HTMLInputElement).checked)" />
+          </label>
+          <div v-if="isAndroid && upd.mode === 'install' && upd.notify && upd.notify !== 'granted'" class="li">
+            <Icon name="info" /><div class="grow"><div class="t">{{ t("set.notify") }}</div><div class="s">{{ upd.notify === "denied" ? t("set.notifyBlocked") : t("set.notifyAsk") }}</div></div>
+            <button v-if="upd.notify === 'prompt'" type="button" class="btn o s" @click="askNotify()">{{ t("set.allow") }}</button>
+          </div>
         </div>
-        <div v-else class="card about"><p>{{ t("set.webUpdates") }}</p></div>
+        <div class="card flush">
+          <div v-if="inApp && upd.latest && upd.notes" class="li"><div class="grow"><div class="t">{{ t("set.whatsNewIn", { v: upd.latest }) }}</div><div class="s" style="white-space: pre-wrap">{{ upd.notes }}</div></div></div>
+          <div class="li">
+            <Icon name="info" /><div class="grow"><div class="t">{{ t("set.whatsNew") }}</div><div class="s">{{ t("set.whatsNewHint") }}</div></div>
+            <button type="button" class="btn o s" @click="openUrl(REPO_URL + '/releases')">{{ t("set.open") }}</button>
+          </div>
+          <div class="li">
+            <Icon name="info" /><div class="grow"><div class="t">{{ t("set.onGithub") }}</div><div class="s">{{ t("set.onGithubHint") }}</div></div>
+            <button type="button" class="btn o s" @click="openUrl(REPO_URL)">{{ t("set.open") }}</button>
+          </div>
+        </div>
+        <p v-if="inApp" class="note">{{ t("set.updPrivacy") }}</p>
       </section>
-      <!-- end Updates -->
+      <!-- end App & updates -->
       <section>
         <div class="sh"><h2>{{ t("set.about") }}</h2></div>
         <div class="card about">
@@ -181,3 +229,16 @@ const LANG_OPTIONS = computed(() => [
     </div>
   </div>
 </template>
+
+<style scoped>
+/* the download's progress under its status line (desktop and Android); a moving bar while the size is unknown */
+.pbar { height: 6px; margin-top: var(--lpy); border-radius: 3px; background: var(--s2); overflow: hidden; }
+.pbar i { display: block; height: 100%; background: var(--acc); border-radius: inherit; transition: width .25s; }
+.pbar i.busy { width: 30%; animation: pslide 1.2s ease-in-out infinite; }
+@keyframes pslide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .pbar i { transition: none; } .pbar i.busy { animation: none; width: 100%; opacity: .5; } }
+/* App & updates has three cards: the gap between blocks */
+#updates > .card + .card { margin-top: var(--spg); }
+/* the privacy line under the cards: small print, the page's side inset */
+.note { margin: var(--lpy) var(--cpx) 0; font-size: 12.5px; color: var(--tx2); }
+</style>

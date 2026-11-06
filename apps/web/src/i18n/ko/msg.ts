@@ -120,4 +120,5 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.verAvail": "버전 {v}을(를) 사용할 수 있습니다",
   "msg.downloading": "다운로드 중",
   "msg.downloadingPct": "다운로드 중 {p}%",
+  "msg.downloadingMb": "다운로드 중 {mb} MB",
 };

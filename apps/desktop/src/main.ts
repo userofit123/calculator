@@ -1,7 +1,7 @@
 // The Calculator desktop app: the built web app (apps/web/dist) shown in a window, straight from files inside the app.
 // No server, no account, nothing loaded from the internet: the pages come through the app:// scheme below. The page's
 // only outside requests are the optional currency-rate refreshes (public central-bank rate files, allowed below); the
-// optional update check (Settings → Updates) is made here in the main process, in its own sessions, never by the page.
+// optional update check (Settings → App & updates) is made here in the main process, in its own sessions, never by the page.
 import { app, BrowserWindow, Menu, ipcMain, nativeTheme, protocol, session, shell, screen } from "electron";
 import { autoUpdater } from "electron-updater";
 import fs from "node:fs";
@@ -160,13 +160,15 @@ ipcMain.on("frame:titlebar", (e, bg: unknown, fg: unknown) => {
 });
 
 // ----- updates from GitHub Releases (task C-27, after Motus) -----
-// The page asks (Settings → Updates: automatic checks on by default, Check now); this process makes the requests, in
+// The page asks (Settings → App & updates: automatic checks and downloads on by default, as in Motus; Check now); this process makes the requests, in
 // sessions of their own that may reach GitHub and nothing else, so the page's own rules never include GitHub. The check is
 // one GET of the public releases/latest API with no cookies and no identifiers. electron-updater (download only) would
 // add an id of its own (a random UUID kept in userData/.updaterId, sent as x-user-staging-id): quietUpdater() stops it
-// being made or kept, and githubOnly() strips the header anyway. Downloading and installing are always
-// the person's tap: electron-updater fetches latest.yml / latest-linux.yml and the installer from the release, checks
-// its SHA-512 against latest.yml, and installs only on "Restart and install". The AppImage and the Windows installer
+// being made or kept, and githubOnly() strips the header anyway. Downloading is the person's tap or, with "Download
+// updates automatically", the page's request after a check: electron-updater fetches latest.yml / latest-linux.yml and
+// the installer from the release and checks its SHA-512 against latest.yml (its progress reaches the page as a share,
+// validated, over update:progress). It installs on "Restart to update", or when the app is closed only while automatic
+// downloads are on (autoInstallOnAppQuit, update:onQuit). The AppImage and the Windows installer
 // update themselves; the .deb and .rpm are the system's packages, so there the page links to the release page instead.
 const UPDATE_HOSTS = new Set(["api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]);
 const RELEASES_API = "https://api.github.com/repos/userofit123/calculator/releases/latest";
@@ -228,6 +230,14 @@ function startUpdates() {
   try { fs.rmSync(path.join(USER, ".updaterId"), { force: true }); } catch { /* not there */ }
   ipcMain.handle("update:version", (e) => (fromApp(e) ? app.getVersion() : ""));
   ipcMain.handle("update:mode", (e) => (fromApp(e) ? updateMode() : "link"));
+  // what kind of copy this is, for Settings → App & updates
+  ipcMain.handle("update:kind", (e) => (!fromApp(e) ? "" : !app.isPackaged ? "dev" : process.platform === "win32" ? "Windows" : process.env.APPIMAGE ? "AppImage" : "package"));
+  // install a ready download when the app is closed: only while the person has "Download updates automatically" on
+  // (C-52, as in Money Manager); otherwise only "Restart to update" installs
+  ipcMain.handle("update:onQuit", (e, on: unknown) => {
+    if (!fromApp(e) || typeof on !== "boolean") throw new Error("Not allowed");
+    autoUpdater.autoInstallOnAppQuit = on && !!downloaded;
+  });
   // the release's tag, notes, page and draft flags, read and judged by the page (apps/web/src/core/releases.ts)
   ipcMain.handle("update:latest", async (e) => {
     if (!fromApp(e)) throw new Error("Not allowed");
@@ -242,8 +252,8 @@ function startUpdates() {
     const assets = Array.isArray(j.assets) ? (j.assets as Record<string, unknown>[]).map((a) => ({ name: a.name, browser_download_url: a.browser_download_url })) : [];
     return { tag_name: j.tag_name, body: j.body, html_url: j.html_url, draft: j.draft, prerelease: j.prerelease, assets };
   });
-  ipcMain.handle("update:download", async (e, want: unknown) => {
-    if (!fromApp(e) || updateMode() !== "install" || typeof want !== "string") throw new Error("Not allowed");
+  ipcMain.handle("update:download", async (e, want: unknown, onQuit: unknown) => {
+    if (!fromApp(e) || updateMode() !== "install" || typeof want !== "string" || (onQuit !== undefined && typeof onQuit !== "boolean")) throw new Error("Not allowed");
     quietUpdater();
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
@@ -252,8 +262,10 @@ function startUpdates() {
     autoUpdater.logger = null;
     autoUpdater.removeAllListeners("download-progress");
     autoUpdater.on("download-progress", (p) => {
-      win?.setProgressBar(p.total > 0 ? p.percent / 100 : -1);
-      win?.webContents.send("update:progress", p.total > 0 ? p.percent / 100 : -1);
+      // only a sensible share (0-1) reaches the taskbar and the page; anything else means "size unknown" (-1)
+      const share = Number.isFinite(p?.total) && p.total > 0 && Number.isFinite(p.percent) ? Math.min(1, Math.max(0, p.percent / 100)) : -1;
+      win?.setProgressBar(share >= 0 ? share : 2); // 2: Electron's moving bar while the size is unknown
+      win?.webContents.send("update:progress", share);
     });
     try {
       const r = await autoUpdater.checkForUpdates().catch(() => null);
@@ -264,6 +276,8 @@ function startUpdates() {
       // checks the file's SHA-512 against latest.yml; a damaged download fails here
       await autoUpdater.downloadUpdate();
       downloaded = v;
+      // installs when the app is closed only when the person chose automatic downloads
+      autoUpdater.autoInstallOnAppQuit = onQuit === true;
     } catch (err) {
       throw new Error((err as Error)?.message?.startsWith("A different") ? (err as Error).message : "The download didn't finish or didn't match: try again");
     } finally { win?.setProgressBar(-1); }

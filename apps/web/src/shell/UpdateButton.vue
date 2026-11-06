@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Shows only in the desktop and Android apps, and only when a newer version was found (Motus's UpdateButton): no badge
-// otherwise. A click opens Settings at Updates, where the notes are and Download / Install is. In the rail on a
+// otherwise. A click opens Settings at App & updates, where the notes, the progress and Download / Install are. In the rail on a
 // computer, a slim row above the tabs on a phone. Also starts the automatic checks (once, whichever shell mounts first).
 import { nextTick } from "vue";
 import { upd, startAppUpdates } from "../core/appUpdate";

@@ -120,4 +120,5 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.verAvail": "A versão {v} está disponível",
   "msg.downloading": "Baixando",
   "msg.downloadingPct": "Baixando {p}%",
+  "msg.downloadingMb": "Baixando {mb} MB",
 };

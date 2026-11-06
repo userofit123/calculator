@@ -50,4 +50,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Installing an update the person chose in Settings, Updates: Android's installer still asks to confirm. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 13+: the update download's notification (its progress bar, then "Update ready - tap to install"). Asked
+         only when you turn on automatic downloads, tap Download or tap Allow in Settings, App & updates; without it the
+         download shows in the app only. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>
