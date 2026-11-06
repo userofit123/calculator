@@ -1,7 +1,8 @@
 <script lang="ts">
 import { reactive } from "vue";
 /** This session's lines, listed when history isn't kept (kept across pages until the app closes) */
-const session = reactive<{ e: string; r: string; x: string }[]>([]);
+const session = reactive<{ id: number; e: string; r: string; x: string }[]>([]);
+let sessionId = 0;
 </script>
 
 <script setup lang="ts">
@@ -13,7 +14,7 @@ const session = reactive<{ e: string; r: string; x: string }[]>([]);
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { calc, settings, show, linePreview, enterLine, lineExpr, typedValue, valueText, ANGLES } from "../core/calc";
 import { history, histPrefs } from "../core/history";
-import { freshRecall, recallLines, recallStep } from "../core/keyboard";
+import { freshRecall, recallLines, recallStep, pushCapped, pageKeyTarget } from "../core/keyboard";
 import { isPhone } from "../core/device";
 
 const inp = ref<HTMLInputElement | null>(null);
@@ -21,6 +22,9 @@ const listEl = ref<HTMLElement | null>(null);
 // a sum being typed in another mode carries over (an answer doesn't: the line starts empty under it)
 const line = ref(calc.answer || calc.error ? "" : show(calc.expr));
 const err = ref("");
+const root = ref<HTMLElement | null>(null);
+/** the expression last handed to calc.expr from here: a different one later came from outside (Variables, History) */
+let synced = calc.expr;
 let rc = freshRecall();
 
 /** Oldest first (the newest at the bottom); programming-mode sums are left out (their digits need their base) */
@@ -37,7 +41,16 @@ watch(() => items.value.length, toBottom);
 function sync() {
   err.value = "";
   calc.expr = lineExpr(line.value); calc.answer = ""; calc.error = "";
+  synced = calc.expr;
 }
+// the expression changed from outside (a variable chosen in the Variables sheet, a sum reused from History): take it
+// up, the caret at the end when it only added to what was typed
+watch(() => calc.expr, (v) => {
+  if (v === synced) return;
+  line.value = show(v);
+  sync();
+  nextTick(() => { const el = inp.value; if (el) { el.value = line.value; el.setSelectionRange(line.value.length, line.value.length); } });
+});
 let recalling = false;
 function onInput() { line.value = inp.value?.value ?? line.value; if (!recalling) rc = freshRecall(); sync(); }
 /** Types text in at the caret (over a selection) as the browser's own edit, so Ctrl+Z takes it back */
@@ -60,13 +73,14 @@ function recall(dir: "up" | "down") {
   rc = s.st;
 }
 function onKey(e: KeyboardEvent) {
-  if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || e.keyCode === 229) return; // 229: Safari's IME
   if (e.key === "Enter") {
     e.preventDefault();
     const er = enterLine(line.value);
     if (er) { err.value = er; return; }
     if (!line.value.trim()) return;
-    if (!histPrefs.keep) session.push({ e: calc.expr, r: calc.answer, x: calc.ans });
+    if (!histPrefs.keep) pushCapped(session, { id: ++sessionId, e: calc.expr, r: calc.answer, x: calc.ans }, 200);
+    synced = calc.expr;
     line.value = ""; err.value = ""; rc = freshRecall(); toBottom();
   } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
     e.preventDefault();
@@ -83,6 +97,8 @@ const useAnswer = (x: string) => { const v = typedValue(x); if (v) insert(show(v
 const busy = (t: EventTarget | null) => !!(t as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]") || !!document.querySelector(".scr, #pop.on");
 function onPageKey(e: KeyboardEvent) {
   if (e.ctrlKey || e.metaKey || e.altKey || busy(e.target) || (e.key.length !== 1 && e.key !== "Backspace")) return;
+  // only when nothing is focused (or the calculator's own area): Space on a button must press it, not move away
+  if (!pageKeyTarget(e.target as Element | null, document, root.value)) return;
   inp.value?.focus({ preventScroll: true });
 }
 function onPaste(e: ClipboardEvent) {
@@ -101,9 +117,9 @@ onBeforeUnmount(() => { removeEventListener("keydown", onPageKey); document.remo
 </script>
 
 <template>
-  <div class="kcalc">
+  <div ref="root" class="kcalc">
     <ol ref="listEl" class="klist" aria-label="Earlier lines">
-      <li v-for="(h, i) in items" :key="i" class="krow">
+      <li v-for="h in items" :key="'id' in h ? h.id : h.t" class="krow">
         <button type="button" class="kexp num" title="Type in this sum" @click="useExpr(h.e)">{{ show(h.e) }}</button>
         <button type="button" class="kres num" title="Type in this answer" @click="useAnswer(h.x)">= {{ show(h.r) }}</button>
       </li>

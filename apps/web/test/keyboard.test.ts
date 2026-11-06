@@ -5,7 +5,7 @@ vi.hoisted(() => {
   const m = new Map<string, string>();
   (globalThis as { localStorage?: unknown }).localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, String(v)), removeItem: (k: string) => void m.delete(k) };
 });
-import { startMode, recallStep, recallLines, freshRecall, type DeviceHints } from "../src/core/keyboard";
+import { isFirstOpen, pushCapped, pageKeyTarget, startMode, recallStep, recallLines, freshRecall, type DeviceHints } from "../src/core/keyboard";
 import { calc, enterLine, linePreview, settings } from "../src/core/calc";
 import { history } from "../src/core/history";
 
@@ -21,6 +21,34 @@ describe("start mode", () => {
   it("a saved mode always wins", () => {
     expect(startMode("advanced", desk)).toBe("advanced");
     expect(startMode("keyboard", { phone: true, finePointer: false, anyCoarse: true })).toBe("keyboard");
+  });
+});
+
+describe("first open", () => {
+  const none = { mode: false, history: false, settings: false, ans: false };
+  it("is only when nothing at all is saved", () => {
+    expect(isFirstOpen(none)).toBe(true);
+    expect(isFirstOpen({ ...none, history: true })).toBe(false);
+    expect(isFirstOpen({ ...none, settings: true })).toBe(false);
+    expect(isFirstOpen({ ...none, ans: true })).toBe(false);
+    expect(isFirstOpen({ ...none, mode: true })).toBe(false);
+  });
+});
+describe("session cap", () => {
+  it("keeps the newest 200", () => {
+    const l: number[] = [];
+    for (let i = 0; i < 250; i++) pushCapped(l, i, 200);
+    expect(l.length).toBe(200);
+    expect(l[0]).toBe(50); expect(l[199]).toBe(249);
+  });
+});
+describe("page keys", () => {
+  it("are taken only when nothing interactive is focused", () => {
+    const doc = { body: {}, documentElement: {} } as unknown as Document;
+    const root = {} as Element, btn = {} as Element;
+    expect(pageKeyTarget(doc.body, doc, null)).toBe(true);
+    expect(pageKeyTarget(root, doc, root)).toBe(true);
+    expect(pageKeyTarget(btn, doc, root)).toBe(false);
   });
 });
 

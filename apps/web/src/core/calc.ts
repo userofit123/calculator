@@ -7,9 +7,9 @@ import {
   evaluateProgramming, formatInt, fitsWord, literal, rebase, toProgramming, fromProgramming, type Base, type WordSize, type ProgOptions,
 } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
-import { addHistory, type HistItem } from "./history";
+import { addHistory, history, type HistItem } from "./history";
 import { toast } from "./toast";
-import { startMode, deviceHints } from "./keyboard";
+import { startMode, deviceHints, isFirstOpen } from "./keyboard";
 
 export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
@@ -24,6 +24,7 @@ export const MODES: { id: Mode; label: string; hint: string }[] = [
 ];
 
 export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | "," }
+const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;
 export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: ".", ...readJson<Partial<CalcSettings>>("calcSettings", {}) });
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
 export const ANGLES: { id: AngleUnit; label: string }[] = [{ id: "deg", label: "DEG" }, { id: "rad", label: "RAD" }, { id: "grad", label: "GRAD" }];
@@ -53,6 +54,8 @@ export function chooseStartMode(phone: boolean) {
   if (started) return;
   started = true;
   if (savedMode) return;
+  // an existing user who never chose a mode (they have history, settings or an answer) stays on Basic
+  if (!isFirstOpen({ mode: false, history: history.length > 0, settings: hadSettings, ans: !!calc.ans })) return;
   const m = startMode<Mode>(null, deviceHints(phone));
   if (m !== "basic") { autoMode = m; calc.mode = m; }
 }

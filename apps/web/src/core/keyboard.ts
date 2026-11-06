@@ -35,3 +35,18 @@ export function recallStep(lines: string[], st: Recall, current: string, dir: "u
   const at = st.at - 1;
   return { st: { at, draft: st.draft }, text: at < 0 ? st.draft : lines[at]! };
 }
+
+/** Adds to the end of a list, dropping the oldest beyond max */
+export function pushCapped<T>(list: T[], item: T, max: number): void {
+  list.push(item);
+  if (list.length > max) list.splice(0, list.length - max);
+}
+/** Whether a key typed at target may be taken to the line: only when nothing is focused (the page itself, or the
+ *  calculator's own area), never on a button, link or other control that the key belongs to */
+export function pageKeyTarget(t: Element | null | Document, doc: Document, root: Element | null): boolean {
+  if (!t || t === doc || t === doc.body || t === doc.documentElement || t === root) return true;
+  return false;
+}
+/** A first-ever open: nothing saved yet (no mode, history, calculator settings or answer), so a returning user who
+ *  never chose a mode isn't moved to Keyboard by an update */
+export const isFirstOpen = (k: { mode: boolean; history: boolean; settings: boolean; ans: boolean }) => !k.mode && !k.history && !k.settings && !k.ans;
