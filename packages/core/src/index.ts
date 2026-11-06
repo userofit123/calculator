@@ -16,6 +16,11 @@ export { convertExpression, evaluateUnits, findUnits } from "./unitexpr";
 export { parseEcbCsv, mergeRates, rateDayOf, rateSourceOf, sourceDayOf, rateSourceLine, shortDay, retryDelayMs, refreshDue, RETRY_MIN_MS, AUTO_EVERY_MS, MAX_RATE_AGE_DAYS, currencyCategory, currencyFlag, CURRENCY_NAMES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, RATE_SOURCES, ECB_RATES_URL, ECB_SOURCE, type RateSet } from "./currency";
 export { parseNbuJson, parseBcraJson, CENTRAL_BANK_SOURCES, NBU_RATES_URL, BCRA_RATES_URL } from "./central-banks";
 export { BUNDLED_RATES } from "./currency-rates";
+// The converter's rate graph (loaded only with it)
+export {
+  periodStart, historySource, ecbHistoryUrl, bcraHistoryUrl, parseEcbHistoryCsv, parseBcraHistoryJson, fixedPair, pairSeries, rateText, seriesStats, mergeDays, graphScale, GRAPH_PERIODS,
+  type DayRates, type RatePoint, type GraphPeriod, type SeriesStats,
+} from "./rate-history";
 // Date and time maths (Calculator's Date mode, loaded only when chosen)
 export {
   parseDate, formatIsoDate, isValidDate, isLeapYear, daysInMonth, dayNumber, fromDayNumber, daysBetween, compareDates, addDays, addMonths, addYears,

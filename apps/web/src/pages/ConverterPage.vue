@@ -5,7 +5,7 @@
 // and the list below shows the amount in every unit of the category. The maths (and the unit tables) are in
 // @calc/core; this page is loaded only when opened, so none of it holds up the calculator's first screen. The last
 // category, units and amount are remembered on this device.
-import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
+import { computed, defineAsyncComponent, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, sourceDayOf, shortDay, RATE_SOURCES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
 import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
@@ -21,6 +21,8 @@ import { go } from "../shell/nav";
 import Icon from "../components/Icon.vue";
 import UnitPicker, { type PickOption } from "../components/UnitPicker.vue";
 import { play, vSwap } from "../core/motion";
+// the rate graph is its own chunk, fetched only when the Currency category is shown
+const RateGraph = defineAsyncComponent(() => import("../components/RateGraph.vue"));
 
 const currency = computed(() => currencyCategory(rates.set));
 const categories = computed<Category[]>(() => [currency.value, ...UNIT_CATEGORIES]);
@@ -199,6 +201,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
             </div>
           </div>
         </div>
+        <RateGraph v-if="isCurrency" :from="from" :to="to" />
       </div>
       <section class="cvall">
         <div class="sh first"><h2>{{ t("conv.allUnits") }}</h2><span v-if="isCurrency" class="cvsrc">{{ ratesLine }}</span></div>
