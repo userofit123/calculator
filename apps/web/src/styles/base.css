@@ -245,6 +245,13 @@ body::after {
 [dir="rtl"] .pbits {
   direction: ltr;
 }
+/* every key label is its own left-to-right run (M+, x², 10ˣ, <<, A-F, ×10ʸ), whatever the page direction */
+[dir="rtl"] .key,
+[dir="rtl"] .memk button,
+[dir="rtl"] .cexp {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
 /* words inside the left-to-right display (a note, an error) still read right to left */
 [dir="rtl"] .cnote,
 [dir="rtl"] .cres.err {
