@@ -242,6 +242,11 @@ describe("sums from the other modes (review C-12 #2)", () => {
   it("sums whose answer would change (÷ is integer division here) are refused", () => {
     for (const s of ["1÷2", "7÷2", "1÷3×3", "10/4", "2×(3÷4)"]) expect(toProgramming(s), s).toBeNull();
   });
+  it("the sum is checked with the real ans (review C-37)", () => {
+    expect(toProgramming("ans÷2", "7")).toBeNull();
+    expect(toProgramming("7÷ans", "2")).toBeNull();
+    expect(toProgramming("ans÷2", "4")).toBe("ans÷2");
+  });
   it("names, decimals, scientific notation and other-meaning symbols are refused, not reinterpreted", () => {
     for (const s of ["2×e", "e^2", "2.5e3+1", "1e−7", "1E5", "a+1", "face+1", "0b", "π", "sin(30)", "50%", "|−5|", "3²", "2.5", "5!", "ans2"])
       expect(toProgramming(s), s).toBeNull();

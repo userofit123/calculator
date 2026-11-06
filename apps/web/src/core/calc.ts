@@ -128,7 +128,7 @@ watch(() => calc.mode, (m, old) => {
       else if (/^-?\d+$/.test(calc.ans)) calc.expr = literal(BigInt(calc.ans), prog);
       else { calc.expr = ""; lost = true; }
     } else if (calc.expr) {
-      const t = toProg ? toProgramming(calc.expr) : fromProgramming(calc.expr, progOptions());
+      const t = toProg ? toProgramming(calc.expr, calc.ans) : fromProgramming(calc.expr, progOptions());
       if (t === null) { calc.expr = ""; lost = true; }
       else calc.expr = toProg ? rebase(t, { ...prog, base: 10 }, prog.base) : t;
     }

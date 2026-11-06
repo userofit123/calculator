@@ -309,7 +309,7 @@ export function rebase(expression: string, from: ProgOptions, to: Base): string 
 /** A sum typed in another mode written for programming mode (in decimal, ^ as **), or null when it holds something
  *  programming mode can't (a fraction, scientific notation, a constant, variable or function, %, |x|, x²): read there
  *  it would mean something else (e is the hex digit 14, ^ is XOR, % is mod), so it isn't reinterpreted. */
-export function toProgramming(expression: string): string | null {
+export function toProgramming(expression: string, ans = "0"): string | null {
   const re = /\s+|\d+(?![\p{L}\p{N}_.,])|(?<![\p{L}\p{N}_])(?:ans|mod)(?![\p{L}\p{N}_])|[+\-−×*÷/()]|\^/uy;
   let out = "";
   re.lastIndex = 0;
@@ -320,8 +320,9 @@ export function toProgramming(expression: string): string | null {
   }
   // ÷ is integer division here (1÷2 is 0, 7÷2 is 3): a sum whose answer would change isn't carried over. Whole in
   // Basic and the same here, or not workable in either (half typed), keeps its meaning.
-  const basic = evaluate(expression);
-  const prog = evaluateProgramming(out, { base: 10, wordSize: 64, signed: true });
+  // (checked with the real ans: ans÷2 or 7÷ans change with it); a Basic answer past 4096 bits can't match a 64-bit one
+  const basic = evaluate(expression, { ans, maxBits: 4096 });
+  const prog = evaluateProgramming(out, { base: 10, wordSize: 64, signed: true, ans });
   if ("value" in basic ? !("value" in prog) || !/^-?\d+$/.test(basic.exact) || basic.exact !== prog.exact : "value" in prog) return null;
   return out;
 }
