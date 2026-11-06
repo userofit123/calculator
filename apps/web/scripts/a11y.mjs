@@ -78,6 +78,8 @@ async function open(path, store) {
   await sleep(1300);
 }
 async function axe() {
+  // the page settles first: a menu closing or a page sliding in is checked once it has finished moving
+  await ajs(`const done = arguments[arguments.length - 1]; Promise.all(document.getAnimations().filter((a) => a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))).then(() => done());`);
   if (!(await js("return !!window.axe"))) await js(AXE + "\n;return true;");
   return ajs(`const done = arguments[arguments.length - 1];
     axe.run(document, { resultTypes: ["violations"] }).then((r) => done(r.violations.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.map((n) => n.target.join(" ")).slice(0, 6), count: v.nodes.length }))), (e) => done([{ id: "axe-error", help: String(e), nodes: [], count: 1 }]));`);

@@ -12,6 +12,7 @@ let sessionId = 0;
 // ArrowUp/Down bring back earlier lines; clicking an earlier expression or answer types it in at the caret.
 // Small, so in the main bundle: a computer's first open starts here and shouldn't wait for a chunk.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { vSwap } from "../core/motion";
 import { calc, settings, show, linePreview, enterLine, UNITS_FAILED, lineExpr, typedValue, valueText, answerNote, withUnit, ANGLES } from "../core/calc";
 import NumFormat from "./NumFormat.vue";
 import { history, histPrefs } from "../core/history";
@@ -149,7 +150,7 @@ onBeforeUnmount(() => { removeEventListener("keydown", onPageKey); document.remo
     </ol>
     <div class="kline">
       <div class="cbar">
-        <button type="button" class="cflag" :title="t('kbd.angleUnit')" :aria-label="angleAria" @click="nextAngle">{{ angleLabel }}</button>
+        <button v-swap="angleLabel" type="button" class="cflag" :title="t('kbd.angleUnit')" :aria-label="angleAria" @click="nextAngle">{{ angleLabel }}</button>
         <span v-if="calc.mem" class="cflag" :title="t('kbd.memory')"><span aria-hidden="true">M</span><span class="sr">{{ t("kbd.memory") }}</span></span>
         <NumFormat :note="calc.answer ? [answerNote(calc.ans), tMsg(calc.note)].filter(Boolean).join(' · ') : ''" />
         <span v-if="calc.ans" class="kans num" :title="t('kbd.ans')">ans = {{ show(valueText(calc.ans)) }}</span>

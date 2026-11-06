@@ -5,7 +5,7 @@
 // and the list below shows the amount in every unit of the category. The maths (and the unit tables) are in
 // @calc/core; this page is loaded only when opened, so none of it holds up the calculator's first screen. The last
 // category, units and amount are remembered on this device.
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, sourceDayOf, shortDay, RATE_SOURCES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
 import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
@@ -20,6 +20,7 @@ import { tMsg } from "../core/msg";
 import { go } from "../shell/nav";
 import Icon from "../components/Icon.vue";
 import UnitPicker, { type PickOption } from "../components/UnitPicker.vue";
+import { play, vSwap } from "../core/motion";
 
 const currency = computed(() => currencyCategory(rates.set));
 const categories = computed<Category[]>(() => [currency.value, ...UNIT_CATEGORIES]);
@@ -49,6 +50,12 @@ const noRate = computed(() => cat.value.id === "currency" ? pair.value.filter((i
 const from = computed({ get: () => pair.value[0], set: (v) => { st.units[cat.value.id] = [v, pair.value[1]]; } });
 const to = computed({ get: () => pair.value[1], set: (v) => { st.units[cat.value.id] = [pair.value[0], v]; } });
 const unit = (id: string): Unit => cat.value.units.find((u) => u.id === id) ?? { id, name: id, symbol: id, factor: "1", hint: `No rate for ${id}` };
+// another category: its card and list come in from the side the chip is on (motion.ts)
+const cvg = ref<HTMLElement | null>(null);
+watch(() => st.cat, (to, from) => {
+  const ids = categories.value.map((c) => c.id), by = ids.indexOf(to) >= ids.indexOf(from) ? 1 : -1;
+  nextTick(() => cvg.value?.querySelectorAll(":scope > *").forEach((e) => play(e, "slide", by)));
+});
 function swap() { st.units[cat.value.id] = [pair.value[1], pair.value[0]]; }
 
 const isCurrency = computed(() => cat.value.id === "currency");
@@ -147,7 +154,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
     <div class="cvc" role="tablist" :aria-label="t('conv.what')">
       <button v-for="c in categories" :key="c.id" type="button" role="tab" class="cvchip" :class="{ on: c.id === cat.id }" :aria-selected="c.id === cat.id" @click="st.cat = c.id">{{ catName(c) }}</button>
     </div>
-    <div class="cvg">
+    <div ref="cvg" class="cvg">
       <div class="stack">
         <div class="card cvcard">
           <label class="cvl" for="cv-amount">{{ t("c.from") }}</label>
@@ -157,11 +164,11 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
             <div class="cvu"><UnitPicker v-model="from" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
           </div>
           <div class="cvsw">
-            <button type="button" class="ib" :title="t('conv.swap')" :aria-label="t('conv.swap')" @click="swap"><Icon name="convert" /></button>
+            <button type="button" class="ib" :title="t('conv.swap')" :aria-label="t('conv.swap')" @click="swap(); play(($event.currentTarget as HTMLElement).firstElementChild, 'spin')"><Icon name="convert" /></button>
           </div>
           <span class="cvl">{{ t("c.to") }}</span>
           <div class="cvrow">
-            <output class="cvout" :class="errText ? 'err' : 'num'" for="cv-amount" aria-live="polite">
+            <output v-swap:tick="errText || text(result)" class="cvout" :class="errText ? 'err' : 'num'" for="cv-amount" aria-live="polite">
               {{ errText || text(result) || "0" }}
             </output>
             <div class="cvu"><UnitPicker v-model="to" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
@@ -178,7 +185,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
             <div v-for="n in unreachedNotes" :key="n" class="s">{{ n }}</div>
             <div class="s">
               <span>{{ ratesState }}</span>
-              <button v-if="rates.online" type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">{{ t("conv.refresh") }}</button>
+              <button v-if="rates.online" type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">{{ t("conv.refresh") }}</button><span v-if="rates.loading" class="spin" aria-hidden="true" />
               <button v-else type="button" class="lnk" @click="go('settings')">{{ t("conv.onlineOff") }}</button>
             </div>
           </div>

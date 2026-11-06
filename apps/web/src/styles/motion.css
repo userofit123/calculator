@@ -1,0 +1,102 @@
+/* Motion: how things move instead of just changing. One system: the --dur-* / --ease / --ease-in tokens (tokens.css),
+   transform and opacity only, mirrored right to left through --dir. Small in-place animations (the answer, errors,
+   chips, bits, the keypad of another mode) are played by core/motion.ts with the same tokens.
+   Reduced motion (the system's setting): base.css makes every one of these instant, and core/motion.ts plays nothing. */
+
+/* The first paint is final: until the app has drawn itself (html.mo, set by core/motion.ts two frames after mounting)
+   nothing transitions, so a highlight put on while the app starts doesn't fade in. */
+html:not(.mo) *,
+html:not(.mo) *::before,
+html:not(.mo) *::after {
+  transition: none !important;
+}
+
+/* ---------- pages ---------- */
+/* the computer's rail runs top to bottom: a page further down comes up from below, one further up comes down */
+.pdn-enter-active, .pup-enter-active { transition: opacity var(--dur-3) var(--ease), transform var(--dur-3) var(--ease); }
+.pdn-leave-active, .pup-leave-active { transition: opacity var(--dur-1) var(--ease-in), transform var(--dur-1) var(--ease-in); }
+.pdn-enter-from { opacity: 0; transform: translateY(14px); }
+.pdn-leave-to { opacity: 0; transform: translateY(-6px); }
+.pup-enter-from { opacity: 0; transform: translateY(-14px); }
+.pup-leave-to { opacity: 0; transform: translateY(6px); }
+/* the phone's tabs run along the reading direction: right to left a tab further on comes in from the left */
+.tnx-enter-active, .tpv-enter-active { transition: opacity var(--dur-2) var(--ease), transform var(--dur-3) var(--ease); }
+.tnx-leave-active, .tpv-leave-active { transition: opacity var(--dur-1) var(--ease-in), transform var(--dur-1) var(--ease-in); }
+.tnx-enter-from { transform: translateX(calc(40px * var(--dir))); }
+.tnx-leave-to { transform: translateX(calc(-30px * var(--dir))); }
+.tpv-enter-from { transform: translateX(calc(-40px * var(--dir))); }
+.tpv-leave-to { transform: translateX(calc(30px * var(--dir))); }
+.page-enter-active { transition-duration: var(--dur-3); }
+.page-leave-active { transition-duration: var(--dur-1); }
+
+/* the phone's tab highlight glides between tabs like the rail's (PhoneShell.vue) */
+.tabbar { position: relative; }
+.tabbar button { position: relative; z-index: 1; }
+.tbi { position: absolute; left: 0; /* fixed side */ top: 0; z-index: 0; pointer-events: none; background: var(--accc); will-change: transform; }
+.tabbar.pl button.on .ic { background: transparent; }
+.tabbar button .ic, .nb .ic { transition: background var(--dur-3), color var(--dur-3); }
+
+/* ---------- popovers: menus, the number format chip's panel, drop-down lists ---------- */
+/* they open from their button (scale and fade) and close the same way back, a little quicker */
+.mnu { animation: none; transform-origin: top; }
+.pop-enter-active { transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease); }
+.pop-leave-active { transition: opacity var(--dur-1) var(--ease-in), transform var(--dur-1) var(--ease-in); pointer-events: none; }
+.pop-enter-from, .pop-leave-to { opacity: 0; transform: translateY(-4px) scale(.96); }
+.ddm { transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease); }
+.ddm.leaving { pointer-events: none; transition-duration: var(--dur-1); transition-timing-function: var(--ease-in); }
+
+/* ---------- sheets and the Appearance panel (open and close; the closing copy is Sheet.vue's) ---------- */
+.scr { animation-duration: var(--dur-2); }
+.sht { animation-duration: var(--dur-3); }
+html.phone .sht, html.phone #pop.on { animation-duration: var(--dur-3); }
+.scr.leaving, .scr.leaving .sht, html.phone .scr.leaving .sht { animation-duration: var(--dur-2); animation-timing-function: var(--ease-in); }
+html.phone #pop.out { animation-duration: var(--dur-2); animation-timing-function: var(--ease-in); }
+.pop.on { animation-duration: var(--dur-2); }
+.pop.out { animation-duration: var(--dur-2); }
+
+/* on a computer a sheet pops (grows a little as it fades in), and shrinks back as it closes */
+@keyframes shpop { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+html:not(.phone) .sht, html:not(.phone) .scr.leaving .sht { animation-name: shpop; }
+.apbt.on { animation-duration: var(--dur-2); }
+
+/* ---------- toasts slide up in and shrink away ---------- */
+.tst > div { animation: none; }
+.tst-enter-active { transition: opacity var(--dur-2) var(--ease), transform var(--dur-3) var(--ease); }
+.tst-leave-active { transition: opacity var(--dur-2) var(--ease-in), transform var(--dur-2) var(--ease-in); }
+.tst-enter-from { opacity: 0; transform: translateY(16px) scale(.96); }
+.tst-leave-to { opacity: 0; transform: scale(.92); }
+.tst-move { transition: transform var(--dur-3) var(--ease); }
+
+/* ---------- lists: History's rows and the variables come in, go out, and the rest close up ---------- */
+.hlist, .vlist { position: relative; }
+.row-enter-active { transition: opacity var(--dur-3) var(--ease), transform var(--dur-3) var(--ease); }
+.row-leave-active { transition: opacity var(--dur-2) var(--ease-in), transform var(--dur-2) var(--ease-in); position: absolute; inset-inline: 0; }
+.row-enter-from { opacity: 0; transform: translateY(-8px); }
+.row-leave-to { opacity: 0; transform: scale(.96); }
+.row-move { transition: transform var(--dur-3) var(--ease); }
+
+/* ---------- things that appear later on a page rise in ---------- */
+/* (a Date or Everyday tab's forms, Programming's bases and bits, the Update button, a note under the answer). Only
+   elements put on the page after it was drawn: @starting-style applies to an element's first style only. */
+html.mo :is(.dgrid, .egrid, .pbases, .pbits, .updrow, .nb.upd, .cnote, .verr, .cvrates .s, .krow) {
+  transition: opacity var(--dur-3) var(--ease), translate var(--dur-3) var(--ease);
+}
+@starting-style {
+  html.mo :is(.dgrid, .egrid, .pbases, .pbits, .updrow, .nb.upd, .cnote, .verr, .cvrates .s, .krow) { opacity: 0; translate: 0 6px; }
+}
+
+/* ---------- controls ---------- */
+/* switches: the knob slides along the reading direction */
+.tg input[type=checkbox] { transition: background var(--dur-3), border-color var(--dur-3); }
+.tg input[type=checkbox]::after { transition: transform var(--dur-3) var(--ease), scale var(--dur-2) var(--ease), background var(--dur-3); }
+.tg input[type=checkbox]:checked::after { transform: translateX(calc(18px * var(--dir))); }
+.tg input[type=checkbox]:active::after { scale: 1.12 1; }
+/* the answer: only its colour eases (its size snaps, so a long number never makes the page lay out frame by frame) */
+.cres { transition: color var(--dur-1); }
+.cvchip { transition: background var(--dur-2), color var(--dur-2), border-color var(--dur-2); }
+.cflag, .pbit, .pbase { transition: background var(--dur-2), color var(--dur-2); }
+.pbit, .cflag, .key { backface-visibility: hidden; }
+/* the converter's swap button turns; a currency refresh shows a small spinner while it runs */
+.cvsw .ib svg { transition: none; }
+.spin { display: inline-block; width: 12px; height: 12px; margin-inline-start: 6px; vertical-align: -2px; border: 2px solid var(--ol); border-top-color: var(--acc); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

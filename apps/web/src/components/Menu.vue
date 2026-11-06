@@ -5,6 +5,7 @@ import { lockScroll } from "../core/scrollLock";
 import { isPhone, safeArea } from "../core/device";
 import Icon from "./Icon.vue";
 import { t } from "../core/i18n";
+import { leaving } from "../core/motion";
 
 // checked: the one chosen among options (a set's type, a side), marked with a tick at the end so every item keeps its own icon
 interface MenuItem { label: string; hint?: string; icon?: string; run: () => void; danger?: boolean; sep?: boolean; hidden?: boolean; checked?: boolean }
@@ -22,7 +23,7 @@ async function toggle() {
   const b = btn.value!.getBoundingClientRect();
   pos.value = { top: b.bottom + 6, left: b.right };
   await nextTick();
-  const m = el.value!.getBoundingClientRect();
+  const m = { width: el.value!.offsetWidth, height: el.value!.offsetHeight }; // its size without the opening animation's scale
   // the Android app draws under its bars, so the screen's edges are the bars' inner edges, not the window's
   const sa = safeArea(), lo = innerHeight - sa.bottom - 8, hi = sa.top + 8;
   pos.value = { top: b.bottom + 6 + m.height > lo ? Math.max(hi, b.top - m.height - 6) : b.bottom + 6, left: Math.max(sa.left + 8, Math.min((props.align === "start") !== (document.documentElement.dir === "rtl") ? b.left : b.right - m.width, innerWidth - sa.right - m.width - 8)) };
@@ -54,11 +55,11 @@ onBeforeUnmount(() => close(false));
   <button v-if="text" ref="btn" class="mnub" :aria-label="label" aria-haspopup="menu" :aria-expanded="open" @click.stop="toggle"><span>{{ text }}</span><Icon name="down" :size="16" /></button>
   <button v-else ref="btn" class="ib sm plain" :aria-label="label ?? t('c.more')" aria-haspopup="menu" :aria-expanded="open" @click.stop="toggle"><Icon :name="icon ?? 'more'" /></button>
   <Teleport to="body">
-    <div v-if="open" ref="el" class="mnu" :style="{ top: pos.top + 'px', left: pos.left + 'px' }" role="menu" :aria-label="label ?? text ?? t('c.more')" @keydown="key">
+    <Transition name="pop" @before-leave="leaving"><div v-if="open" ref="el" class="mnu" :style="{ top: pos.top + 'px', left: pos.left + 'px' }" role="menu" :aria-label="label ?? text ?? t('c.more')" @keydown="key">
       <template v-for="(i, k) in props.items.filter((x) => !x.hidden)" :key="k">
         <hr v-if="i.sep" role="separator" />
         <button type="button" tabindex="-1" :class="{ danger: i.danger, on: i.checked }" :role="i.checked != null ? 'menuitemradio' : 'menuitem'" :aria-checked="i.checked ?? undefined" @click="pick(i)"><Icon v-if="i.icon" :name="i.icon" :size="18" /><span v-if="i.hint" class="mh"><span>{{ i.label }}</span><small>{{ i.hint }}</small></span><span v-else class="ml">{{ i.label }}</span><Icon v-if="i.checked" name="check" :size="16" class="mck" /></button>
       </template>
-    </div>
+    </div></Transition>
   </Teleport>
 </template>

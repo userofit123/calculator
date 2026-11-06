@@ -20,6 +20,7 @@ import ProgPad from "../components/ProgPad.vue";
 import KeyboardCalc from "../components/KeyboardCalc.vue";
 import NumFormat from "../components/NumFormat.vue";
 import { speak } from "../core/speak";
+import { play, flipChanged, vSwap } from "../core/motion";
 
 // a first-ever open picks its mode before the first paint: Keyboard on a computer with no touch screen, else Basic
 chooseStartMode(isPhone.value);
@@ -113,6 +114,22 @@ watch(() => [calc.answer, calc.error, calc.unit] as const, ([a, e]) => {
   setTimeout(() => { announce.value = said; }, 60);
 });
 
+// Motion (core/motion.ts): played after the change is on screen, so nothing ever waits for it.
+// Another mode: its keys (or forms) come in from the side that mode is on in the mode list.
+const pageEl = ref<HTMLElement | null>(null), resEl = ref<HTMLElement | null>(null);
+watch(() => calc.mode, (to, from) => {
+  const by = MODES.findIndex((m) => m.id === to) >= MODES.findIndex((m) => m.id === from) ? 1 : -1;
+  nextTick(() => pageEl.value?.querySelectorAll(":scope > :not(.calc-top, .sr, .scr), .calc-top .pbar").forEach((e) => play(e, "slide", by)));
+});
+// 2nd, hyp and the angle unit: the keys that now say something else turn over
+watch(() => [calc.second, calc.hyp, settings.angle], () => flipChanged(".calc .fkeys .key", nextTick));
+// =: the answer comes up into place; a preview (nothing shown before) fades in; an error shakes
+watch(() => [calc.answer, calc.error] as const, ([a, e], [a0, e0]) => {
+  if (e && e !== e0) play(resEl.value, "shake");
+  else if (a && a !== a0) { play(resEl.value, "rise"); play(exprEl.value, "fade"); }
+}, { flush: "post" });
+watch(() => !calc.answer && !calc.error && !!pv.value, (on) => { if (on) play(resEl.value, "fade"); }, { flush: "post" });
+
 // the end of a long expression stays in view
 const exprEl = ref<HTMLElement | null>(null);
 watch(() => calc.expr, () => nextTick(() => { if (exprEl.value) exprEl.value.scrollLeft = exprEl.value.scrollWidth; }));
@@ -150,7 +167,7 @@ function onCopy(e: ClipboardEvent) {
   if (busy(e) || dateMode.value || getSelection()?.toString()) return;
   const txt = copyText();
   if (!txt) return;
-  e.preventDefault(); e.clipboardData?.setData("text/plain", txt); toast(t("c.copied"));
+  e.preventDefault(); e.clipboardData?.setData("text/plain", txt); toast(t("c.copied")); play(resEl.value, "pulse");
 }
 function onPaste(e: ClipboardEvent) {
   if (busy(e) || dateMode.value || kbd.value) return;
@@ -164,12 +181,12 @@ onBeforeUnmount(() => { removeEventListener("keydown", onKey); removeEventListen
 async function copyAnswer() {
   const txt = copyText();
   if (!txt) return;
-  try { await navigator.clipboard.writeText(txt); toast(t("c.copied")); } catch { /* the clipboard isn't available here */ }
+  try { await navigator.clipboard.writeText(txt); toast(t("c.copied")); play(resEl.value, "pulse"); } catch { /* the clipboard isn't available here */ }
 }
 </script>
 
 <template>
-  <div class="page calc" :class="{ phone: isPhone, adv, prog: progMode, fin, dmode: dateMode, kbd }">
+  <div ref="pageEl" class="page calc" :class="{ phone: isPhone, adv, prog: progMode, fin, dmode: dateMode, kbd }">
     <h1 class="sr">{{ t("nav.calc") }}</h1>
     <div class="sr" aria-live="polite" aria-atomic="true">{{ announce }}</div>
     <div class="calc-top">
@@ -181,14 +198,14 @@ async function copyAnswer() {
     <KeyboardCalc v-else-if="kbd" />
     <div v-else class="cdisp" role="group" :aria-label="t('calc.display')">
       <div class="cbar">
-        <button v-if="adv" type="button" class="cflag" :title="t('calc.angleUnit')" :aria-label="angleAria" @click="fkey('angle')">{{ angleLabel }}</button>
+        <button v-if="adv" v-swap="angleLabel" type="button" class="cflag" :title="t('calc.angleUnit')" :aria-label="angleAria" @click="fkey('angle')">{{ angleLabel }}</button>
         <span v-if="calc.mem" class="cflag" :title="t('calc.memInUse')"><span aria-hidden="true">M</span><span class="sr">{{ t("calc.memInUse") }}</span></span>
         <NumFormat v-if="!progMode" :note="note" />
         <span v-else class="grow" />
         <button type="button" class="ib sm plain" :aria-label="t('key.back')" :disabled="!calc.expr" @click="tap('⌫')"><Icon name="backspace" /></button>
       </div>
       <div ref="exprEl" class="cexp num" :title="show(calc.expr)"><span aria-hidden="true">{{ show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></span><span v-if="said" class="sr">{{ said }}</span></div>
-      <button type="button" class="cres num" :class="[size, { pre: !calc.answer && !calc.error && !!pv, err: !!calc.error }]" :title="t('c.copy')"
+      <button ref="resEl" type="button" class="cres num" :class="[size, { pre: !calc.answer && !calc.error && !!pv, err: !!calc.error }]" :title="t('c.copy')"
         :aria-label="t(calc.error ? 'calc.ariaError' : calc.answer ? 'calc.ariaAnswer' : pv ? 'calc.ariaPreview' : 'calc.ariaError', { x: bigSaid })" @click="copyAnswer">{{ bigShown }}</button>
     </div>
     <template v-if="dateMode || kbd" />

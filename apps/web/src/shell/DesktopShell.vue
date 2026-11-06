@@ -28,6 +28,9 @@ function place(animate: boolean) {
   anim = p.animate([{ transform: set(from) }, { transform: set(mid), offset: 0.5 }, { transform: set(to) }], { duration: 320, easing: "cubic-bezier(.4,0,.2,1)" });
 }
 watch(page, () => nextTick(() => place(true)));
+// the page slides the way the rail goes: a page further down comes up from below (see motion.css)
+const order = NAV.map((n) => n.name), motion = ref("page");
+watch(page, (to, from) => { const a = order.indexOf(from), b = order.indexOf(to); motion.value = a < 0 || b < 0 ? "page" : b > a ? "pdn" : "pup"; }, { flush: "sync" });
 const onResize = () => place(false);
 let mo: MutationObserver | null = null;
 onMounted(() => {
@@ -52,6 +55,6 @@ onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(
       </div>
     </nav>
     <!-- no "appear": the first page is there at the first paint, without fading in -->
-    <main><Transition name="page" mode="out-in"><component :is="PAGES[page]" :key="page" /></Transition></main>
+    <main><Transition :name="motion" mode="out-in"><component :is="PAGES[page]" :key="page" /></Transition></main>
   </div>
 </template>

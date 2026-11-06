@@ -33,12 +33,12 @@ function save() {
 
 <template>
   <Sheet :title="t('kbd.vars')" @close="emit('close')">
-    <div v-if="list.length" class="vlist">
+    <TransitionGroup v-if="list.length" tag="div" name="row" class="vlist">
       <div v-for="[n, v] in list" :key="n" class="li click" role="button" tabindex="0" @click="use(n)" @keydown.enter="use(n)">
         <div class="grow"><span class="vname">{{ n }}</span> = <span class="num">{{ show(valueText(v)) }}</span></div>
         <button type="button" class="ib sm plain" :aria-label="t('kbd.varForget', { n })" @click.stop="delete calc.vars[n]"><Icon name="trash" :size="18" /></button>
       </div>
-    </div>
+    </TransitionGroup>
     <div v-else class="empty sm">{{ t("kbd.varsEmpty", { ex: "x = 5" }) }}</div>
     <form class="vsave" @submit.prevent="save">
       <div class="fld grow"><label for="vname">{{ answer ? t("kbd.varSaveAs", { v: show(answer.value) }) : t("kbd.varSaveAnswer") }}</label><input id="vname" v-model="name" autocomplete="off" spellcheck="false" placeholder="x" /></div>

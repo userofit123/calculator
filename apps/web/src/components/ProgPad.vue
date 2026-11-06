@@ -3,12 +3,13 @@
 // one to copy it), the word's bits (tap a bit to flip it), word size and signed numbers, and the keys: bit operators
 // with a 2nd layer (NAND NOR XNOR, rotate), shifts, complements, the hex digits and the number pad. Digits that aren't
 // digits of the chosen base are off. On the phone the bases and the bits share one place (a switch), so it all fits.
-import { computed, ref } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { BASES, WORD_SIZES, formatInt, groupDigits, toWord, toggleBit, type Base } from "@calc/core";
 import { calc, prog, progValue, setProgValue, setBase } from "../core/calc";
 import { isPhone } from "../core/device";
 import { toast } from "../core/toast";
 import Icon from "./Icon.vue";
+import { play, flipChanged, vSwap } from "../core/motion";
 import { t, tMaybe } from "../core/i18n";
 
 const props = defineProps<{ hit: string; clear: string }>();
@@ -58,6 +59,9 @@ const FKEYS = computed<Key[]>(() => [
   { k: "fn:twos(", label: "2's", aria: t("prog.twos") },
   { k: "op: mod ", label: "mod", aria: t("prog.mod") },
 ].map((f) => (second.value && f.k2 ? { ...f, k: f.k2, label: f.label2!, aria: f.aria2! } : f)));
+// motion: the 2nd layer's keys turn over; another base: the number shown drops in, written in that base
+watch(second, () => flipChanged(".ppad .fkeys .key", nextTick));
+watch(() => prog.base, () => nextTick(() => play(document.querySelector(".calc .cres"), "swap")));
 function fkey(k: string) { if (k === "2nd") { second.value = !second.value; return; } tap(k); }
 
 type Kind = "n" | "op" | "fn" | "eq";
@@ -78,15 +82,15 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
   <!-- word size, sign and (phone) the bases/bits switch sit on the mode menu's line, so the keys get the height -->
   <Teleport defer to=".calc-top">
     <div class="pbar">
-      <button type="button" class="cflag" :title="t('prog.wordSize')" :aria-label="t('prog.wordSizeAria', { n: prog.wordSize })" @click="cycleWord">{{ t("prog.bit", { n: prog.wordSize }) }}</button>
-      <button type="button" class="cflag" :class="{ on: prog.signed }" :title="t('prog.signedTitle')" :aria-pressed="prog.signed" @click="prog.signed = !prog.signed">{{ prog.signed ? t("prog.signed") : t("prog.unsigned") }}</button>
+      <button v-swap="prog.wordSize" type="button" class="cflag" :title="t('prog.wordSize')" :aria-label="t('prog.wordSizeAria', { n: prog.wordSize })" @click="cycleWord">{{ t("prog.bit", { n: prog.wordSize }) }}</button>
+      <button v-swap="prog.signed" type="button" class="cflag" :class="{ on: prog.signed }" :title="t('prog.signedTitle')" :aria-pressed="prog.signed" @click="prog.signed = !prog.signed">{{ prog.signed ? t("prog.signed") : t("prog.unsigned") }}</button>
       <span class="grow" />
       <div v-if="isPhone" class="seg sm" role="tablist" :aria-label="t('prog.show')"><button type="button" role="tab" :aria-selected="panel === 'bases'" :class="{ on: panel === 'bases' }" @click="panel = 'bases'">{{ t("prog.bases") }}</button><button type="button" role="tab" :aria-selected="panel === 'bits'" :class="{ on: panel === 'bits' }" @click="panel = 'bits'">{{ t("prog.bits") }}</button></div>
     </div>
   </Teleport>
   <div class="ppanel">
     <div v-if="!isPhone || panel === 'bases'" class="pbases" role="group" :aria-label="t('prog.numberBase')">
-      <button v-for="r in rows" :key="r.base" type="button" class="pbase" :class="{ on: prog.base === r.base }" :aria-pressed="prog.base === r.base" :title="prog.base === r.base ? t('c.copy') : t('prog.switchTo', { name: r.name })"
+      <button v-for="r in rows" :key="r.base" v-swap.on="prog.base === r.base" type="button" class="pbase" :class="{ on: prog.base === r.base }" :aria-pressed="prog.base === r.base" :title="prog.base === r.base ? t('c.copy') : t('prog.switchTo', { name: r.name })"
         :aria-label="t('prog.baseAria', { name: r.name, value: r.text || t('prog.empty'), action: prog.base === r.base ? t('c.copy') : t('prog.switchTo', { name: r.name }) })" @click="pickBase(r.base, r.text)">
         <span class="plab">{{ r.label }}</span><span class="pval num">{{ r.text || "-" }}</span>
       </button>
@@ -95,7 +99,7 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
       <div v-for="row in bitRows" :key="row.hi" class="prow">
         <span class="pidx" aria-hidden="true">{{ row.hi }}</span>
         <span v-for="(nb, j) in row.nibbles" :key="j" class="pnib">
-          <button v-for="b in nb" :key="b.i" type="button" class="pbit" :class="{ on: b.on }" :aria-label="t('prog.flip', { i: b.i })" :aria-pressed="b.on" :disabled="value === null" @click="flip(b.i)">{{ b.on ? 1 : 0 }}</button>
+          <button v-for="b in nb" :key="b.i" v-swap:flip="b.on" type="button" class="pbit" :class="{ on: b.on }" :aria-label="t('prog.flip', { i: b.i })" :aria-pressed="b.on" :disabled="value === null" @click="flip(b.i)">{{ b.on ? 1 : 0 }}</button>
         </span>
         <span class="pidx" aria-hidden="true">{{ row.lo }}</span>
       </div>
@@ -150,6 +154,7 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
 .pfn { display: flex; flex-direction: column; gap: calc(var(--kg) * .8); }
 .hexk { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: minmax(calc(var(--kh) * .78), auto); gap: calc(var(--kg) * .8); }
 .hexk .key { font-size: calc(var(--kfs) - 4px); }
+.ppad .key { transition: background .15s, color .15s, transform .12s var(--ease), box-shadow .15s, opacity var(--dur-2); }
 .ppad .key:disabled { opacity: .3; cursor: default; pointer-events: none; }
 .ppad .keys .ico { color: var(--tx2); }
 

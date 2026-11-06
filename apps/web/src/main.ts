@@ -2,6 +2,7 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { startTheme } from "./core/theme";
 import { startSegSlide } from "./core/segSlide";
+import { startMotion } from "./core/motion";
 import { startReloadOnMissingFiles, startUpdates } from "./core/update";
 import { installAndroidBridge } from "./native/android";
 import { i18nReady, lang, applyLang } from "./core/i18n";
@@ -22,6 +23,8 @@ void Promise.race([i18nReady, stalled]).then(() => {
   createApp(App).mount("#app");
   // every row of tabs gets its gliding highlight without any code in the pages
   startSegSlide();
+  // things start moving only after the app has drawn itself: nothing animates in on the first paint
+  startMotion();
 });
 
 // The service worker keeps the whole app on the device (every built file, from the first open on), so it works with no

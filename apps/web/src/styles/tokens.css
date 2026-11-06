@@ -36,8 +36,16 @@
   --shadow-pop: 0 14px 34px -12px rgba(0, 0, 0, .5);
   --shadow-sheet: 0 30px 80px -20px #000a;
   --scrim: #0007;
-  --ease: cubic-bezier(.2, .8, .2, 1);
-  --t-slide: .25s;
+  /* motion: one set of durations and curves for everything that moves (styles/motion.css, core/motion.ts). Short, so
+     nothing waits on them; reduced motion (the system's, base.css) makes them all instant */
+  --dur-1: .12s; /* small: a fade, a press, anything closing */
+  --dur-2: .18s; /* a popover, a chip's new value, a bit flipping */
+  --dur-3: .24s; /* a page, a sheet, the keypad of another mode */
+  --ease: cubic-bezier(.2, .8, .2, 1); /* coming in: fast, then settling */
+  --ease-in: cubic-bezier(.4, 0, 1, 1); /* going out: picking up speed */
+  --t-slide: var(--dur-3);
+  /* the reading direction as a sign: sideways motion is multiplied by it, so right to left it runs the other way */
+  --dir: 1;
   /* the Android app hands the bars' sizes over as --nst / --nsb / --nsl / --nsr (older WebViews report no safe area);
      the sides are a navigation bar or a camera cutout in landscape */
   --sb: max(env(safe-area-inset-bottom, 0px), var(--nsb, 0px));
@@ -58,6 +66,10 @@
   --bg-duo: linear-gradient(180deg,color-mix(in srgb,var(--acc) calc(20% * var(--gi)),var(--bg)) 0%,var(--bg) 50%,color-mix(in srgb,var(--acc2) calc(20% * var(--gi)),var(--bg)) 100%);
   --bg-corners: radial-gradient(55% 55% at 0 0,color-mix(in srgb,var(--acc) calc(32% * var(--gi)),transparent),transparent 70%),radial-gradient(55% 55% at 100% 100%,color-mix(in srgb,var(--acc2) calc(30% * var(--gi)),transparent),transparent 70%),var(--bg);
   --bg-sweep: conic-gradient(from 200deg at 50% -10%,color-mix(in srgb,var(--acc) calc(30% * var(--gi)),transparent),transparent 22%,color-mix(in srgb,var(--acc2) calc(26% * var(--gi)),transparent) 50%,transparent 78%,color-mix(in srgb,var(--acc) calc(30% * var(--gi)),transparent)),var(--bg);
+}
+
+[dir="rtl"] {
+  --dir: -1;
 }
 
 /* spacing: the gap between blocks and sections (density above is the space inside them) */

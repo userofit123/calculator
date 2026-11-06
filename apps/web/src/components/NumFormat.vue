@@ -8,6 +8,7 @@ import { settings, FORMATS, cycleFormat, fmtLabel, fmtShort, fmtHint } from "../
 import { t } from "../core/i18n";
 import { safeArea } from "../core/device";
 import Icon from "./Icon.vue";
+import { vSwap, leaving } from "../core/motion";
 
 defineProps<{ note?: string }>();
 const MAX_PLACES = 15;
@@ -20,7 +21,8 @@ async function show() {
   const b = chip.value!.getBoundingClientRect();
   pos.value = { top: b.bottom + 6, left: b.left };
   await nextTick();
-  const m = el.value!.getBoundingClientRect(), sa = safeArea();
+  // its size without the opening animation's scale
+  const m = { width: el.value!.offsetWidth, height: el.value!.offsetHeight }, sa = safeArea();
   pos.value = {
     top: b.bottom + 6 + m.height > innerHeight - sa.bottom - 8 ? Math.max(sa.top + 8, b.top - m.height - 6) : b.bottom + 6,
     // right to left, the popover opens from the chip's right edge
@@ -54,13 +56,13 @@ onBeforeUnmount(() => close(false));
 
 <template>
   <button
-    type="button" class="cflag" :title="t('ui.nfTitle', { f: fmtLabel(fmt.id) })"
+    v-swap="fmt.id" type="button" class="cflag" :title="t('ui.nfTitle', { f: fmtLabel(fmt.id) })"
     :aria-label="t('ui.nfNext', { f: fmtLabel(fmt.id) })" @click="cycleFormat" @contextmenu.prevent="show"
   >{{ fmtShort(fmt.id) }}</button>
-  <button ref="chip" type="button" class="cflag" :title="t('ui.nfPlaces')" :aria-label="t('ui.nfPlacesAria', { n: settings.decimals })" aria-haspopup="dialog" :aria-expanded="open" @click.stop="show">{{ t("ui.dp", { n: settings.decimals }) }}</button>
-  <span class="cnote" :title="note">{{ note }}</span>
+  <button ref="chip" v-swap="settings.decimals" type="button" class="cflag" :title="t('ui.nfPlaces')" :aria-label="t('ui.nfPlacesAria', { n: settings.decimals })" aria-haspopup="dialog" :aria-expanded="open" @click.stop="show">{{ t("ui.dp", { n: settings.decimals }) }}</button>
+  <span v-swap:fade="note" class="cnote" :title="note">{{ note }}</span>
   <Teleport to="body">
-    <div v-if="open" ref="el" class="mnu nfpop" role="dialog" :aria-label="t('ui.nf')" :style="{ top: pos.top + 'px', left: pos.left + 'px' }">
+    <Transition name="pop" @before-leave="leaving"><div v-if="open" ref="el" class="mnu nfpop" role="dialog" :aria-label="t('ui.nf')" :style="{ top: pos.top + 'px', left: pos.left + 'px' }">
       <div role="radiogroup" :aria-label="t('ui.nf')" class="nfgrp">
         <button v-for="f in FORMATS" :key="f.id" type="button" role="radio" :aria-checked="settings.format === f.id" :class="{ on: settings.format === f.id }" @click="settings.format = f.id">
           <span class="mh"><span>{{ fmtLabel(f.id) }}</span><small>{{ fmtHint(f.id) }}</small></span><Icon v-if="settings.format === f.id" name="check" :size="16" class="mck" />
@@ -73,6 +75,6 @@ onBeforeUnmount(() => close(false));
         <span class="num nfn" aria-live="polite">{{ settings.decimals }}</span>
         <button type="button" class="ib sm" :aria-label="t('ui.morePlaces')" :disabled="settings.decimals >= MAX_PLACES" @click="step(1)">+</button>
       </div>
-    </div>
+    </div></Transition>
   </Teleport>
 </template>

@@ -5,6 +5,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { isPhone, safeArea } from "../core/device";
 import Sheet from "./Sheet.vue";
+import { canMove } from "../core/motion";
 
 const props = defineProps<{ anchor: HTMLElement | null; title: string }>();
 const emit = defineEmits<{ close: [] }>();
@@ -44,7 +45,16 @@ onMounted(() => {
   requestAnimationFrame(() => { shown.value = true; });
   addEventListener("mousedown", away, true); addEventListener("scroll", onScroll, true); addEventListener("resize", onResize);
 });
-onBeforeUnmount(() => { removeEventListener("mousedown", away, true); removeEventListener("scroll", onScroll, true); removeEventListener("resize", onResize); });
+// closing: a copy of the panel shrinks back towards its field for a moment (the parent removes the panel at once)
+function closeCopy() {
+  const m = el.value;
+  if (!m || !shown.value || !canMove()) return;
+  const g = m.cloneNode(true) as HTMLElement;
+  g.classList.add("leaving"); g.setAttribute("aria-hidden", "true"); g.removeAttribute("id"); g.querySelectorAll("[id]").forEach((x) => x.removeAttribute("id"));
+  document.body.appendChild(g); void g.offsetWidth; g.classList.remove("in");
+  setTimeout(() => g.remove(), 200);
+}
+onBeforeUnmount(() => { closeCopy(); removeEventListener("mousedown", away, true); removeEventListener("scroll", onScroll, true); removeEventListener("resize", onResize); });
 defineExpose({ place });
 </script>
 

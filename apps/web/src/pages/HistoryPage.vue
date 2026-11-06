@@ -8,6 +8,8 @@ import { history, histPrefs, clearHistory, restoreHistory, togglePin, removeEntr
 import { calc, press, show, typedValue, restoreExpr } from "../core/calc";
 import { BASES } from "@calc/core";
 import { go } from "../shell/nav";
+import { flipMove } from "../core/motion";
+const rowKey = (h: HistItem) => `${h.t}:${h.e}:${h.r}`;
 import { toast } from "../core/toast";
 import { t, tMaybe, useTexts } from "../core/i18n";
 import { history as texts } from "../i18n/en/history";
@@ -30,7 +32,7 @@ const items = computed(() => [
 ]);
 const rowItems = (h: HistItem) => [
   { label: t("c.copy"), run: () => copy(lineOf(h)) },
-  { label: h.p ? t("hist.unpin") : t("hist.pin"), run: () => togglePin(h) },
+  { label: h.p ? t("hist.unpin") : t("hist.pin"), run: () => flipMove(".hrow", () => togglePin(h)) },
   { label: t("c.delete"), icon: "trash", danger: true, run: () => del(h) },
 ];
 const askClear = ref(false);
@@ -89,15 +91,16 @@ const text = (s: string, b?: number, isAnswer = false) => (b ? s.replace(/-/g, "
       <template v-for="g in [{ k: 'pin', title: t('hist.pinned'), list: shown.pinned }, { k: 'rest', title: shown.pinned.length ? t('hist.recent') : '', list: shown.rest }]" :key="g.k">
         <template v-if="g.list.length">
           <div v-if="g.title" class="sh"><h2>{{ g.title }}</h2></div>
-          <div class="card flush hlist">
-            <div v-for="(h, i) in g.list" :key="h.t + ':' + i" class="li hrow">
+          <TransitionGroup tag="div" name="row" class="card flush hlist">
+            <!-- keyed by the entry itself (not its place), so rows added, removed or pinned move instead of changing text -->
+            <div v-for="h in g.list" :key="rowKey(h)" :data-k="rowKey(h)" class="li hrow">
               <div class="hmain">
                 <button type="button" class="hexp num" :title="t('hist.useExpr')" :aria-label="h.b ? t('hist.exprAriaBase', { base: baseName(h.b), expr: speak(text(h.e, h.b)) }) : t('hist.exprAria', { expr: speak(text(h.e, h.b)) })" @click="useExpr(h)"><span v-if="h.b" class="hbase">{{ base(h.b)?.label }}</span>{{ text(h.e, h.b) }}</button>
                 <button type="button" class="hres num" :class="{ long: h.r.length > 18 }" :title="t('hist.useAnswer')" :aria-label="t('hist.answerAria', { answer: speak(text(h.r, h.b)) })" @click="useResult(h.x, h.r)">=&nbsp;{{ text(h.r, h.b, true) }}</button>
               </div>
               <Menu :items="rowItems(h)" :label="t('hist.entryOptions')" />
             </div>
-          </div>
+          </TransitionGroup>
         </template>
       </template>
     </template>

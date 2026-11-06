@@ -195,7 +195,7 @@ html.phone .apscr { z-index: 200; }
 .li > .grow { min-width: 42%; }
 .li > select, .li > .fpick, .li > input:not([type=checkbox]) { flex: 0 1 auto; min-width: 0; max-width: 56%; }
 /* ---------- motion: pages, sections, sheets and controls move instead of jumping ---------- */
-:root { --t-in: .22s; --t-out: .12s; }
+:root { --t-in: var(--dur-3); --t-out: var(--dur-1); }
 /* pages: the old one fades out quickly, the new one rises in */
 .page-enter-active { transition: opacity var(--t-in) var(--ease), transform var(--t-in) var(--ease); }
 .page-leave-active { transition: opacity var(--t-out) ease-in, transform var(--t-out) ease-in; }
