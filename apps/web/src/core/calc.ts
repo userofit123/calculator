@@ -11,7 +11,7 @@ import { addHistory, history, type HistItem } from "./history";
 import { toast } from "./toast";
 import { startMode, deviceHints, isFirstOpen } from "./keyboard";
 
-export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date";
+export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date" | "everyday";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "basic", label: "Basic", hint: "Everyday sums" },
   { id: "advanced", label: "Advanced", hint: "Powers, roots, trigonometry, logarithms" },
@@ -21,11 +21,15 @@ export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "keyboard", label: "Keyboard", hint: "Type whole sums, no keypad" },
   // not a keypad: its own forms in place of the display and keys (DateCalc, loaded when chosen)
   { id: "date", label: "Date", hint: "Days between dates, adding to a date, age, times" },
+  // forms like Date (EverydayCalc); listed only when switched on in Settings (settings.everyday)
+  { id: "everyday", label: "Everyday", hint: "Percent, discount, tip and split, VAT" },
 ];
+/** modes with their own forms in place of the display and keys */
+export const formMode = (m: Mode) => m === "date" || m === "everyday";
 
-export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | "," }
+export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | ","; everyday: boolean }
 const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;
-export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: ".", ...readJson<Partial<CalcSettings>>("calcSettings", {}) });
+export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: ".", everyday: false, ...readJson<Partial<CalcSettings>>("calcSettings", {}) });
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
 export const ANGLES: { id: AngleUnit; label: string }[] = [{ id: "deg", label: "DEG" }, { id: "rad", label: "RAD" }, { id: "grad", label: "GRAD" }];
 
@@ -47,6 +51,9 @@ export const calc = reactive({
 });
 /** the mode a first-ever open started in by itself: not saved, so it is decided again until the user picks one */
 let autoMode: Mode | null = null, started = false;
+// Everyday mode is there only while switched on: switched off (or saved from before), the calculator goes back to Basic
+if (calc.mode === "everyday" && !settings.everyday) calc.mode = "basic";
+watch(() => settings.everyday, (on) => { if (!on && calc.mode === "everyday") calc.mode = "basic"; });
 watch(() => calc.mode, (m) => { if (m !== autoMode) { autoMode = null; writeJson("calcMode", m); } });
 /** A first-ever open (no saved mode) on a computer with no touch screen starts in Keyboard mode, else Basic. Run once,
  *  by the calculator page before its first paint (the layout is known there). */
@@ -113,7 +120,7 @@ export function setBase(b: Base) {
   prog.base = b;
 }
 /** the last mode other than programming (and Date, which has no display), for a history entry from one of them */
-let plainMode: Mode = calc.mode === "programming" || calc.mode === "date" ? "basic" : calc.mode;
+let plainMode: Mode = calc.mode === "programming" || formMode(calc.mode) ? "basic" : calc.mode;
 /** Brings a sum back from history in the mode it was worked out in: a programming-mode one with its base, word size
  *  and sign (its digits mean nothing in another base, and FF + 1 gives another answer in another word size), any
  *  other one out of programming mode (10 + 5 typed in Basic is 0x15 read in hex) */
@@ -126,7 +133,7 @@ export function restoreExpr(h: Pick<HistItem, "e" | "b" | "w" | "s">) {
     // entries from before word size and sign were kept leave them as they are
     if (h.w) prog.wordSize = h.w as WordSize;
     if (h.s !== undefined) prog.signed = h.s;
-  } else if (isProg() || calc.mode === "date") calc.mode = plainMode;
+  } else if (isProg() || formMode(calc.mode)) calc.mode = plainMode;
   calc.expr = h.e;
 }
 // Programming mode's digits mean something else in the other modes (FF is a variable there, 0.5 isn't a whole number,
@@ -135,7 +142,7 @@ export function restoreExpr(h: Pick<HistItem, "e" | "b" | "w" | "s">) {
 // Basic) isn't reinterpreted: the display is cleared with a message, and coming back unedited brings it back. Run at
 // once (sync), before anything else is typed in the new mode.
 watch(() => calc.mode, (m, old) => {
-  if (m !== "programming" && m !== "date") plainMode = m;
+  if (m !== "programming" && !formMode(m)) plainMode = m;
   if ((m === "programming") === (old === "programming")) return;
   const toProg = isProg();
   const back = kept && kept.at === edits && kept.prog === toProg && (!toProg || (kept.base === prog.base && kept.o === progKey())) ? kept : null;

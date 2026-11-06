@@ -71,6 +71,10 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
             <Icon name="calc" /><div class="grow"><div class="t">Group thousands</div><div class="s">{{ settings.decimalMark === "," ? "1.000.000" : "1,000,000" }}</div></div>
             <input v-model="settings.thousands" type="checkbox" />
           </label>
+          <label class="li tg">
+            <Icon name="calc" /><div class="grow"><div class="t">Everyday helpers</div><div class="s">An Everyday mode: percent · discount · tip and split · VAT</div></div>
+            <input v-model="settings.everyday" type="checkbox" />
+          </label>
         </div>
       </section>
       <!-- History (C-26) -->

@@ -9,7 +9,7 @@
 // a computer's first open starts in it).
 // Date has no display or keys: its forms (DateCalc, loaded when chosen) take their place, under the same mode switch.
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode } from "../core/calc";
+import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode, formMode } from "../core/calc";
 import { isPhone } from "../core/device";
 import { toast } from "../core/toast";
 import Menu from "../components/Menu.vue";
@@ -24,6 +24,8 @@ const VariablesSheet = defineAsyncComponent(() => import("../components/Variable
 const varsOpen = ref(false);
 const FinPad = defineAsyncComponent(() => import("../components/FinPad.vue"));
 const DateCalc = defineAsyncComponent(() => import("../components/DateCalc.vue"));
+// Everyday helpers (percent, discount, tip, VAT): forms like Date, only when switched on in Settings
+const EverydayCalc = defineAsyncComponent(() => import("../components/EverydayCalc.vue"));
 
 // kind: n = number, op = operator (accent tint), fn = function (quiet), eq = the one filled key
 type Kind = "n" | "op" | "fn" | "eq";
@@ -69,12 +71,12 @@ function fkey(k: string) {
   tap(k);
 }
 
-const modeItems = computed(() => MODES.map((m) => ({ label: m.label, hint: m.hint, checked: calc.mode === m.id, run: () => { calc.mode = m.id; } })));
+const modeItems = computed(() => MODES.filter((m) => m.id !== "everyday" || settings.everyday).map((m) => ({ label: m.label, hint: m.hint, checked: calc.mode === m.id, run: () => { calc.mode = m.id; } })));
 const modeLabel = computed(() => MODES.find((m) => m.id === calc.mode)?.label ?? "Basic");
 const adv = computed(() => calc.mode === "advanced");
 const progMode = computed(() => calc.mode === "programming");
 const fin = computed(() => calc.mode === "financial");
-const dateMode = computed(() => calc.mode === "date");
+const dateMode = computed(() => formMode(calc.mode));
 const kbd = computed(() => calc.mode === "keyboard");
 
 const pv = computed(preview);
@@ -138,7 +140,8 @@ async function copyAnswer() {
       <Menu :items="modeItems" :text="modeLabel" label="Calculator mode" align="start" />
       <button v-if="adv || kbd" type="button" class="cvars" @click="varsOpen = true">Variables</button>
     </div>
-    <DateCalc v-if="dateMode" />
+    <EverydayCalc v-if="calc.mode === 'everyday'" />
+    <DateCalc v-else-if="dateMode" />
     <KeyboardCalc v-else-if="kbd" />
     <div v-else class="cdisp" aria-live="polite">
       <div class="cbar">
