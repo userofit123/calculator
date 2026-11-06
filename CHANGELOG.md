@@ -6,6 +6,25 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+## [0.2.0] - 2026-11-06
+
+- New app icon: a cleaner calculator on a mint-to-blue tile.
+- Tip calculator: its own page in the mode menu, with preset percentages, the tip shown big, the total and an optional
+  split.
+- Everyday helpers (percent, discount, tip and split, VAT) are always in the mode menu, no setting needed.
+- Currency graph: the exchange rate over the last month, 3 months or year, from the ECB, kept for offline use.
+- 17 more languages: Spanish, French, German, Portuguese, Italian, Dutch, Polish, Russian, Ukrainian, Turkish, Arabic,
+  Hindi, Chinese, Japanese, Korean, Indonesian and Vietnamese.
+- App & updates in Settings, like Motus: check now, how often to check, automatic downloads (Wi-Fi only on Android),
+  download progress, and on Android a notification with progress that installs when tapped.
+- The number you type is shown big like the answer, and the display never changes height or gets cut off.
+- Keys are see-through, so they stay visible on every theme and background texture.
+- Desktop app: opens at a calculator-sized window, has its icon in menus and the taskbar, and a Money Manager-style top
+  bar in the app's own colours.
+- Swiping left or right on the calculator page changes pages like on the other pages.
+- Converter: rounded results, the swap button centred, "All units" on one line, the online-updates note matches
+  Settings, and swiping the category chips no longer changes page.
+
 ## [0.1.0] - 2026-11-06
 
 - Basic mode: a calculator that gets sums like 0.1 + 0.2 right, with a history you can reuse.
