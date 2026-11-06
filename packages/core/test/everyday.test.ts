@@ -64,6 +64,9 @@ describe("tip and split", () => {
   it("split between 4", () => { const r = ok(tipSplit(D("100"), D("20"), D("4"))); expect(r.total).toEqual(D("120")); expect(r.perPerson).toEqual(D("30")); expect(r.uneven).toEqual(D("0")); });
   it("a split that doesn't go into cents says by how much", () => { const r = ok(tipSplit(D("100"), D("0"), D("3"))); expect(M(r.perPerson)).toBe("33.33"); expect(r.uneven).toEqual(D("0.01")); expect(r.over).toBe(false); });
   it("shares rounded up to the cent can come to more", () => { const r = ok(tipSplit(D("200"), D("0"), D("3"))); expect(M(r.perPerson)).toBe("66.67"); expect(r.uneven).toEqual(D("0.01")); expect(r.over).toBe(true); });
+  it("shares that add up to the displayed total have no gap", () => { const r = ok(tipSplit(D("10.02"), D("10"), D("2"))); expect(M(r.total)).toBe("11.02"); expect(M(r.perPerson)).toBe("5.51"); expect(r.uneven).toEqual(D("0")); expect(r.over).toBe(false); });
+  it("2 shares of 14.74 come to 0.01 less than 29.49", () => { const r = ok(tipSplit(D("24.99"), D("18"), D("2"))); expect(M(r.total)).toBe("29.49"); expect(r.uneven).toEqual(D("0.01")); expect(r.over).toBe(false); });
+  it("3 shares of 19.19 come to 0.01 more than 57.56", () => { const r = ok(tipSplit(D("50.05"), D("15"), D("3"))); expect(M(r.total)).toBe("57.56"); expect(r.uneven).toEqual(D("0.01")); expect(r.over).toBe(true); });
   it("rounding each share up", () => {
     const r = ok(tipSplit(D("100"), D("15"), D("3"), true));
     expect(r.perPerson).toEqual(D("39")); expect(r.total).toEqual(D("117")); expect(r.tip).toEqual(D("17")); expect(r.extra).toEqual(D("2"));

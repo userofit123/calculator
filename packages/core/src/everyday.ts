@@ -101,7 +101,7 @@ export function tipSplit(bill: Q, tipPercent: Q, people: Q = ONE, roundUp = fals
   const total = add(bill, mul(bill, pct(tipPercent)));
   let per = div(total, people), extra = ZERO, t = total;
   if (roundUp) { per = ceilQ(per); t = mul(per, people); extra = sub(t, total); }
-  const gap = sub(mul(round2(per), people), t);
+  const gap = sub(mul(round2(per), people), round2(t));
   return { tip: sub(t, bill), total: t, perPerson: per, extra, uneven: isNeg(gap) ? neg(gap) : gap, over: cmp(gap, ZERO) > 0 };
 }
 
