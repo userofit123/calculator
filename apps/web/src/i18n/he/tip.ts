@@ -14,7 +14,7 @@ export const tip: Record<keyof typeof EN, string> = {
   "tip.splitHint": "כמה כל אחד משלם",
   "tip.people": "מספר אנשים",
   "tip.fewer": "אדם אחד פחות",
-  "tip.more": "אדם אחד יותר",
+  "tip.more": "עוד אדם",
   "tip.each": "כל אחד משלם",
   "tip.roundUp": "עיגול כל חלק כלפי מעלה",
   "tip.roundUpHint": "כל אחד משלם סכום עגול, והתוספת הולכת לטיפ",
@@ -24,5 +24,6 @@ export const tip: Record<keyof typeof EN, string> = {
   "tip.copyRow": "העתקת {label}",
   "tip.rounded": "מעוגל לתצוגה",
   "tip.inexact": "הקלט אינו מדויק",
+  "tip.enterPct": "הקלידו אחוז טיפ",
   "tip.enterBill": "הקלידו את סכום החשבון. אפשר גם תרגיל: 42.50 + 18",
 };

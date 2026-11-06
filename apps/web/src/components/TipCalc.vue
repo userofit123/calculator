@@ -79,6 +79,9 @@ const res = computed<Res>(() => {
   return r;
 });
 
+/** Custom chosen, a bill typed, but no percent yet: say what is missing instead of the bill prompt */
+const needPct = computed(() => st.custom && !st.customPct.trim() && !!st.bill.trim());
+
 /** the rows under the tip: the total, and with a split each one's share and what rounding up added */
 const rows = computed(() => ([["tip.total", res.value.total], ["tip.each", res.value.each], ["tip.roundExtra", res.value.extra]] as [Key, Val | null][])
   .flatMap(([k, v]) => (v ? [{ k, v }] : [])));
@@ -116,7 +119,7 @@ onMounted(() => { if (!props.inTab && !isPhone.value) billEl.value?.focus(); });
       </div>
       <div class="fld">
         <div class="tlab">{{ t("tip.pct") }}</div>
-        <div class="seg sm tseg" role="group" :aria-label="t('tip.presets')">
+        <div class="seg tseg" role="group" :aria-label="t('tip.presets')">
           <button v-for="p in PRESETS" :key="p" type="button" class="num" :data-t="p" :class="{ on: !st.custom && st.pct === p }" :aria-pressed="!st.custom && st.pct === p" @click="pick(p)">{{ p }}%</button>
           <button type="button" data-t="custom" :class="{ on: st.custom }" :aria-pressed="st.custom" @click="pickCustom">{{ t("tip.custom") }}</button>
         </div>
@@ -124,7 +127,7 @@ onMounted(() => { if (!props.inTab && !isPhone.value) billEl.value?.focus(); });
       </div>
     </div>
 
-    <div class="card tcard tres" aria-live="polite">
+    <div class="card tcard tres" aria-live="polite" aria-atomic="true">
       <template v-if="res.tip">
         <div class="tlab">{{ t("tip.tip") }}</div>
         <div class="tbigrow">
@@ -140,6 +143,7 @@ onMounted(() => { if (!props.inTab && !isPhone.value) billEl.value?.focus(); });
         <div v-if="res.note" class="tnote">{{ res.note }}</div>
       </template>
       <div v-else-if="res.error" class="tnote twarn" role="alert">{{ tMsg(res.error) }}</div>
+      <div v-else-if="needPct" class="tnote">{{ t("tip.enterPct") }}</div>
       <div v-else class="tnote">{{ t("tip.enterBill") }}</div>
     </div>
 
@@ -180,7 +184,10 @@ onMounted(() => { if (!props.inTab && !isPhone.value) billEl.value?.focus(); });
 .tcard .fld input { width: 100%; font-variant-numeric: tabular-nums; }
 .tipc .tseg + input { margin-top: var(--hg); }
 .tlab { font-size: var(--fs-sm); font-weight: 600; color: var(--tx2); }
-.tipc .tseg { margin: calc(var(--lpy) * .4) 0 0; }
+/* the presets always fit: four to a row (10 12 15 18 / 20 25 Custom), never a sideways scroll; the row's own pill
+   shape gives way to a rounded block when it takes two lines */
+.tipc .tseg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; overflow: visible; border-radius: var(--r); margin: calc(var(--lpy) * .4) 0 0; }
+.tipc .tseg button { min-width: 0; padding-inline: 4px; }
 .tipc .tbill { font-size: var(--fs-lg); }
 .tbigrow { display: flex; align-items: center; gap: var(--hg); }
 .tbig { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: calc(var(--fs-val) * 1.6); font-weight: 600; line-height: 1.15; color: var(--acc); user-select: text; }

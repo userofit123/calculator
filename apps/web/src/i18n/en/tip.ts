@@ -25,5 +25,6 @@ export const tip = {
   "tip.copyRow": "Copy {label}",
   "tip.rounded": "Rounded for display",
   "tip.inexact": "From an inexact input",
+  "tip.enterPct": "Enter a tip percent",
   "tip.enterBill": "Enter the bill. It can be a sum: 42.50 + 18",
 } as const;

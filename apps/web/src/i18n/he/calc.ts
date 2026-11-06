@@ -15,7 +15,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "modeHint.programming": "בינארי, אוקטלי, הקסדצימלי, פעולות על ביטים",
   "modeHint.keyboard": "הקלדת תרגילים שלמים, בלי מקשים",
   "modeHint.date": "ימים בין תאריכים, הוספה לתאריך, גיל, שעות",
-  "modeHint.tip": "טיפ על חשבון, וחלוקה שלו",
+  "modeHint.tip": "טיפ על החשבון וחלוקה בין כמה אנשים",
   "modeHint.everyday": "אחוזים, הנחה, טיפ וחלוקה, מע\"מ",
   "fmt.auto": "אוטומטי",
   "fmt.fixed": "קבוע",
