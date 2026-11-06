@@ -40,7 +40,7 @@ watch(() => calc.ans, (v) => writeJson("calcAns", keepable(v)));
 watch(() => calc.mem, (v) => writeJson("calcMem", keepable(v)));
 watch(() => calc.vars, (v) => writeJson("calcVars", Object.fromEntries(Object.entries(v).filter(([, x]) => keepable(x)))), { deep: true });
 
-export const evalOptions = (): EvalOptions => ({ angle: settings.angle, decimals: settings.decimals, format: settings.format, variables: calc.vars, ans: calc.ans });
+const evalOptions = (): EvalOptions => ({ angle: settings.angle, decimals: settings.decimals, format: settings.format, variables: calc.vars, ans: calc.ans });
 /** Text as shown: the chosen decimal mark and thousands grouping */
 export const show = (s: string) => formatDisplay(s, settings);
 

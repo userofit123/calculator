@@ -39,7 +39,7 @@ export const BGS = ["glow", "mesh", "diagonal", "spot", "aurora", "horizon", "du
 export const AKEYS = ["acc", "accc", "onc", "bg", "acc2", "on"];
 const XDEF: Record<string, Record<string, string>> = { L: { tx: "#1b1b22", pos: "#1b7f4b", neg: "#c0392b" }, D: { tx: "#e6e4ea", pos: "#6fd69b", neg: "#ff9c8f" } };
 /** The choices put on <html> as data-* attributes (index.html applies the same list before the first paint) */
-export const DKEYS = ["bg", "tex", "rad", "den", "spc", "nsp", "fnt", "nav", "ksh", "kfb"] as const;
+const DKEYS = ["bg", "tex", "rad", "den", "spc", "nsp", "fnt", "nav", "ksh", "kfb"] as const;
 export const PKEYS = ["atm", "cc", "cu", "gi", "surf", "gbl", "gsat", "gop", "bg", "tex", "tsc", "toa", "rad", "den", "spc", "nsp", "fnt", "nav", "ksh", "kfb"] as const;
 
 export const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -48,7 +48,7 @@ export const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 export const known = (v: object): Partial<Theme> => Object.fromEntries(Object.entries(v).filter(([k]) => k in ST0)) as Partial<Theme>;
 export const theme = reactive<Theme>({ ...copy(ST0), ...known(readJson("calcTheme", {})) });
 
-export interface Look { id: string; name: string; v: Partial<Theme> }
+interface Look { id: string; name: string; v: Partial<Theme> }
 export const looks = ref<Look[]>(readJson("calcThemes", []));
 export const lookFor = ref<Record<string, string | null>>(readJson("calcThemeAs", {}));
 export const saveLooks = () => { writeJson("calcThemes", looks.value); writeJson("calcThemeAs", lookFor.value); };
@@ -64,14 +64,14 @@ function hslHex(h: number, s: number, l: number) {
   return "#" + [f(0), f(8), f(4)].map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
 }
 /** A colour set made from one colour: the same six values every built-in set has */
-export function customAtm(hex: string): Pal {
+function customAtm(hex: string): Pal {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""), n = parseInt(m ? m[1]! : "954523", 16), r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b);
   let h = 0, sat = 0; const l = (mx + mn) / 2;
   if (mx !== mn) { const d = mx - mn; sat = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; }
   const S = Math.round(Math.min(90, Math.max(30, sat * 100))), H = Math.round(h), c = (hh: number, ss: number, ll: number) => hslHex((hh + 360) % 360, ss, ll);
   return { L: [c(H, S, 42), c(H, S, 92), c(H, S, 14), c(H, 28, 98), c(H + 40, Math.round(S * 0.8), 42), "#ffffff"], D: [c(H, S, 78), c(H, Math.round(S * 0.7), 28), c(H, S, 90), c(H, 16, 8), c(H + 40, S, 76), c(H, S, 14)] };
 }
-export const cuOf = (k: string): Record<string, string> => (theme.atm === "Custom" && theme.cu?.[k]) || {};
+const cuOf = (k: string): Record<string, string> => (theme.atm === "Custom" && theme.cu?.[k]) || {};
 export const atmOf = (n: string): Pal => {
   if (n !== "Custom") return ATM[n] ?? ATM.Ember!;
   const b = customAtm(theme.cc);
@@ -87,7 +87,7 @@ export const lookPal = (v: Partial<Theme>, k: "L" | "D") => {
 
 declare global { interface Window { calcApp?: { setBars?: (bg: string, dark: boolean, acc: string, on: string, tx: string) => void }; desktopFrame?: { setTitleBar: (bg: string, tx: string) => void } } }
 
-export function applyTheme() {
+function applyTheme() {
   if (typeof document === "undefined") return;
   const d = isDark(), k = d ? "D" : "L";
   if (theme.ls !== k) { theme.ls = k; const x = looks.value.find((y) => y.id === lookFor.value[k]); if (x) Object.assign(theme, known(copy(x.v))); }
@@ -126,7 +126,7 @@ export function themeSwap(fn: () => void) {
   const go = () => { const h = document.documentElement; h.classList.add("nt"); fn(); requestAnimationFrame(() => requestAnimationFrame(() => h.classList.remove("nt"))); };
   if (still()) go(); else document.startViewTransition(go);
 }
-export function themeSwapFrom(el: Element | null, fn: () => void) {
+function themeSwapFrom(el: Element | null, fn: () => void) {
   if (still() || !el) { fn(); return; }
   const h = document.documentElement, b = el.getBoundingClientRect(), x = b.left + b.width / 2, y = b.top + b.height / 2;
   const R = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y)), F = Math.round(Math.min(260, Math.max(140, R * 0.22)));

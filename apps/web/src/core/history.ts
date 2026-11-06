@@ -4,7 +4,7 @@ import { reactive } from "vue";
 import { readJson, writeJson } from "./prefs";
 
 /** e: the expression as typed, r: the answer as shown then (decimal "."), x: the answer in full (for reuse) */
-export interface HistItem { e: string; r: string; x: string; t: number }
+interface HistItem { e: string; r: string; x: string; t: number }
 const MAX = 200;
 
 export const history = reactive<HistItem[]>(readJson<HistItem[]>("calcHistory", []).slice(0, MAX));

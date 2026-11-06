@@ -124,7 +124,7 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
         <div v-if="theme.atm === 'Custom'" class="aps cust">
           <div class="cuh"><div><b>Your own colours</b><div class="sm">Pick one colour and the rest follow, or set each one yourself.</div></div><button class="btn o s" @click="custReset">Reset</button></div>
           <div class="cbase">
-            <label class="cbc"><ColorPicker :model-value="theme.cc || '#954523'" title="Base colour" aria-label="Base colour" @update:model-value="setBase" /></label>
+            <label class="cbc"><ColorPicker :model-value="theme.cc || ST0.cc" title="Base colour" aria-label="Base colour" @update:model-value="setBase" /></label>
             <div class="cbt"><b>Base colour</b><span>{{ (theme.cc || "").toUpperCase() }}</span></div>
             <AppSelect model-value="" :options="Object.keys(ATM)" placeholder="Choose a preset…" title="Start from" aria-label="Start from" @update:model-value="fromPreset" />
           </div>

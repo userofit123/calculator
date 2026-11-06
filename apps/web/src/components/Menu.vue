@@ -6,7 +6,7 @@ import { isPhone, safeArea } from "../core/device";
 import Icon from "./Icon.vue";
 
 // checked: the one chosen among options (a set's type, a side), marked with a tick at the end so every item keeps its own icon
-export interface MenuItem { label: string; hint?: string; icon?: string; run: () => void; danger?: boolean; sep?: boolean; hidden?: boolean; checked?: boolean }
+interface MenuItem { label: string; hint?: string; icon?: string; run: () => void; danger?: boolean; sep?: boolean; hidden?: boolean; checked?: boolean }
 // align "start": the menu opens from the button's left edge (as far as the screen allows), for a button that isn't the
 // last thing in its row; otherwise its right edge lines up with the button's
 const props = defineProps<{ items: MenuItem[]; icon?: string; label?: string; text?: string; align?: "start" | "end" }>();

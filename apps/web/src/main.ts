@@ -2,18 +2,18 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { startTheme } from "./core/theme";
 import { startSegSlide } from "./core/segSlide";
+import { startReloadOnMissingFiles, startUpdates } from "./core/update";
 import "./styles/index.css";
 
 startTheme();
+startReloadOnMissingFiles();
 createApp(App).mount("#app");
 // every row of tabs gets its gliding highlight without any code in the pages
 startSegSlide();
 
 // The service worker keeps the whole app on the device (every built file, from the first open on), so it works with no
 // connection. Only for the built app: in development it would only get in the way. The desktop and Android apps carry
-// their own files, so they don't need it. updateViaCache "none": sw.js itself is always checked with the server, so a
-// new version is noticed on the next open.
+// their own files, so they don't need it. updateViaCache "none" (in startUpdates): sw.js itself is always checked with
+// the server, so a new version is noticed on the next open.
 const g = globalThis as { Capacitor?: { isNativePlatform?: () => boolean }; calcDesktop?: unknown };
-if (import.meta.env.PROD && "serviceWorker" in navigator && !g.Capacitor?.isNativePlatform?.() && !g.calcDesktop) {
-  addEventListener("load", () => navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(() => { /* not installable here, nothing else changes */ }));
-}
+if (import.meta.env.PROD && "serviceWorker" in navigator && !g.Capacitor?.isNativePlatform?.() && !g.calcDesktop) startUpdates("/sw.js");

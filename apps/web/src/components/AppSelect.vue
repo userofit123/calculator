@@ -102,7 +102,7 @@ function key(e: KeyboardEvent) {
 
 <style scoped>
 .asg { padding: 8px 12px 4px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .7px; text-transform: uppercase; color: var(--tx2); }
-.aso { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 10px; font-size: var(--fs); line-height: 1.3; color: var(--tx); cursor: pointer; }
+.aso { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: calc(var(--lpy) - 1px) calc(var(--cpx) - 4px); border-radius: 10px; font-size: var(--fs); line-height: 1.3; color: var(--tx); cursor: pointer; }
 .aso.hi { background: var(--s2); }
 .aso.sel { color: var(--acc); font-weight: 600; }
 .aso.dis { opacity: .4; cursor: default; }

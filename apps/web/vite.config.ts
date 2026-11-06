@@ -11,8 +11,8 @@ const hmrHost = process.env.VITE_HMR_HOST;
 const version = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 // Fills in public/sw.js after a build: the list of every built file (so the worker keeps the whole app when it installs)
-// and a version made from their contents (so every build that changes anything gets a new cache, and the old one is
-// dropped). The development server serves sw.js as it is, which the worker takes as "cache nothing".
+// and a version made from their contents (so every build that changes anything gets a new cache; the old one is
+// dropped once no open page uses it any more). The development server serves sw.js as it is, which the worker takes as "cache nothing".
 function precache(): Plugin {
   let outDir = "";
   return {
@@ -26,7 +26,10 @@ function precache(): Plugin {
       for (const f of files) h.update(f).update(readFileSync(join(outDir, f)));
       const sw = join(outDir, "sw.js"), src = readFileSync(sw, "utf8");
       if (!src.includes("__CALC_VERSION__") || !src.includes("/* __CALC_FILES__ */ []")) throw new Error("sw.js: the build's placeholders are missing");
-      writeFileSync(sw, src.replace("__CALC_VERSION__", h.digest("hex").slice(0, 16)).replace("/* __CALC_FILES__ */ []", JSON.stringify(files)));
+      // the page is kept as "/" (what the app's addresses are answered with), not "/index.html": a host that redirects
+      // /index.html to / would otherwise leave the worker holding a redirect instead of the page
+      const keep = files.map((f) => (f === "/index.html" ? "/" : f));
+      writeFileSync(sw, src.replace("__CALC_VERSION__", h.digest("hex").slice(0, 16)).replace("/* __CALC_FILES__ */ []", JSON.stringify(keep)));
     },
   };
 }

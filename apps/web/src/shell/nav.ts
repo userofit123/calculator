@@ -5,7 +5,7 @@ import CalculatorPage from "../pages/CalculatorPage.vue";
 import { sheetIsOpen, closeTopSheet } from "../core/sheets";
 
 export type PageName = "calc" | "convert" | "history" | "settings";
-export interface NavItem { name: PageName; label: string; icon: string; path: string }
+interface NavItem { name: PageName; label: string; icon: string; path: string }
 
 /** The menu: the rail on a computer, the bottom tabs on a phone (the same four, in the same order). */
 export const NAV: NavItem[] = [
@@ -16,7 +16,7 @@ export const NAV: NavItem[] = [
 ];
 
 // The calculator is in the main bundle (it is the first screen); the rest loads when first opened.
-export const loaders: Record<Exclude<PageName, "calc">, () => Promise<{ default: Component }>> = {
+const loaders: Record<Exclude<PageName, "calc">, () => Promise<{ default: Component }>> = {
   convert: () => import("../pages/ConverterPage.vue"),
   history: () => import("../pages/HistoryPage.vue"),
   settings: () => import("../pages/SettingsPage.vue"),

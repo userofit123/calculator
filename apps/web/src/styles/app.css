@@ -113,7 +113,7 @@ button.li.lib { width: 100%; border: 0; background: none; text-align: start; fon
 .mnu .mck { margin-inline-start: auto; flex: none; }
 /* menus whose items explain themselves: wider, each icon on a soft tile, the explanation under the label */
 .mnu:has(.mh) { width: min(320px, calc(100vw - 16px)); padding: 6px; }
-.mnu:has(.mh) button { align-items: flex-start; gap: 12px; padding: 9px 10px; }
+.mnu:has(.mh) button { align-items: flex-start; gap: 12px; padding: calc(var(--lpy) - 1px) calc(var(--cpx) - 6px); }
 .mnu:has(.mh) button > svg { box-sizing: content-box; padding: 7px; border-radius: 10px; background: var(--s2); color: var(--tx2); flex: none; }
 .mnu:has(.mh) button:hover > svg { background: var(--accc); color: var(--onc); }
 .mnu:has(.mh) button.danger > svg { background: color-mix(in srgb, var(--neg) 12%, transparent); color: var(--neg); }
@@ -159,7 +159,7 @@ html.phone .sht .sh_b:last-child { padding-bottom: calc(var(--cpy) + 3px + var(-
 /* ---------- toasts ---------- */
 .tst { position: fixed; left: 50%; bottom: calc(24px + var(--sb)); transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 html.phone .tst { bottom: calc(var(--tabh) + 76px + var(--sb)); }
-.tst > div { pointer-events: auto; background: var(--tx); color: var(--bg); border-radius: 14px; padding: 11px 16px; font-size: 13.5px; font-weight: 500; display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow-pop); animation: su .2s var(--ease); max-width: min(520px, calc(100vw - 32px)); }
+.tst > div { pointer-events: auto; background: var(--tx); color: var(--bg); border-radius: 14px; padding: calc(var(--lpy) + 1px) var(--cpx); font-size: 13.5px; font-weight: 500; display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow-pop); animation: su .2s var(--ease); max-width: min(520px, calc(100vw - 32px)); }
 .tst > div.err { background: var(--neg); color: var(--bg); }
 .tst button { border: 0; background: none; color: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
@@ -171,7 +171,7 @@ main { position: relative; }
    the dock; the calculator sizes itself from these to fill the screen exactly */
 html.phone { --tabh: 64px; --ptop: 14px; --pdock: 16px; }
 .pshell { width: 100%; min-height: 100vh; min-height: 100dvh; padding-bottom: calc(var(--tabh) + var(--pdock) + var(--sb)); }
-.pmain { padding: calc(var(--ptop) + var(--st)) 16px 24px; overflow-x: clip; }
+.pmain { padding: calc(var(--ptop) + var(--st)) var(--cpx) calc(var(--spg) * 1.5); overflow-x: clip; }
 .pmain .ph { margin-bottom: var(--spg); align-items: center; }
 .pmain .ph h1 { font-size: 26px; }
 .pmain .ph .acts { gap: 4px; }
