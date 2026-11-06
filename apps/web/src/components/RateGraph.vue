@@ -25,6 +25,17 @@ const saved = readJson<string>("rateGraphPeriod", "1M");
 const period = ref<GraphPeriod>((GRAPH_PERIODS as string[]).includes(saved) ? (saved as GraphPeriod) : "1M");
 watch(period, (v) => writeJson("rateGraphPeriod", v));
 
+/** the period chips are a radio group: the arrow keys move the choice (and the focus) to the next or previous one */
+function chipKey(e: KeyboardEvent, p: GraphPeriod) {
+  const n = GRAPH_PERIODS.length, i = GRAPH_PERIODS.indexOf(p);
+  const rtl = lang.value === "he" ? -1 : 1;
+  const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : e.key === "ArrowRight" ? rtl : e.key === "ArrowLeft" ? -rtl : 0;
+  if (!d) return;
+  e.preventDefault();
+  period.value = GRAPH_PERIODS[(i + d + n) % n]!;
+  void nextTick(() => ((e.currentTarget as HTMLElement).parentElement?.querySelector("[aria-checked=true]") as HTMLElement | null)?.focus());
+}
+
 const online = ref(typeof navigator === "undefined" || navigator.onLine !== false);
 const today = () => new Date().toISOString().slice(0, 10);
 const start = computed(() => periodStart(today(), period.value));
@@ -158,8 +169,8 @@ const isHe = computed(() => lang.value === "he");
         <Icon name="down" class="rgc" />
       </button>
       <div v-if="open && !missing && !fixed" class="rgch" role="radiogroup" :aria-label="t('conv.graph.period')">
-        <button v-for="p in GRAPH_PERIODS" :key="p" type="button" role="radio" class="rgchip" :class="{ on: p === period }" :aria-checked="p === period"
-          :title="t(('conv.graph.long.' + p) as Key)" @click="period = p">{{ t(("conv.graph." + p) as Key) }}</button>
+        <button v-for="p in GRAPH_PERIODS" :key="p" type="button" role="radio" class="rgchip" :class="{ on: p === period }" :aria-checked="p === period" :tabindex="p === period ? 0 : -1"
+          :title="t(('conv.graph.long.' + p) as Key)" @click="period = p" @keydown="chipKey($event, p)">{{ t(("conv.graph." + p) as Key) }}</button>
       </div>
     </div>
     <template v-if="open">

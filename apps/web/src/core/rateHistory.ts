@@ -56,12 +56,17 @@ async function ask<T>(url: string, parse: (t: string) => T, signal: AbortSignal)
   } catch { return null; }
 }
 
+let pending: { codes: string[]; from: string } | null = null;
+
 /** Makes sure the days of these currencies (ECB codes, or "ARS" from the BCRA) from `from` on are held, asking only
  *  when it is allowed and due. Never throws, never blocks anything. */
 export async function ensureHistory(codes: string[], from: string): Promise<void> {
   const now = Date.now();
   for (const c of codes) if (history.held[c]) history.held[c]!.usedAt = now;
-  if (!rates.online || history.loading || navigator.onLine === false) return;
+  if (!rates.online || navigator.onLine === false) return;
+  // asked for while another ask is running: the latest request waits its turn (older ones are superseded) and runs when
+  // that one ends, so a period or pair picked mid-fetch is never dropped
+  if (history.loading) { pending = { codes: [...codes], from }; return; }
   if (history.failures > 0 && now - history.failedAt < retryDelayMs(history.failures)) return;
   const due = codes.filter((c) => { const h = history.held[c]; return !h || h.from > from || now - h.checkedAt >= AUTO_EVERY_MS; });
   if (!due.length) return;
@@ -88,6 +93,9 @@ export async function ensureHistory(codes: string[], from: string): Promise<void
   } finally {
     clearTimeout(timer); history.loading = false;
   }
+  const next = pending;
+  pending = null;
+  if (next) await ensureHistory(next.codes, next.from);
 }
 
 /** the days held per currency, for pairSeries */
