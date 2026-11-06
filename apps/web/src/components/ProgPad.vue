@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Programming mode (loaded only when it is chosen): the number in all four bases (tap one to switch to it, the current
+// Programming mode (in the main bundle, so it is there on the first paint when it was the last mode used): the number in all four bases (tap one to switch to it, the current
 // one to copy it), the word's bits (tap a bit to flip it), word size and signed numbers, and the keys: bit operators
 // with a 2nd layer (NAND NOR XNOR, rotate), shifts, complements, the hex digits and the number pad. Digits that aren't
 // digits of the chosen base are off. On the phone the bases and the bits share one place (a switch), so it all fits.
@@ -119,14 +119,14 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
 <style>
 /* Programming mode. Tokens only, like the rest of the calculator (calc.css). */
 .ppanel { display: flex; flex-direction: column; gap: calc(var(--kg) * .6); }
-.pbar { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.pbar { display: flex; flex-direction: row; align-items: center; gap: calc(var(--hg) * .6); }
 .cflag.on { color: var(--acc); background: color-mix(in srgb, var(--acc) 16%, var(--bg)); }
 .pbar .seg { margin: 0; }
-.pbar .seg button { padding-block: 3px; font-size: 12.5px; }
+.pbar .seg button { padding-block: calc(var(--lpy) * .3); font-size: 12.5px; }
 
 /* the four bases: the chosen one lit with the accent, each a button (switch, or copy the chosen one) */
 .pbases { display: flex; flex-direction: column; border-radius: var(--r-sm); background: var(--s1); padding: calc(var(--cpy) * .25) calc(var(--cpx) * .5); }
-.pbase { display: flex; align-items: baseline; gap: 10px; border: 0; background: none; font-family: inherit; color: var(--tx2); padding: calc(var(--lpy) / 6) 0; cursor: pointer; text-align: end; min-width: 0; border-radius: var(--r-sm); }
+.pbase { display: flex; align-items: baseline; gap: var(--hg); border: 0; background: none; font-family: inherit; color: var(--tx2); padding: calc(var(--lpy) / 6) 0; cursor: pointer; text-align: end; min-width: 0; border-radius: var(--r-sm); }
 .pbase:hover { color: var(--tx); }
 .plab { flex: none; width: 3.2em; text-align: start; font-size: 11.5px; font-weight: 700; letter-spacing: .4px; }
 .pval { flex: 1 1 auto; min-width: 0; font-size: 14px; overflow-wrap: anywhere; }
@@ -134,7 +134,7 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
 .pbase.on .plab { color: var(--acc); }
 
 /* the bits: rows of nibbles, each bit a small key (1 in the accent); the row's highest and lowest bit numbers beside */
-.pbits { display: flex; flex-direction: column; gap: 2px; border-radius: var(--r-sm); background: var(--s1); padding: calc(var(--cpy) * .25) calc(var(--cpx) * .5); }
+.pbits { display: flex; flex-direction: column; gap: calc(var(--lpy) * .2); border-radius: var(--r-sm); background: var(--s1); padding: calc(var(--cpy) * .25) calc(var(--cpx) * .5); }
 .pbits.off { opacity: .5; }
 .prow { display: flex; align-items: center; justify-content: center; gap: calc(var(--kg) * .8); }
 .pidx { flex: none; width: 2em; font-size: 10.5px; color: var(--tx2); text-align: center; }
@@ -159,7 +159,7 @@ html.phone .calc.prog .cres { font-size: 34px; }
 html.phone .calc.prog .cres.m { font-size: 30px; }
 html.phone .calc.prog .cres.s { font-size: 26px; }
 html.phone .hexk { grid-auto-rows: minmax(calc(var(--kh) * .62), auto); }
-html.phone .ppanel { gap: 4px; }
+html.phone .ppanel { gap: calc(var(--kg) * .4); }
 html.phone .pbases, html.phone .pbits { min-height: 92px; justify-content: center; }
 html.phone .pbit { line-height: 1.45; }
 

@@ -7,7 +7,7 @@ import {
   evaluateProgramming, formatInt, fitsWord, literal, rebase, type Base, type WordSize, type ProgOptions,
 } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
-import { addHistory } from "./history";
+import { addHistory, type HistItem } from "./history";
 
 export type Mode = "basic" | "advanced" | "financial" | "programming";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
@@ -74,6 +74,29 @@ export function setBase(b: Base) {
   if (!calc.answer && !calc.error && calc.expr) calc.expr = rebase(calc.expr, progOptions(), b);
   prog.base = b;
 }
+/** Brings a sum back from history: a programming-mode one in programming mode, with its base, word size and sign (its
+ *  digits mean nothing in another base, and FF + 1 gives another answer in another word size) */
+export function restoreExpr(h: Pick<HistItem, "e" | "b" | "w" | "s">) {
+  if (h.b) {
+    calc.mode = "programming";
+    prog.base = h.b as Base;
+    // entries from before word size and sign were kept leave them as they are
+    if (h.w) prog.wordSize = h.w as WordSize;
+    if (h.s !== undefined) prog.signed = h.s;
+  }
+  calc.expr = h.e; calc.answer = ""; calc.error = "";
+}
+// Programming mode's digits mean something else in the other modes (FF is a variable there, 0.5 isn't a whole number),
+// so changing to or from it carries the number on the display over written for the new mode (one with a fraction can't
+// go into programming mode and is cleared), and a sum being typed has its numbers rewritten in the new base. Run at
+// once (sync), before anything else is typed in the new mode.
+watch(() => calc.mode, (m, old) => {
+  if ((m === "programming") === (old === "programming")) return;
+  const dec = { ...prog, base: 10 as Base };
+  if (calc.answer) calc.expr = !isProg() ? typedValue(calc.ans) : /^-?\d+$/.test(calc.ans) ? literal(BigInt(calc.ans), prog) : "";
+  else if (calc.expr) calc.expr = isProg() ? rebase(calc.expr, dec, prog.base) : rebase(calc.expr, progOptions(), 10);
+  calc.answer = ""; calc.error = "";
+}, { flush: "sync" });
 // the answer on the display follows the base, word size and sign; one that no longer fits is an overflow
 watch(prog, () => {
   if (!isProg() || !calc.answer || !/^-?\d+$/.test(calc.ans)) return;
@@ -185,7 +208,7 @@ export function press(k: string) {
     if (open() > 0) calc.expr += ")".repeat(open()); // the brackets closed for you show in the sum and its history
     calc.answer = r.value; calc.error = ""; calc.ans = r.exact;
     if ("assigned" in r && typeof r.assigned === "string") calc.vars[r.assigned] = r.exact;
-    addHistory(calc.expr, r.value, r.exact, isProg() ? prog.base : undefined);
+    addHistory(calc.expr, r.value, r.exact, isProg() ? { ...prog } : undefined);
     return;
   }
   if (k === "MC") { calc.mem = ""; return; }
@@ -281,7 +304,10 @@ export function enterCall(expr: string): string {
 /** Pasted text, cleaned into an expression: it carries on from an answer when it starts with an operator */
 export function paste(text: string) {
   if (isProg()) {
-    const s = text.replace(/[^\w\s+\-−×÷*/()&|^~<>%₀-₉]/g, "").replace(/\s+/g, " ").trim();
+    // a decimal mark is kept (with the user's comma read as one), so 3.14 is the whole-numbers error and not 314;
+    // other commas are thousands separators
+    const t = settings.decimalMark === "," ? text.replace(/,/g, ".") : text;
+    const s = t.replace(/[^\w\s.+\-−×÷*/()&|^~<>%₀-₉]/g, "").replace(/\s+/g, " ").trim();
     if (s) { if (/^[+×÷*/&|^<>%]/.test(s)) after(s); else operand(s); }
     return;
   }

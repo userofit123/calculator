@@ -282,15 +282,20 @@ export function evaluateProgramming(expression: string, o: ProgOptions): ProgRes
 }
 
 /** The expression with its plain numbers rewritten from one base into another (switching base while typing), so it
- *  still means the same. Numbers with their own base (0x1F, 101₂), operators and names are left as they are. */
+ *  still means the same. Numbers with their own base (0x1F, 101₂), operators and names are left as they are. Each word
+ *  is read on its own, so a sum that isn't finished or has a mistake in it (12 + 0x) still has all its numbers moved. */
 export function rebase(expression: string, from: ProgOptions, to: Base): string {
-  let toks: Tok[];
-  try { toks = tokenize(expression, from); } catch { return expression; }
-  let out = "", at = 0;
-  for (const t of toks) {
-    if (t.t !== "num" || !t.bare) continue;
-    out += expression.slice(at, t.from) + literal(t.v, { ...from, base: to });
-    at = t.to;
-  }
-  return out + expression.slice(at);
+  const r = word(from), target = { ...from, base: to };
+  return expression.replace(/[0-9A-Za-z_]+[₀-₉]*/g, (w) => {
+    let toks: Tok[];
+    try { toks = tokenize(w, from); } catch { return w; }
+    const t = toks[0];
+    if (toks.length !== 1 || !t || t.t !== "num") return w;
+    // 0b101 would be the hex number B101 in hex mode: written with its base as a subscript instead
+    if (!t.bare) return to === 16 && /^0b/i.test(w) ? w.slice(2) + "₂" : w;
+    // signed: a non-decimal number with the top bit set is a bit pattern that reads as negative, so a bigger decimal
+    // number (128 in 8 bits, fine on the way to 128 − 1) keeps its value written in decimal with its base
+    if (from.signed && to !== 10 && t.v >= r.half && t.v <= r.mask) return t.v.toString() + "₁₀";
+    return literal(t.v, target);
+  });
 }

@@ -178,4 +178,21 @@ describe("switching base while typing", () => {
   it("keeps numbers with their own base and words", () => expect(rebase("10 + 0x10 + 10₈ + ans", U64, 16)).toBe("A + 0x10 + 10₈ + ans"));
   it("a signed pattern becomes a negative decimal", () => expect(rebase("FB + 1", { ...S8, base: 16 }, 10)).toBe("(−5) + 1"));
   it("leaves text it can't read alone", () => expect(rebase("1 $ 2", U64, 16)).toBe("1 $ 2"));
+  it("signed: a decimal number past the top bit keeps its value (not a negative bit pattern)", () => {
+    const H8 = { ...S8, base: 16 as const };
+    expect(rebase("128 - 1", S8, 16)).toBe("128₁₀ - 1");
+    expect(evaluateProgramming(rebase("128 - 1", S8, 16), H8)).toEqual(evaluateProgramming("7F", H8));
+    expect(rebase("255 + 0", S8, 16)).toBe("255₁₀ + 0");
+    expect(evaluateProgramming(rebase("255 + 0", S8, 2), { ...S8, base: 2 })).toEqual(evaluateProgramming("255 + 0", S8));
+    expect(rebase("127 + 300", S8, 16)).toBe("7F + 12C"); // in range, or too big to be a pattern: plain digits
+  });
+  it("0b numbers become subscript binary in hex mode (0b101 would read as B101)", () => {
+    expect(rebase("0b101 + 1", U64, 16)).toBe("101₂ + 1");
+    expect(evaluateProgramming(rebase("0b101 + 1", U64, 16), { ...U64, base: 16 })).toMatchObject({ exact: "6" });
+    expect(rebase("0b101 + 1", U64, 2)).toBe("0b101 + 1");
+  });
+  it("rewrites the numbers of a sum that can't be read yet, one by one", () => {
+    expect(rebase("12 + 0x", U64, 16)).toBe("C + 0x");
+    expect(rebase("10 AND (", U64, 2)).toBe("1010 AND (");
+  });
 });

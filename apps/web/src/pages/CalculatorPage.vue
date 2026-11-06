@@ -3,17 +3,18 @@
 // and the keypad; Advanced adds a function pad (with a 2nd layer for inverse functions, so it fits a phone). Full
 // keyboard support on a computer, including typing a free expression (sin(30)+2^10, x = 5), copy and paste.
 // Financial adds GNOME's ten financial functions above the basic keys, each with a form (FinPad, loaded when chosen).
-// Programming has its own keys, bases and bit view (ProgPad, loaded only when that mode is chosen).
+// Programming has its own keys, bases and bit view (ProgPad: small, so in the main bundle, and a calculator last left in
+// programming mode opens on its own keys at once instead of waiting for a chunk to load).
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES } from "../core/calc";
 import { isPhone } from "../core/device";
 import { toast } from "../core/toast";
 import Menu from "../components/Menu.vue";
 import Icon from "../components/Icon.vue";
+import ProgPad from "../components/ProgPad.vue";
 
 const VariablesSheet = defineAsyncComponent(() => import("../components/VariablesSheet.vue"));
 const varsOpen = ref(false);
-const ProgPad = defineAsyncComponent(() => import("../components/ProgPad.vue"));
 const FinPad = defineAsyncComponent(() => import("../components/FinPad.vue"));
 
 // kind: n = number, op = operator (accent tint), fn = function (quiet), eq = the one filled key

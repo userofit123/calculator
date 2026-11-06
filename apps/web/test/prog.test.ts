@@ -6,7 +6,7 @@ vi.hoisted(() => {
 });
 import { nextTick } from "vue";
 import { toggleBit } from "@calc/core";
-import { calc, press, keyFor, preview, prog, progValue, setBase, setProgValue } from "../src/core/calc";
+import { calc, press, keyFor, preview, prog, progValue, setBase, setProgValue, paste, current, restoreExpr } from "../src/core/calc";
 import { history } from "../src/core/history";
 
 const key = (k: string) => { const p = keyFor({ key: k, ctrlKey: false, metaKey: false, altKey: false } as KeyboardEvent); if (p) press(p); return p; };
@@ -85,6 +85,58 @@ describe("the bit view", () => {
 describe("history", () => {
   it("records the base", () => {
     prog.base = 16; type("FF+1=");
-    expect(history[0]).toMatchObject({ e: "FF+1", r: "100", x: "256", b: 16 });
+    expect(history[0]).toMatchObject({ e: "FF+1", r: "100", x: "256", b: 16, w: 64, s: false });
   });
+  it("brings a sum back with its base, word size and sign", () => {
+    Object.assign(prog, { base: 16, wordSize: 8, signed: true }); type("7F+1="); // overflow in 8 bits signed
+    expect(calc.error).toMatch(/Overflow/); press("AC");
+    Object.assign(prog, { wordSize: 16, signed: false }); type("FF+1=");
+    const h = history[0]!;
+    expect(h).toMatchObject({ e: "FF+1", b: 16, w: 16, s: false });
+    calc.mode = "basic"; Object.assign(prog, { base: 2, wordSize: 8, signed: true });
+    restoreExpr(h);
+    expect(calc.mode).toBe("programming");
+    expect({ ...prog }).toEqual({ base: 16, wordSize: 16, signed: false });
+    expect(calc.expr).toBe("FF+1"); press("=");
+    expect(calc.answer).toBe("100");
+  });
+  it("an entry from before word size and sign were kept leaves them as they are", () => {
+    Object.assign(prog, { wordSize: 32, signed: true }); calc.mode = "basic";
+    restoreExpr({ e: "FF", b: 16 });
+    expect({ ...prog }).toEqual({ base: 16, wordSize: 32, signed: true });
+  });
+});
+
+describe("changing mode", () => {
+  it("an answer carried into programming mode is written in its base", () => {
+    calc.mode = "basic"; prog.base = 16; type("200+55=");
+    calc.mode = "programming";
+    expect(calc.expr).toBe("FF"); expect(calc.answer).toBe("");
+    expect(progValue()).toBe(255n); expect(current()?.value).toBe("FF");
+  });
+  it("an answer carried out of programming mode is written in decimal", () => {
+    prog.base = 16; type("F0+F=");
+    calc.mode = "basic";
+    expect(calc.expr).toBe("255"); expect(current()?.value).toBe("255");
+    calc.mode = "programming"; press("AC"); Object.assign(prog, { wordSize: 8, signed: true }); type("0-5="); calc.mode = "basic";
+    expect(calc.expr).toBe("−5");
+  });
+  it("an answer with a fraction can't go into programming mode", () => {
+    calc.mode = "basic"; type("1/2=");
+    calc.mode = "programming";
+    expect(calc.expr).toBe(""); expect(calc.answer).toBe(""); expect(progValue()).toBe(0n);
+  });
+  it("a sum being typed keeps its meaning", () => {
+    prog.base = 16; type("FF+1"); calc.mode = "basic";
+    expect(calc.expr).toBe("255+1");
+    calc.mode = "programming"; expect(calc.expr).toBe("FF+1");
+  });
+});
+
+describe("paste", () => {
+  it("a number with a fraction is the whole-numbers error, not its digits run together", () => {
+    paste("3.14"); expect(calc.expr).toBe("3.14");
+    press("="); expect(calc.error).toBe("Programming mode works with whole numbers");
+  });
+  it("thousands separators go", () => { paste("1,000"); expect(calc.expr).toBe("1000"); });
 });
