@@ -16,6 +16,15 @@ describe("speak: the display read as words", () => {
     expect(speak("−5")).toBe("negative 5");
     expect(speak("3 × −2")).toBe("3 times negative 2");
   });
+  it("reads shifts and rotates, and keeps comparisons and bitwise words", () => {
+    expect(speak("1 << 4")).toBe("1 shift left 4");
+    expect(speak("256 >> 2")).toBe("256 shift right 2");
+    expect(speak("3 < 4")).toBe("3 less than 4");
+    expect(speak("5 > 2")).toBe("5 greater than 2");
+    expect(speak("5 ROL 1")).toBe("5 rotate left 1");
+    expect(speak("5 ror 1")).toBe("5 rotate right 1");
+    expect(speak("6 AND 3 OR 1 XOR 2")).toBe("6 AND 3 OR 1 XOR 2");
+  });
   it("leaves plain numbers alone", () => {
     expect(speak("1,234.5")).toBe("1,234.5");
     expect(speak("")).toBe("");

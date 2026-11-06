@@ -36,10 +36,11 @@ let backId = 0, unlock = () => {};
 onMounted(() => {
   addEventListener("keydown", key); unlock = lockScroll();
   before = document.activeElement as HTMLElement | null;
-  // the focus moves into the sheet: its first field, or the sheet itself (a field a picker sheet keeps is left alone)
+  // the focus moves into the sheet: a field marked autofocus, else the sheet itself (never an arbitrary first field: on a phone
+  // that would pop the on-screen keyboard). A field a picker or FinPad focuses itself is left alone.
   nextTick(() => {
-    if (sheet.value?.contains(document.activeElement)) return;
-    const f = sheet.value?.querySelector<HTMLElement>("input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [autofocus]");
+    if (sheet.value?.contains(document.activeElement) && document.activeElement !== sheet.value) return;
+    const f = sheet.value?.querySelector<HTMLElement>("[autofocus], [data-autofocus]");
     (f ?? sheet.value)?.focus({ preventScroll: true });
   });
   if (!props.noClose && !props.noHistory) backId = sheetOpened(() => emit("close"));

@@ -104,7 +104,7 @@ const bigSaid = computed(() => (calc.error ? calc.error : speak(big.value)));
 const announce = ref("");
 watch(() => [calc.answer, calc.error, calc.unit] as const, ([a, e]) => {
   announce.value = "";
-  if (!a && !e) return;
+  if (kbd.value || !a && !e) return; // Keyboard mode announces its own answers (KeyboardCalc); Date / Everyday forms are separate, their cards are live regions
   const t = e ? `Error: ${e}` : `Equals ${speak(show(withUnit(a, calc.unit)))}`;
   setTimeout(() => { announce.value = t; }, 60);
 });
