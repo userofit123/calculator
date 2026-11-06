@@ -1,11 +1,12 @@
 <script setup lang="ts">
 // The phone layout (Motus's): the page under the status bar, and the tabs in a blurred dock above the navigation bar.
 // Moving between tabs slides towards the tab chosen; a sideways swipe on a page's empty space goes to the next tab
-// (never one that starts in something scrolling sideways).
+// (not while something under the finger can still scroll that way).
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { canMove, dur } from "../core/motion";
 import { NAV, PAGES, page, go } from "./nav";
 import { sheetIsOpen } from "../core/sheets";
+import { swipeBlocked, type SideScroller } from "../core/swipe";
 import Icon from "../components/Icon.vue";
 import UpdateButton from "./UpdateButton.vue";
 import { upd } from "../core/appUpdate";
@@ -43,27 +44,34 @@ onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(
 // the desktop app: the page draws the title strip that drags the window (styles/layout.css, html.dframe)
 const dframe = typeof window !== "undefined" && !!window.desktopFrame;
 
-/** Whether the touch starts in something that scrolls sideways (the converter's category chips, a wide table...):
- *  a sideways swipe there scrolls it and must not also change the page. Checked from the target up to the shell. */
-function inSideScroller(el: Element | null, shell: Element): boolean {
+/** The things that scroll sideways under the finger (the converter's category chips, a wide table, the display's long
+ *  number...), as they are when the touch starts. Whether they block the swipe is decided at the end, by direction:
+ *  one already at its edge in that direction lets the page change. Checked from the target up to the shell. */
+function sideScrollers(el: Element | null, shell: Element): SideScroller[] {
+  const out: SideScroller[] = [];
   for (; el && el !== shell; el = el.parentElement) {
-    if (el.scrollWidth > el.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+    if (el.scrollWidth > el.clientWidth + 1) {
+      const cs = getComputedStyle(el);
+      if (/auto|scroll/.test(cs.overflowX)) out.push({ left: el.scrollLeft, scrollWidth: el.scrollWidth, clientWidth: el.clientWidth, rtl: cs.direction === "rtl" });
+    }
   }
-  return false;
+  return out;
 }
-let x0 = 0, y0 = 0, t0 = 0, ok = false;
+let x0 = 0, y0 = 0, t0 = 0, ok = false, scrollers: SideScroller[] = [];
 function ts(e: TouchEvent) {
   const t = e.touches[0]!;
   x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
+  // the keypad and display are not excluded: a swipe that starts on a key moves the page (and no click follows it)
   ok = e.touches.length === 1 && !sheetIsOpen()
-    && !(e.target as HTMLElement).closest(".dock, .keys, .cdisp, input, textarea, select, .seg, .tabs, [data-noswipe]")
-    && !inSideScroller(e.target as Element, e.currentTarget as Element)
+    && !(e.target as HTMLElement).closest(".dock, input, textarea, select, .seg, .tabs, [data-noswipe]")
     && x0 > 24 && x0 < innerWidth - 24; // the screen edges belong to the phone's own back gesture
+  scrollers = ok ? sideScrollers(e.target as Element, e.currentTarget as Element) : [];
 }
 function te(e: TouchEvent) {
   if (!ok) return;
   const t = e.changedTouches[0]!, dx = t.clientX - x0, dy = t.clientY - y0;
   if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.3 || Date.now() - t0 > 900) return;
+  if (swipeBlocked(scrollers, dx)) return;
   const next = order[order.indexOf(page.value) + ((dx < 0) !== rtl.value ? 1 : -1)];
   if (next) go(next);
 }
