@@ -21,6 +21,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -38,17 +39,40 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *    installed, and signed with the same certificate as the installed app. Anything else is deleted;
  *  - install: checks the file again and hands it to Android's installer through a FileProvider limited to cache/updates.
  *    Android always asks the person to confirm (and the first time to allow installing apps from Calculator).
+ * Android 5.1-6 (API 22-23) can't install from a content:// address, and a file:// one would mean making the APK
+ * readable by every app, so there version() says {install: false}: the page then links to the release page instead,
+ * and download/install refuse with that advice.
  */
 @CapacitorPlugin(name = "CalcUpdater")
 public class CalcUpdaterPlugin extends Plugin {
     private static final String REPO_DOWNLOADS = "https://github.com/userofit123/calculator/releases/download/";
-    private static final String API = "https://api.github.com/repos/userofit123/calculator/";
     // GitHub's addresses for the API, the release pages and the files they redirect to; nothing else is ever contacted
     private static final Set<String> HOSTS = new HashSet<>(Arrays.asList("api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"));
     private static final long MAX_APK = 200L * 1024 * 1024;
     private static final int MAX_JSON = 1024 * 1024;
     private static final String PREFS = "calc-updater", K_VERSION = "version", K_SHA = "sha256";
     private static final AtomicBoolean BUSY = new AtomicBoolean(false);
+    private static final String SEMVER = "\\d{1,6}\\.\\d{1,6}\\.\\d{1,6}";
+    // the only addresses get() reads: exact host and path, no port, user, query or fragment; the version is digits and
+    // dots only, so no "..", "%2e" or other segment can slip in
+    private static final String LATEST_PATH = "/repos/userofit123/calculator/releases/latest";
+    private static final String MANIFEST_PATH = "/userofit123/calculator/releases/download/v" + SEMVER + "/android-latest\\.json";
+    private static final String USE_PAGE = "Install the update from the release page";
+    /** Android's installer takes a content:// (FileProvider) address from Android 7 (API 24) on. */
+    private static boolean canInstall() { return Build.VERSION.SDK_INT >= Build.VERSION_CODES.N; }
+
+    /** Whether `url` is exactly the releases/latest API or a release's android-latest.json in this repository. */
+    static boolean allowedGet(String url) {
+        try {
+            URI u = new URI(url);
+            if (!"https".equals(u.getScheme()) || u.getRawUserInfo() != null || u.getPort() != -1 || u.getRawQuery() != null || u.getRawFragment() != null) return false;
+            String host = u.getHost(), path = u.getRawPath();
+            if (host == null || path == null) return false;
+            if (host.equals("api.github.com")) return path.equals(LATEST_PATH);
+            if (host.equals("github.com")) return path.matches(MANIFEST_PATH);
+            return false;
+        } catch (Exception e) { return false; }
+    }
 
     private File dir() { File d = new File(getContext().getCacheDir(), "updates"); d.mkdirs(); return d; }
     private File apk() { return new File(dir(), "update.apk"); }
@@ -85,6 +109,7 @@ public class CalcUpdaterPlugin extends Plugin {
         JSObject r = new JSObject();
         try { r.put("version", getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0).versionName); }
         catch (Exception e) { r.put("version", ""); }
+        r.put("install", canInstall());
         call.resolve(r);
     }
 
@@ -92,7 +117,7 @@ public class CalcUpdaterPlugin extends Plugin {
     @PluginMethod
     public void get(PluginCall call) {
         String url = call.getString("url", "");
-        if (!url.equals(API + "releases/latest") && !(url.startsWith(REPO_DOWNLOADS + "v") && url.endsWith("/android-latest.json"))) { call.reject("Not allowed"); return; }
+        if (!allowedGet(url)) { call.reject("Not allowed"); return; }
         new Thread(() -> {
             HttpURLConnection c = null;
             try {
@@ -182,7 +207,8 @@ public class CalcUpdaterPlugin extends Plugin {
         // getLong reads only a Long, and a size from the page arrives as an Integer below 2 GB
         Object sz = call.getData().opt("size");
         long size = sz instanceof Number && ((Number) sz).doubleValue() == ((Number) sz).longValue() ? ((Number) sz).longValue() : -1;
-        if (!version.matches("\\d{1,6}\\.\\d{1,6}\\.\\d{1,6}") || !url.equals(REPO_DOWNLOADS + "v" + version + "/calculator-" + version + ".apk")
+        if (!canInstall()) { call.reject(USE_PAGE); return; }
+        if (!version.matches(SEMVER) || !url.equals(REPO_DOWNLOADS + "v" + version + "/calculator-" + version + ".apk")
             || !sha.matches("[0-9a-fA-F]{64}") || size <= 0 || size > MAX_APK) { call.reject("The update information is not valid"); return; }
         if (!BUSY.compareAndSet(false, true)) { call.reject("Already downloading"); return; }
         final File part = new File(dir(), "update.apk.part"), out = apk();
@@ -241,6 +267,7 @@ public class CalcUpdaterPlugin extends Plugin {
     /** Hands the checked download to Android's installer, which asks the person to confirm. */
     @PluginMethod
     public void install(PluginCall call) {
+        if (!canInstall()) { call.reject(USE_PAGE); return; }
         File f = apk();
         String v = prefs().getString(K_VERSION, null), sha = prefs().getString(K_SHA, null);
         if (BUSY.get() || v == null || sha == null || !f.isFile()) { call.reject("Nothing downloaded"); return; }

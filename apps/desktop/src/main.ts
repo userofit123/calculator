@@ -1,7 +1,7 @@
 // The Calculator desktop app: the built web app (apps/web/dist) shown in a window, straight from files inside the app.
-// No server, no account, nothing loaded from the internet: the pages come through the app:// scheme below, and the only
-// request that may leave the computer is the optional ECB currency-rate refresh made by the page itself.
-// The optional update check (Settings → Updates) is made here in the main process, in its own sessions, never by the page.
+// No server, no account, nothing loaded from the internet: the pages come through the app:// scheme below. The page's
+// only outside requests are the optional currency-rate refreshes (public central-bank rate files, allowed below); the
+// optional update check (Settings → Updates) is made here in the main process, in its own sessions, never by the page.
 import { app, BrowserWindow, Menu, ipcMain, protocol, session, shell, screen } from "electron";
 import { autoUpdater } from "electron-updater";
 import fs from "node:fs";
@@ -13,6 +13,8 @@ const HOST = "calculator";
 const ORIGIN = `${SCHEME}://${HOST}`;
 // the one outside address the page may reach (packages/core/src/currency.ts, ECB_RATES_URL)
 const ECB = "https://data-api.ecb.europa.eu";
+// the central banks it reads for currencies the ECB doesn't quote (packages/core/src/central-banks.ts)
+const BANKS = ["https://bank.gov.ua", "https://api.bcra.gob.ar"];
 const WEB = app.isPackaged ? path.join(process.resourcesPath, "web") : path.resolve(__dirname, "../../web/dist");
 // its own data folder, named like the app id, so it can never share settings with another calculator app
 app.setPath("userData", path.join(app.getPath("appData"), "io.github.userofit123.calculator"));
@@ -49,7 +51,7 @@ function policy(html: string) {
   const hashes = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => `'sha256-${crypto.createHash("sha256").update(m[1]!).digest("base64")}'`);
   return [
     "default-src 'none'", `script-src 'self' ${hashes.join(" ")}`, "style-src 'self' 'unsafe-inline'", "img-src 'self' data: blob:", "font-src 'self' data:",
-    `connect-src ${ECB}`, "manifest-src 'self'", "worker-src 'none'", "frame-src 'none'", "object-src 'none'", "base-uri 'none'", "form-action 'none'",
+    `connect-src ${[ECB, ...BANKS].join(" ")}`, "manifest-src 'self'", "worker-src 'none'", "frame-src 'none'", "object-src 'none'", "base-uri 'none'", "form-action 'none'",
   ].join("; ");
 }
 
@@ -124,17 +126,55 @@ ipcMain.on("look:bg", (e, bg: unknown) => {
 
 // ----- updates from GitHub Releases (task C-27, after Motus) -----
 // The page asks (Settings → Updates: automatic checks on by default, Check now); this process makes the requests, in
-// sessions of their own that may reach GitHub and nothing else, so the page's own rules stay "the ECB only". The check is
-// one GET of the public releases/latest API with no cookies and no identifiers. Downloading and installing are always
+// sessions of their own that may reach GitHub and nothing else, so the page's own rules never include GitHub. The check is
+// one GET of the public releases/latest API with no cookies and no identifiers. electron-updater (download only) would
+// add an id of its own (a random UUID kept in userData/.updaterId, sent as x-user-staging-id): quietUpdater() stops it
+// being made or kept, and githubOnly() strips the header anyway. Downloading and installing are always
 // the person's tap: electron-updater fetches latest.yml / latest-linux.yml and the installer from the release, checks
 // its SHA-512 against latest.yml, and installs only on "Restart and install". The AppImage and the Windows installer
 // update themselves; the .deb and .rpm are the system's packages, so there the page links to the release page instead.
 const UPDATE_HOSTS = new Set(["api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]);
 const RELEASES_API = "https://api.github.com/repos/userofit123/calculator/releases/latest";
+const STRIP_HEADERS = new Set(["cookie", "referer", "x-user-staging-id", "accept-language"]);
+const MAX_RELEASE_JSON = 1024 * 1024;
+/** electron-updater, set up to send nothing that tells one person from another. Its staged-rollout id
+ *  (AppUpdater.getOrCreateStagingUserId: a random UUID written to userData/.updaterId and sent as x-user-staging-id on
+ *  every request) becomes the same all-zero value for everyone and is never written; one left by an earlier version is
+ *  deleted. Its other headers are accept, range, cache-control and User-Agent "electron-builder" (builder-util-runtime),
+ *  none of them personal; no extra request headers are added. */
+let quieted = false;
+function quietUpdater() {
+  if (quieted) return;
+  quieted = true;
+  (autoUpdater as unknown as { getOrCreateStagingUserId: () => Promise<string> }).getOrCreateStagingUserId = async () => "00000000-0000-0000-0000-000000000000";
+  autoUpdater.requestHeaders = {};
+  try { fs.rmSync(path.join(USER, ".updaterId"), { force: true }); } catch { /* not there */ }
+}
+/** The response's text, refusing anything over `max` bytes (the API's answer is a few kB). */
+async function smallText(r: Response, max: number): Promise<string> {
+  if (Number(r.headers.get("content-length")) > max) throw new Error("too large");
+  const reader = r.body?.getReader();
+  if (!reader) return "";
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) { void reader.cancel(); throw new Error("too large"); }
+    parts.push(value);
+  }
+  return Buffer.concat(parts).toString("utf8");
+}
 /** Only https to GitHub's hosts, and nothing in these sessions is kept on disk or sent back (no cookies, no cache). */
 function githubOnly(s: Electron.Session) {
   s.webRequest.onBeforeRequest((d, cb) => { let ok = false; try { const u = new URL(d.url); ok = u.protocol === "https:" && UPDATE_HOSTS.has(u.hostname); } catch { /* no */ } cb({ cancel: !ok }); });
-  s.webRequest.onBeforeSendHeaders((d, cb) => { const h = { ...d.requestHeaders }; delete h.Cookie; delete h.Referer; cb({ requestHeaders: h }); });
+  // header names in any capitalisation: no cookies, no referrer, no electron-updater staging id, no language
+  s.webRequest.onBeforeSendHeaders((d, cb) => {
+    const h: Record<string, string> = {};
+    for (const [k, v] of Object.entries(d.requestHeaders)) if (!STRIP_HEADERS.has(k.toLowerCase())) h[k] = v;
+    cb({ requestHeaders: h });
+  });
   s.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
 }
 // "install": electron-updater can replace this copy (the AppImage, the Windows installer); "link": a .deb / .rpm (or
@@ -149,6 +189,8 @@ function startUpdates() {
   githubOnly(checkSession);
   // electron-updater's own session (electronHttpExecutor: partition "electron-updater")
   githubOnly(session.fromPartition("electron-updater", { cache: false }));
+  // an .updaterId an earlier version may have left goes now, without loading electron-updater before a download
+  try { fs.rmSync(path.join(USER, ".updaterId"), { force: true }); } catch { /* not there */ }
   ipcMain.handle("update:version", (e) => (fromApp(e) ? app.getVersion() : ""));
   ipcMain.handle("update:mode", (e) => (fromApp(e) ? updateMode() : "link"));
   // the release's tag, notes, page and draft flags, read and judged by the page (apps/web/src/core/releases.ts)
@@ -159,12 +201,15 @@ function startUpdates() {
     if (r.status === 404) throw new Error("No release yet");
     if (r.status === 403 || r.status === 429) throw new Error("GitHub is busy, try again later");
     if (!r.ok) throw new Error("Could not reach GitHub");
-    const j = (await r.json()) as Record<string, unknown>;
+    let j: Record<string, unknown>;
+    try { j = JSON.parse(await smallText(r, MAX_RELEASE_JSON)) as Record<string, unknown>; } catch { throw new Error("GitHub's answer is unreadable"); }
+    if (!j || typeof j !== "object") throw new Error("GitHub's answer is unreadable");
     const assets = Array.isArray(j.assets) ? (j.assets as Record<string, unknown>[]).map((a) => ({ name: a.name, browser_download_url: a.browser_download_url })) : [];
     return { tag_name: j.tag_name, body: j.body, html_url: j.html_url, draft: j.draft, prerelease: j.prerelease, assets };
   });
   ipcMain.handle("update:download", async (e, want: unknown) => {
     if (!fromApp(e) || updateMode() !== "install" || typeof want !== "string") throw new Error("Not allowed");
+    quietUpdater();
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowDowngrade = false;
@@ -208,7 +253,7 @@ else {
     s.protocol.handle(SCHEME, serve);
     // nothing leaves the computer except the ECB rates the page asks for (defence behind the page's own rules)
     s.webRequest.onBeforeRequest((d, cb) => {
-      const ok = d.url.startsWith(ORIGIN + "/") || d.url.startsWith(ECB + "/") || /^(data|blob|devtools|chrome-extension):/.test(d.url);
+      const ok = d.url.startsWith(ORIGIN + "/") || d.url.startsWith(ECB + "/") || BANKS.some((b) => d.url.startsWith(b + "/")) || /^(data|blob|devtools|chrome-extension):/.test(d.url);
       cb({ cancel: !ok });
     });
     // no camera, microphone, location, notifications…; only writing to the clipboard (the Copy buttons)

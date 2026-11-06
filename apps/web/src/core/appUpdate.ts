@@ -4,7 +4,9 @@
 // android-latest.json): no account, no identifiers, nothing about the person. It is made by the app itself (the desktop
 // app's main process, the Android plugin), never by the page, so the page's own rules stay "the ECB only".
 // Automatic checks (on by default, as in Motus): a few seconds after the app opens and then every 6 hours while it is
-// open, at most once per 6 hours across restarts; "Check now" any time. Nothing is downloaded or installed without a tap.
+// open, at most once per 6 hours across restarts; after a failed check (offline, GitHub busy) another automatic try only
+// after RETRY_GAP, however often the network comes back; "Check now" any time. "No release yet" and "this release has
+// no Android update" are answers, not failures: they count as a check. Nothing is downloaded or installed without a tap.
 import { reactive } from "vue";
 import { readJson, writeJson } from "./prefs";
 import { newer, readRelease, checkAndroidManifest, RELEASES_API, type AndroidManifest } from "./releases";
@@ -54,9 +56,22 @@ const said = (e: unknown, fallback: string) => String((e as Error)?.message || "
 const save = () => writeJson(KEY, { auto: upd.auto, lastCheck: upd.lastCheck } satisfies Prefs);
 let manifest: AndroidManifest | null = null;
 
+/** Answers that mean "nothing to update to" rather than "the check failed": the check counts as made. */
+export const NO_RELEASE = "No release yet";
+export const NO_ANDROID = "The release has no Android update";
+export const nothingNew = (msg: string) => msg === NO_RELEASE || msg === NO_ANDROID;
+/** Automatic checks: at most every EVERY after a check that got an answer, and not within RETRY_GAP of a failed one. */
+export const EVERY = 6 * 3600_000;
+export const RETRY_GAP = 15 * 60_000;
+export function checkDue(s: { auto: boolean; lastCheck: number; lastFail: number }, now: number): boolean {
+  return s.auto && now - s.lastCheck >= EVERY && now - s.lastFail >= RETRY_GAP;
+}
+/** When the last check failed (this run only; a restart may try again at once). */
+let lastFail = 0;
+
 async function androidGet(url: string): Promise<unknown> {
   const r = (await android()!.get!({ url })) as { status?: number; body?: string };
-  if (r?.status === 404) throw new Error("No release yet");
+  if (r?.status === 404) throw new Error(NO_RELEASE);
   if (r?.status === 403 || r?.status === 429) throw new Error("GitHub is busy, try again later");
   if (!r || r.status !== 200 || typeof r.body !== "string") throw new Error("Could not reach GitHub");
   try { return JSON.parse(r.body); } catch { throw new Error("GitHub's answer is unreadable"); }
@@ -69,7 +84,10 @@ function start() {
       const d = desktop(), a = android();
       if (d) { upd.current = await d.version(); upd.mode = await d.mode(); }
       else if (a) {
-        upd.current = String(((await a.version!()) as { version?: string })?.version ?? "");
+        const v = (await a.version!()) as { version?: string; install?: boolean } | null;
+        upd.current = String(v?.version ?? "");
+        // Android 5.1-6 can't install from the app (CalcUpdaterPlugin): the release page instead
+        upd.mode = v?.install === false ? "link" : "install";
         // a download that finished before the app was closed is still ready (the plugin checked it again)
         const s = (await a.staged!().catch(() => null)) as { version?: string } | null;
         if (s?.version && newer(s.version, upd.current)) { upd.latest = s.version; upd.ready = true; upd.status = `Version ${s.version} is ready to install`; }
@@ -92,17 +110,24 @@ export async function checkNow(): Promise<void> {
     if (!newer(rel.version, upd.current)) {
       upd.latest = ""; upd.ready = false; upd.status = upd.current ? `Version ${upd.current} is the latest` : ""; return;
     }
-    if (!d) {
-      if (!rel.manifestUrl) throw new Error("The release has no Android update");
+    if (!d && upd.mode === "install") {
+      if (!rel.manifestUrl) throw new Error(NO_ANDROID);
       const m = checkAndroidManifest(await androidGet(rel.manifestUrl), rel.version);
       if (typeof m === "string") throw new Error(m);
       manifest = m;
     }
     if (upd.latest !== rel.version) upd.ready = false;
     upd.latest = rel.version; upd.notes = rel.notes; upd.page = rel.page;
-    upd.status = upd.ready ? `Version ${rel.version} is ready to install` : `Version ${rel.version} is available`;
+    upd.status = upd.ready ? `Version ${rel.version} is ready to install`
+      : !d && upd.mode === "link" ? `Version ${rel.version} is available: install the update from the release page` : `Version ${rel.version} is available`;
+    lastFail = 0;
   } catch (e) {
-    upd.error = said(e, "Could not reach GitHub");
+    const msg = said(e, "Could not reach GitHub");
+    if (nothingNew(msg)) {
+      // GitHub answered: nothing (usable) to update to, so this is a made check, not one to retry soon
+      upd.lastCheck = Date.now(); save(); lastFail = 0;
+      upd.latest = ""; upd.ready = false; upd.status = msg;
+    } else { upd.error = msg; lastFail = Date.now(); }
   } finally { upd.checking = false; }
 }
 
@@ -137,10 +162,10 @@ export async function install(): Promise<void> {
 
 export function setAuto(on: boolean) { upd.auto = on; save(); if (on) void tick(); }
 
-const EVERY = 6 * 3600_000;
-const tick = async () => { if (upd.auto && Date.now() - upd.lastCheck >= EVERY) await checkNow(); };
+const tick = async () => { if (checkDue({ auto: upd.auto, lastCheck: upd.lastCheck, lastFail }, Date.now())) await checkNow(); };
 let running = false;
-/** Called once by App.vue: in the apps, the automatic checks; elsewhere nothing. Starts after the first paint. */
+/** Called by UpdateButton.vue when it mounts (later calls do nothing): in the apps, the automatic checks; elsewhere
+ *  nothing. Starts after the first paint. */
 export function startAppUpdates() {
   if (running || !appUpdates()) return;
   running = true;
