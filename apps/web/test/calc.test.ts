@@ -58,4 +58,15 @@ describe("long answers", () => {
     expect(typedValue(calc.mem)).toBe(calc.expr);
     type("="); expect(calc.answer).toBe("5.6568542495×10⁵⁰⁰");
   });
+  it("a digit then MR with an approximate memory value multiplies", () => {
+    calc.mem = "≈14.142135623730951";
+    type("5"); press("MR");
+    expect(calc.expr).toBe("5×≈14.142135623730951");
+    type("="); expect(calc.error).toBe(""); expect(calc.answer).toMatch(/^70\.71/);
+  });
+  it("a history-style insert of an approximate value after a digit multiplies", () => {
+    type("5"); press("fn:" + typedValue("≈14.142135623730951"));
+    expect(calc.expr).toBe("5×≈14.142135623730951");
+    type("="); expect(calc.error).toBe("");
+  });
 });

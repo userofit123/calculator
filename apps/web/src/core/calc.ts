@@ -89,7 +89,7 @@ function fromAnswer(keepAnswer: boolean) {
 function operand(s: string) {
   fromAnswer(false);
   // 2 then the e key is 2×e: "2e−3" would read as 2×10⁻³ (a letter e typed on the keyboard is scientific entry, see press)
-  if (/[\d.]$/.test(calc.expr) && (/^[\d.]/.test(s) || /^e(?![\p{L}])/u.test(s))) calc.expr += "×";
+  if (/[\d.]$/.test(calc.expr) && (/^[\d.≈]/.test(s) || /^e(?![\p{L}])/u.test(s))) calc.expr += "×";
   calc.expr += s;
 }
 /** Adds something that works on what comes before (x², n!, ^, mod): after an answer it carries on from it */
