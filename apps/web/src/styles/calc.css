@@ -92,11 +92,15 @@ body.glass .cdisp, body.glass .key:not(.k-eq) { backdrop-filter: blur(var(--gbl)
 
 /* the phone: the calculator fills the screen between the top and the tabs, the keys share the height left */
 html.phone .pmain:has(> .calc) { padding-bottom: var(--hg); }
-html.phone .calc { max-width: none; height: calc(100dvh - var(--tabh) - var(--sb) - var(--st) - var(--ptop) - var(--hg) - var(--pdock)); min-height: 440px; }
+/* --calch is the height the screen leaves (the top's --st includes the desktop app's title strip). It is a floor, not a
+   fixed height: on a screen too short for the display's lines, the memory row and every key row at its 44px floor, the
+   calculator grows and the page scrolls to its last row, instead of the rows spilling out of a fixed box and under the tab
+   bar out of reach (a fixed height let them overflow it unseen) */
+html.phone .calc { --calch: calc(100dvh - var(--tabh) - var(--sb) - var(--st) - var(--ptop) - var(--hg) - var(--pdock)); max-width: none; min-height: var(--calch); }
 /* the display grows into a third of the height on a tall screen, but never below what its lines need (the top line,
    the sum and the big line all have a fixed height; a little room for the top line's buttons). min-height wins over
    max-height, so a short window never cuts the answer off: the keys shrink to their smallest, then the page scrolls */
-html.phone .cdisp { flex: 1 1 auto; min-height: calc(36px + 1.4 * 20px + var(--rfs, 52px) * 1.15 + 8px + 2 * var(--cpy) + 2px); max-height: 34%; }
+html.phone .cdisp { flex: 1 1 auto; min-height: calc(36px + 1.4 * 20px + var(--rfs, 52px) * 1.15 + 8px + 2 * var(--cpy) + 2px); max-height: calc(var(--calch) * .34); }
 html.phone .cpad, html.phone .bpad, html.phone .keys { flex: 1 1 auto; }
 html.phone .keys { grid-auto-rows: minmax(min(var(--kh), 44px), 1fr); }
 html.phone .memk button { min-height: calc(var(--kh) * .58); }
@@ -104,8 +108,27 @@ html.phone .memk button { min-height: calc(var(--kh) * .58); }
 html.phone .calc.adv .cdisp { flex: 0 0 auto; min-height: 0; max-height: none; gap: 0; }
 html.phone .calc.adv .cbar { min-height: 28px; }
 html.phone .calc.adv .cres { --rfs: 40px; }
-html.phone .calc.adv { min-height: 600px; }
+/* Programming too (ProgPad.vue's own 620px floor, loaded after this file, would otherwise stop its keys filling a tall screen) */
+html.phone .page.calc.prog { min-height: var(--calch); }
 html.phone .fkeys { grid-auto-rows: minmax(calc(var(--kh) * .62), auto); }
+/* A short screen: the room under the top is less than Basic needs with the full display (a phone under 640px, or the
+   desktop app's first-open 360x640 window, whose 38px title strip --nst takes the same room). The keys keep their 44px
+   floor, so the display takes only what its lines need (as in Advanced, with a smaller big line) and the gaps and the
+   memory row tighten: Basic then fits above the tab bar with nothing to scroll. */
+@media (max-height: 639px) {
+  html.phone .cdisp { flex: 0 0 auto; min-height: 0; max-height: none; gap: 0; }
+  html.phone .cdisp, html.phone .cres { --rfs: 44px; }
+  html.phone .cdisp .cbar { min-height: 28px; }
+  html.phone .cpad, html.phone .bpad, html.phone .keys, html.phone .memk { gap: min(var(--kg), 8px); }
+  html.phone .memk button { min-height: 28px; }
+}
+@media (max-height: 677px) {
+  html.phone.dframe .cdisp { flex: 0 0 auto; min-height: 0; max-height: none; gap: 0; }
+  html.phone.dframe .calc:not(.adv, .prog) :is(.cdisp, .cres) { --rfs: 44px; }
+  html.phone.dframe .cdisp .cbar { min-height: 28px; }
+  html.phone.dframe .cpad, html.phone.dframe .bpad, html.phone.dframe .keys, html.phone.dframe .memk { gap: min(var(--kg), 8px); }
+  html.phone.dframe .memk button { min-height: 28px; }
+}
 
 /* a computer: the calculator sits in the middle of the page */
 html:not(.phone) .calc { margin: 0 auto; padding-top: 4vh; }
@@ -174,7 +197,7 @@ html.phone .card .li:has(> .seg, > .fpick) > :is(.seg, .fpick) { margin-inline-s
 body.outline .klist, body.outline .kline { background: none; }
 body.glass .klist, body.glass .kline { background: color-mix(in srgb, var(--s2) calc(var(--gop) * 100%), transparent); backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); -webkit-backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); }
 html:not(.phone) .calc.kbd { max-width: 45rem; }
-html.phone .calc.kbd { min-height: 320px; }
+html.phone .calc.kbd { height: var(--calch); min-height: 320px; } /* its list scrolls inside the screen's height */
 html.phone .klist { flex: 1 1 auto; height: auto; min-height: 0; }
 html.phone .kline .kin, html.phone .kline .kin:focus { font-size: 24px; }
 
