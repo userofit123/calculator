@@ -13,3 +13,10 @@ export { UNIT_CATEGORIES, type Category, type Unit } from "./units";
 export { convert, convertAll, formatDms, parseDms } from "./convert";
 export { parseEcbCsv, mergeRates, rateDayOf, shortDay, retryDelayMs, refreshDue, RETRY_MIN_MS, AUTO_EVERY_MS, MAX_RATE_AGE_DAYS, currencyCategory, currencyFlag, CURRENCY_NAMES, FIXED_EURO_RATES, ECB_RATES_URL, ECB_SOURCE, type RateSet } from "./currency";
 export { BUNDLED_RATES } from "./currency-rates";
+// Date and time maths (Calculator's Date mode, loaded only when chosen)
+export {
+  parseDate, formatIsoDate, isValidDate, isLeapYear, daysInMonth, dayNumber, fromDayNumber, daysBetween, compareDates, addDays, addMonths, addYears,
+  addPeriod, diffYMD, businessDays, weekday, WEEKDAYS, dayOfYear, daysInYear, isoWeek, age, describeYMD, describeWeeks, describeDays,
+  parseDuration, sumDurations, parseTime, formatDuration, describeDuration, timeBetween, addToTime, MIN_YEAR, MAX_YEAR,
+  type YMD, type Period, type DateResult, type YMDiff, type Age,
+} from "./dates";

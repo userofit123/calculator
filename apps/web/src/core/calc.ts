@@ -10,12 +10,14 @@ import { readJson, writeJson } from "./prefs";
 import { addHistory, type HistItem } from "./history";
 import { toast } from "./toast";
 
-export type Mode = "basic" | "advanced" | "financial" | "programming";
+export type Mode = "basic" | "advanced" | "financial" | "programming" | "date";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "basic", label: "Basic", hint: "Everyday sums" },
   { id: "advanced", label: "Advanced", hint: "Powers, roots, trigonometry, logarithms" },
   { id: "financial", label: "Financial", hint: "Loans, interest, depreciation" },
   { id: "programming", label: "Programming", hint: "Binary, octal, hex, bit operations" },
+  // not a keypad: its own forms in place of the display and keys (DateCalc, loaded when chosen)
+  { id: "date", label: "Date", hint: "Days between dates, adding to a date, age, times" },
 ];
 
 export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | "," }
@@ -92,8 +94,8 @@ export function setBase(b: Base) {
   }
   prog.base = b;
 }
-/** the last mode other than programming, for a history entry from one of them */
-let plainMode: Mode = calc.mode === "programming" ? "basic" : calc.mode;
+/** the last mode other than programming (and Date, which has no display), for a history entry from one of them */
+let plainMode: Mode = calc.mode === "programming" || calc.mode === "date" ? "basic" : calc.mode;
 /** Brings a sum back from history in the mode it was worked out in: a programming-mode one with its base, word size
  *  and sign (its digits mean nothing in another base, and FF + 1 gives another answer in another word size), any
  *  other one out of programming mode (10 + 5 typed in Basic is 0x15 read in hex) */
@@ -106,7 +108,7 @@ export function restoreExpr(h: Pick<HistItem, "e" | "b" | "w" | "s">) {
     // entries from before word size and sign were kept leave them as they are
     if (h.w) prog.wordSize = h.w as WordSize;
     if (h.s !== undefined) prog.signed = h.s;
-  } else if (isProg()) calc.mode = plainMode;
+  } else if (isProg() || calc.mode === "date") calc.mode = plainMode;
   calc.expr = h.e;
 }
 // Programming mode's digits mean something else in the other modes (FF is a variable there, 0.5 isn't a whole number,
@@ -115,7 +117,7 @@ export function restoreExpr(h: Pick<HistItem, "e" | "b" | "w" | "s">) {
 // Basic) isn't reinterpreted: the display is cleared with a message, and coming back unedited brings it back. Run at
 // once (sync), before anything else is typed in the new mode.
 watch(() => calc.mode, (m, old) => {
-  if (m !== "programming") plainMode = m;
+  if (m !== "programming" && m !== "date") plainMode = m;
   if ((m === "programming") === (old === "programming")) return;
   const toProg = isProg();
   const back = kept && kept.at === edits && kept.prog === toProg && (!toProg || (kept.base === prog.base && kept.o === progKey())) ? kept : null;
