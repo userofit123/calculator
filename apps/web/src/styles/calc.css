@@ -22,18 +22,21 @@ html[data-ksh="round"] { --kr: 999px; }
 
 /* the display: what is typed (small, quiet) above the answer (big) */
 .cdisp { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: var(--cpy) var(--cpx); border-radius: var(--r); background: var(--s1); border: 1px solid var(--ol); min-height: 128px; justify-content: flex-end; }
-.cexp { min-height: 1.4em; font-size: 20px; color: var(--tx2); text-align: end; white-space: nowrap; overflow-x: auto; scrollbar-width: none; direction: ltr; }
+.cexp { flex: none; height: 1.4em; line-height: 1.4; font-size: 20px; color: var(--tx2); text-align: end; white-space: nowrap; overflow-x: auto; scrollbar-width: none; direction: ltr; }
 .cexp::-webkit-scrollbar { display: none; }
 .ceq { color: var(--tx2); }
-.cres { display: block; width: 100%; border: 0; background: none; padding: 0; font-family: inherit; text-align: end; font-size: 52px; font-weight: 500; letter-spacing: -1px; line-height: 1.15; color: var(--tx); white-space: nowrap; overflow-x: auto; scrollbar-width: none; cursor: copy; transition: color .15s, font-size .15s; }
+/* the big line has one height in every state (empty, a number being typed, a preview, an answer, an error, a long
+   number made smaller), so the display and the keys under it never move; --rfs is the line's full text size.
+   Smaller text sits on the same bottom line, and one wider than the line starts at the start (safe) to scroll. */
+.cres { --rfs: 52px; display: flex; align-items: flex-end; justify-content: safe flex-end; width: 100%; height: calc(var(--rfs) * 1.15); flex: none; overflow-y: hidden; border: 0; background: none; padding: 0; font-family: inherit; text-align: end; font-size: var(--rfs); font-weight: 500; letter-spacing: -1px; line-height: 1.15; color: var(--tx); white-space: nowrap; overflow-x: auto; scrollbar-width: none; cursor: copy; transition: color .15s; }
 .cres::-webkit-scrollbar { display: none; }
-.cres.m { font-size: 42px; }
-.cres.s { font-size: 32px; }
-.cres.xs { font-size: 24px; letter-spacing: 0; }
+.cres.m { font-size: calc(var(--rfs) * .81); }
+.cres.s { font-size: calc(var(--rfs) * .62); }
+.cres.xs { font-size: calc(var(--rfs) * .46); letter-spacing: 0; }
 .cres.pre { color: var(--tx2); }
-.cres.err { color: var(--neg); font-size: 24px; letter-spacing: 0; }
+.cres.err { color: var(--neg); font-size: calc(var(--rfs) * .46); letter-spacing: 0; }
 /* the display's top line: angle unit and memory flags at the start, delete at the end */
-.cbar { display: flex; align-items: center; gap: 6px; min-height: 32px; margin-bottom: auto; }
+.cbar { display: flex; align-items: center; gap: 6px; min-height: 32px; flex: none; margin-bottom: auto; }
 .cbar .ib:disabled { opacity: .35; }
 .cflag { border: 0; font-family: inherit; font-size: 11.5px; font-weight: 700; letter-spacing: .4px; color: var(--tx2); background: var(--s2); border-radius: var(--pill); padding: 3px 9px; line-height: 1.3; }
 button.cflag { cursor: pointer; }
@@ -86,17 +89,18 @@ body.glass .cdisp, body.glass .k-n, body.glass .k-fn { background: color-mix(in 
 /* the phone: the calculator fills the screen between the top and the tabs, the keys share the height left */
 html.phone .pmain:has(> .calc) { padding-bottom: var(--hg); }
 html.phone .calc { max-width: none; height: calc(100dvh - var(--tabh) - var(--sb) - var(--st) - var(--ptop) - var(--hg) - var(--pdock)); min-height: 440px; }
-html.phone .cdisp { flex: 1 1 auto; min-height: 120px; max-height: 34%; }
+/* the display grows into a third of the height on a tall screen, but never below what its lines need (the top line,
+   the sum and the big line all have a fixed height; a little room for the top line's buttons). min-height wins over
+   max-height, so a short window never cuts the answer off: the keys shrink to their smallest, then the page scrolls */
+html.phone .cdisp { flex: 1 1 auto; min-height: calc(36px + 1.4 * 20px + var(--rfs, 52px) * 1.15 + 8px + 2 * var(--cpy) + 2px); max-height: 34%; }
 html.phone .cpad, html.phone .bpad, html.phone .keys { flex: 1 1 auto; }
 html.phone .keys { grid-auto-rows: minmax(min(var(--kh), 44px), 1fr); }
 html.phone .memk button { min-height: calc(var(--kh) * .58); }
-html.phone .calc.adv { min-height: 600px; }
 /* Advanced on the phone: the display takes only what its lines need, the keys get the rest */
 html.phone .calc.adv .cdisp { flex: 0 0 auto; min-height: 0; max-height: none; gap: 0; }
 html.phone .calc.adv .cbar { min-height: 28px; }
-html.phone .calc.adv .cres { font-size: 40px; }
-html.phone .calc.adv .cres.m { font-size: 34px; }
-html.phone .calc.adv .cres.s { font-size: 28px; }
+html.phone .calc.adv .cres { --rfs: 40px; }
+html.phone .calc.adv { min-height: 600px; }
 html.phone .fkeys { grid-auto-rows: minmax(calc(var(--kh) * .62), auto); }
 
 /* a computer: the calculator sits in the middle of the page */

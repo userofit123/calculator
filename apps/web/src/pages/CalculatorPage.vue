@@ -97,9 +97,15 @@ const pv = computed(() => tMsg(preview()));
 /** why the answer is a decimal although Fraction or Mixed is chosen */
 // (and for a currency conversion, where its rate came from and for which day)
 const note = computed(() => (calc.answer && !calc.error && !progMode.value ? [answerNote(calc.ans), calc.note].filter(Boolean).join(" · ") : ""));
+// A lone number being typed (no operator yet) is shown big on the answer's line, like most calculators, and = then
+// puts its answer in the same place at the same size; the line above stays empty until there is a sum to show.
+// (It has no preview of its own: what = would give is the number itself.)
+const typing = computed(() => !calc.answer && !calc.error && (progMode.value ? /^−?[\dA-F]+$/ : /^−?[\d.]+$/).test(calc.expr));
+// a preview (faint) is shown while a sum is typed: what = would give now
+const previewing = computed(() => !calc.answer && !calc.error && !typing.value && !!pv.value);
 // a unit conversion's answer shows its unit after the number: "8.04672 km"
-const big = computed(() => calc.error || show(calc.answer ? withUnit(calc.answer, calc.unit) : pv.value) || (calc.expr ? "" : "0"));
-// long answers get smaller instead of running off the edge
+const big = computed(() => calc.error || show(calc.answer ? withUnit(calc.answer, calc.unit) : typing.value ? calc.expr : pv.value) || (calc.expr ? "" : "0"));
+// long answers get smaller instead of running off the edge (the line's height stays the same, see .cres in calc.css)
 const size = computed(() => { const n = big.value.length; return n > 18 ? "xs" : n > 13 ? "s" : n > 9 ? "m" : ""; });
 
 // For a screen reader: the sum in words, and the answer (or error) announced once = is pressed, not every key's preview.
@@ -130,7 +136,19 @@ watch(() => [calc.answer, calc.error] as const, ([a, e], [a0, e0]) => {
   if (e && e !== e0) play(resEl.value, "shake");
   else if (a && a !== a0) { play(resEl.value, "rise"); play(exprEl.value, "fade"); }
 }, { flush: "post" });
-watch(() => !calc.answer && !calc.error && !!pv.value, (on) => { if (on) play(resEl.value, "fade"); }, { flush: "post" });
+watch(previewing, (on) => { if (on) play(resEl.value, "fade"); }, { flush: "post" });
+
+// one still too wide for the line (a long number on a narrow phone) shrinks further to fit, instead of scrolling
+function fit() {
+  const el = resEl.value;
+  if (!el) return;
+  el.style.fontSize = "";
+  const over = el.scrollWidth / el.clientWidth;
+  if (over > 1) el.style.fontSize = `${Math.max(parseFloat(getComputedStyle(el).fontSize) / over - 0.5, 12)}px`;
+}
+watch(() => [big.value, calc.mode, isPhone.value], () => nextTick(fit), { flush: "post" });
+onMounted(() => { addEventListener("resize", fit); fit(); });
+onBeforeUnmount(() => removeEventListener("resize", fit));
 
 // the end of a long expression stays in view
 const exprEl = ref<HTMLElement | null>(null);
@@ -207,9 +225,9 @@ async function copyAnswer() {
         <span v-else class="grow" />
         <button type="button" class="ib sm plain" :aria-label="t('key.back')" :disabled="!calc.expr" @click="tap('⌫')"><Icon name="backspace" /></button>
       </div>
-      <div ref="exprEl" class="cexp num" :title="show(calc.expr)"><span aria-hidden="true">{{ show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></span><span v-if="said" class="sr">{{ said }}</span></div>
-      <button ref="resEl" type="button" class="cres num" :class="[size, { pre: !calc.answer && !calc.error && !!pv, err: !!calc.error }]" :title="t('c.copy')"
-        :aria-label="t(calc.error ? 'calc.ariaError' : calc.answer ? 'calc.ariaAnswer' : pv ? 'calc.ariaPreview' : 'calc.ariaError', { x: bigSaid })" @click="copyAnswer">{{ bigShown }}</button>
+      <div ref="exprEl" class="cexp num" :title="show(calc.expr)"><span aria-hidden="true">{{ typing ? "" : show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></span><span v-if="said" class="sr">{{ said }}</span></div>
+      <button ref="resEl" type="button" class="cres num" :class="[size, { pre: previewing, err: !!calc.error }]" :title="t('c.copy')"
+        :aria-label="t(calc.error ? 'calc.ariaError' : calc.answer ? 'calc.ariaAnswer' : previewing ? 'calc.ariaPreview' : 'calc.ariaError', { x: bigSaid })" @click="copyAnswer">{{ bigShown }}</button>
     </div>
     <template v-if="dateMode || kbd" />
     <ProgPad v-else-if="progMode" :hit="hit" :clear="clearKey" @tap="tap" />

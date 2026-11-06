@@ -162,9 +162,7 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
 html.phone .calc.prog { min-height: 620px; }
 html.phone .calc.prog .cdisp { flex: 0 0 auto; min-height: 0; max-height: none; gap: 0; }
 html.phone .calc.prog .cbar { display: none; } /* delete is a key here, and there is no memory */
-html.phone .calc.prog .cres { font-size: 34px; }
-html.phone .calc.prog .cres.m { font-size: 30px; }
-html.phone .calc.prog .cres.s { font-size: 26px; }
+html.phone .calc.prog .cres { --rfs: 34px; } /* the line's full size: the smaller sizes and its height follow (calc.css) */
 html.phone .hexk { grid-auto-rows: minmax(calc(var(--kh) * .62), auto); }
 html.phone .ppanel { gap: calc(var(--kg) * .4); }
 html.phone .pbases, html.phone .pbits { min-height: 92px; justify-content: center; }
