@@ -5,8 +5,9 @@ import { convert } from "./en/convert";
 import { history } from "./en/history";
 import { date } from "./en/date";
 import { every } from "./en/every";
+import { tip } from "./en/tip";
 import { fin } from "./en/fin";
 import { look } from "./en/look";
 import type { Key } from "./en";
 
-export const EN_ALL: Record<Key, string> = { ...EN, ...settings, ...convert, ...history, ...date, ...every, ...fin, ...look };
+export const EN_ALL: Record<Key, string> = { ...EN, ...settings, ...convert, ...history, ...date, ...every, ...tip, ...fin, ...look };

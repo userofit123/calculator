@@ -106,6 +106,10 @@ html:not(.phone) .calc.adv { max-width: 56.25rem; }
 html:not(.phone) .calc.adv .cpad { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: calc(var(--kg) * 2); align-items: end; }
 html:not(.phone) .calc.adv .fkeys { grid-auto-rows: minmax(var(--kh), auto); }
 @media (max-width: 760px) { html:not(.phone) .calc.adv .cpad { display: flex; } }
+/* the form modes (Date, Tip, Everyday): no keypad, so the page grows with its forms instead of the keypad's fixed
+   height (here rather than in each form's lazy styles, so a form coming in never shows a keypad-sized page first) */
+html.phone .calc.dmode, .calc.dmode { height: auto; min-height: 0; }
+html:not(.phone) .calc.dmode { max-width: 900px; }
 
 /* History: the expression (tap: bring it back) above its answer (tap: type it in) */
 .hrow { flex-direction: column; align-items: stretch; gap: calc(var(--lpy) / 4); }

@@ -9,10 +9,11 @@ import { convert } from "./he/convert";
 import { history } from "./he/history";
 import { date } from "./he/date";
 import { every } from "./he/every";
+import { tip } from "./he/tip";
 import { fin } from "./he/fin";
 import { prog } from "./he/prog";
 import { kbd } from "./he/kbd";
 import { look } from "./he/look";
 export { HE_UNITS } from "./he/units";
 
-export const HE: Record<Key, string> = { ...common, ...msg, ...calc, ...settings, ...convert, ...history, ...date, ...every, ...fin, ...prog, ...kbd, ...look };
+export const HE: Record<Key, string> = { ...common, ...msg, ...calc, ...settings, ...convert, ...history, ...date, ...every, ...tip, ...fin, ...prog, ...kbd, ...look };

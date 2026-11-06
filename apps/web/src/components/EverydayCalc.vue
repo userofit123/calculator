@@ -5,7 +5,7 @@
 // for display (a note says so). What was typed is remembered on this device, the VAT rate included.
 import { computed, reactive, watch } from "vue";
 import {
-  readNumber, money, plain, percentOf, whatPercent, percentChange, addPercent, discount, tipSplit, vat, formatDisplay, type Q, type Fail,
+  readNumber, money, plain, percentOf, whatPercent, percentChange, addPercent, discount, vat, formatDisplay, type Q, type Fail,
 } from "@calc/core";
 import { settings } from "../core/calc";
 import { isPhone } from "../core/device";
@@ -16,19 +16,20 @@ useTexts(texts);
 import { tMsg } from "../core/msg";
 import { readJson, writeJson } from "../core/prefs";
 import { toast } from "../core/toast";
+// the tip tab is the Tip mode's own form, so there is one tip calculator
+import TipCalc from "./TipCalc.vue";
 
 type Tab = "percent" | "discount" | "tip" | "vat";
 const TABS: [Tab, Key][] = [["percent", "every.tab.percent"], ["discount", "every.tab.discount"], ["tip", "every.tab.tip"], ["vat", "every.tab.vat"]];
-const TIPS = ["10", "15", "18", "20"];
 
 interface Kept {
   tab: Tab; ofX: string; ofY: string; whatX: string; whatY: string; chA: string; chB: string; pmA: string; pmX: string; pmSub: boolean;
-  price: string; off1: string; off2: string; offAmt: string; bill: string; tip: string; people: string; roundUp: boolean;
+  price: string; off1: string; off2: string; offAmt: string;
   amount: string; rate: string; vatRemove: boolean;
 }
 const DEF: Kept = {
   tab: "percent", ofX: "", ofY: "", whatX: "", whatY: "", chA: "", chB: "", pmA: "", pmX: "", pmSub: false,
-  price: "", off1: "", off2: "", offAmt: "", bill: "", tip: "15", people: "1", roundUp: false, amount: "", rate: "20", vatRemove: false,
+  price: "", off1: "", off2: "", offAmt: "", amount: "", rate: "20", vatRemove: false,
 };
 const saved = readJson<Partial<Kept>>("everydayCalc", {});
 // only values of the right type are taken back (an old or edited entry can't break the page)
@@ -99,22 +100,6 @@ const disc = computed(() => out([rd(st.price)], [rd(st.off1, true), rd(st.off2, 
   p.money(t("every.save"), r.saving);
   p.pct(t("every.offAll"), r.percent);
 }));
-
-// ---- tip and split ----
-const tipRes = computed(() => {
-  let info = "";
-  const o = out([rd(st.bill), rd(st.tip, true), rd(st.people || "1")], [], ([bill, tip, people], _, p) => {
-    const r = tipSplit(bill!, tip!, people!, st.roundUp);
-    if (isErr(r)) return r.error;
-    p.money(t("every.each"), r.perPerson, true);
-    p.money(t("every.tip"), r.tip);
-    p.money(t("every.total"), r.total);
-    if (r.extra.n !== 0n) p.money(t("every.roundExtra"), r.extra);
-    const n = people!.n;
-    if (n > 1n && r.uneven.n !== 0n) info = t(r.over ? "every.unevenMore" : "every.unevenLess", { n: String(n), each: shown(money(r.perPerson).text), diff: shown(money(r.uneven).text) });
-  });
-  return { ...o, info };
-});
 
 // ---- VAT ----
 const vatRes = computed(() => out([rd(st.amount), rd(st.rate, true)], [], ([a, rate], _, p) => {
@@ -212,30 +197,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
       </div>
     </div>
 
-    <div v-else-if="st.tab === 'tip'" class="egrid">
-      <div class="card ecard">
-        <div class="fld"><label for="e-bill">{{ t("every.bill") }}</label><input id="e-bill" v-model="st.bill" class="num" dir="ltr" type="text" inputmode="decimal" autocomplete="off" :placeholder="ph" /></div>
-        <div class="fld">
-          <label for="e-tip">{{ t("every.tipPct") }}</label>
-          <div class="seg sm eseg2" role="group" :aria-label="t('every.quickTip')"><button v-for="x in TIPS" :key="x" type="button" class="num" :class="{ on: st.tip.trim() === x }" :aria-pressed="st.tip.trim() === x" @click="st.tip = x">{{ x }}%</button></div>
-          <input id="e-tip" v-model="st.tip" class="num" dir="ltr" type="text" inputmode="decimal" autocomplete="off" :placeholder="t('every.other')" />
-        </div>
-        <div class="fld"><label for="e-people">{{ t("every.people") }}</label><input id="e-people" v-model="st.people" class="num" dir="ltr" type="text" inputmode="numeric" autocomplete="off" placeholder="1" /></div>
-        <label class="li tg etg">
-          <div class="grow"><div class="t">{{ t("every.roundUp") }}</div><div class="s">{{ t("every.roundUpHint") }}</div></div>
-          <input v-model="st.roundUp" type="checkbox" />
-        </label>
-      </div>
-      <div class="card ecard" aria-live="polite">
-        <div v-for="r in tipRes.rows" :key="r.label" class="erow" :class="{ big: r.big }"><span class="grow">{{ r.label }}</span><span class="ev num">{{ r.text }}</span><button type="button" class="ib sm plain" :title="copyTitle(r.label)" :aria-label="copyTitle(r.label)" @click="copy(r.copy)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg></button></div>
-        <div v-if="tipRes.error" class="enote ewarn" role="alert">{{ tMsg(tipRes.error) }}</div>
-        <div v-else-if="!tipRes.rows.length" class="enote">{{ t("every.enterBill") }}</div>
-        <template v-else>
-          <div v-if="tipRes.info" class="enote">{{ tipRes.info }}</div>
-          <div v-if="tipRes.note" class="enote">{{ tipRes.note }}</div>
-        </template>
-      </div>
-    </div>
+    <TipCalc v-else-if="st.tab === 'tip'" in-tab />
 
     <div v-else class="egrid">
       <div class="card ecard">
@@ -258,9 +220,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
 
 <style>
 /* Calculator's Everyday mode. Tokens only, like the rest of the calculator. Like Date mode, the page grows with its
-   forms instead of the keypad's fixed height (the .dmode rules are repeated here: Date's own styles load only with it). */
-html.phone .calc.dmode, .calc.dmode { height: auto; min-height: 0; }
-html:not(.phone) .calc.dmode { max-width: 900px; }
+   forms instead of the keypad's fixed height (.dmode in calc.css). */
 .ecalc { display: flex; flex-direction: column; gap: var(--spg); }
 .ecalc .eseg { margin: 0; }
 .ecalc .eseg2 { margin: 0 0 var(--hg); }

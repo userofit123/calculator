@@ -8,6 +8,7 @@
 // Keyboard has no keys: earlier lines above one line to type whole sums in (KeyboardCalc: small, in the main bundle, as
 // a computer's first open starts in it).
 // Date has no display or keys: its forms (DateCalc, loaded when chosen) take their place, under the same mode switch.
+// Tip is a form the same way (TipCalc, loaded when chosen), always listed; Everyday's tip tab shows the same form.
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode, formMode, answerNote, withUnit, modeLabel as modeName, modeHint } from "../core/calc";
 import { t, type Key } from "../core/i18n";
@@ -29,6 +30,7 @@ const VariablesSheet = defineAsyncComponent(() => import("../components/Variable
 const varsOpen = ref(false);
 const FinPad = defineAsyncComponent(() => import("../components/FinPad.vue"));
 const DateCalc = defineAsyncComponent(() => import("../components/DateCalc.vue"));
+const TipCalc = defineAsyncComponent(() => import("../components/TipCalc.vue"));
 // Everyday helpers (percent, discount, tip, VAT): forms like Date, only when switched on in Settings
 const EverydayCalc = defineAsyncComponent(() => import("../components/EverydayCalc.vue"));
 
@@ -109,7 +111,7 @@ const bigShown = computed(() => (calc.error ? tMsg(calc.error) : big.value));
 const announce = ref("");
 watch(() => [calc.answer, calc.error, calc.unit] as const, ([a, e]) => {
   announce.value = "";
-  if (kbd.value || !a && !e) return; // Keyboard mode announces its own answers (KeyboardCalc); Date / Everyday forms are separate, their cards are live regions
+  if (kbd.value || !a && !e) return; // Keyboard mode announces its own answers (KeyboardCalc); Date / Tip / Everyday forms are separate, their cards are live regions
   const said = e ? t("calc.sayError", { e: tMsg(e) }) : t("calc.sayEquals", { x: speak(show(withUnit(a, calc.unit))) });
   setTimeout(() => { announce.value = said; }, 60);
 });
@@ -194,6 +196,7 @@ async function copyAnswer() {
       <button v-if="adv || kbd" type="button" class="cvars" @click="varsOpen = true">{{ t("calc.vars") }}</button>
     </div>
     <EverydayCalc v-if="calc.mode === 'everyday'" />
+    <TipCalc v-else-if="calc.mode === 'tip'" />
     <DateCalc v-else-if="dateMode" />
     <KeyboardCalc v-else-if="kbd" />
     <div v-else class="cdisp" role="group" :aria-label="t('calc.display')">

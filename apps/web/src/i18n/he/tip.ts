@@ -1,0 +1,28 @@
+import type { tip as EN } from "../en/tip";
+
+export const tip: Record<keyof typeof EN, string> = {
+  "tip.form": "מחשבון טיפ",
+  "tip.bill": "חשבון",
+  "tip.pct": "טיפ",
+  "tip.presets": "אחוז טיפ",
+  "tip.custom": "אחר",
+  "tip.customPct": "אחוז טיפ אחר",
+  "tip.tip": "טיפ",
+  "tip.of": "{p}% מתוך {bill}",
+  "tip.total": "סה\"כ",
+  "tip.split": "חלוקה בין כמה אנשים",
+  "tip.splitHint": "כמה כל אחד משלם",
+  "tip.people": "מספר אנשים",
+  "tip.fewer": "אדם אחד פחות",
+  "tip.more": "אדם אחד יותר",
+  "tip.each": "כל אחד משלם",
+  "tip.roundUp": "עיגול כל חלק כלפי מעלה",
+  "tip.roundUpHint": "כל אחד משלם סכום עגול, והתוספת הולכת לטיפ",
+  "tip.roundExtra": "נוסף בעיגול כלפי מעלה",
+  "tip.unevenMore": "{n} חלקים של {each} מסתכמים ב-{diff} יותר מהסכום הכולל",
+  "tip.unevenLess": "{n} חלקים של {each} מסתכמים ב-{diff} פחות מהסכום הכולל",
+  "tip.copyRow": "העתקת {label}",
+  "tip.rounded": "מעוגל לתצוגה",
+  "tip.inexact": "הקלט אינו מדויק",
+  "tip.enterBill": "הקלידו את סכום החשבון. אפשר גם תרגיל: 42.50 + 18",
+};

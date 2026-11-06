@@ -14,7 +14,7 @@ import { tMsg } from "./msg";
 import { startMode, deviceHints, isFirstOpen } from "./keyboard";
 import { unitOptions, waiting, ready } from "./unitCalc";
 
-export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date" | "everyday";
+export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date" | "tip" | "everyday";
 // label and hint are English; shown through modeLabel / modeHint (the texts mode.* and modeHint.*)
 export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "basic", label: "Basic", hint: "Everyday sums" },
@@ -25,13 +25,15 @@ export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "keyboard", label: "Keyboard", hint: "Type whole sums, no keypad" },
   // not a keypad: its own forms in place of the display and keys (DateCalc, loaded when chosen)
   { id: "date", label: "Date", hint: "Days between dates, adding to a date, age, times" },
+  // forms like Date (TipCalc): always listed, as people look for a tip calculator by name
+  { id: "tip", label: "Tip", hint: "Tip on a bill, and splitting it" },
   // forms like Date (EverydayCalc); listed only when switched on in Settings (settings.everyday)
   { id: "everyday", label: "Everyday", hint: "Percent, discount, tip and split, VAT" },
 ];
 export const modeLabel = (m: Mode) => tr(("mode." + m) as Key);
 export const modeHint = (m: Mode) => tr(("modeHint." + m) as Key);
 /** modes with their own forms in place of the display and keys */
-export const formMode = (m: Mode) => m === "date" || m === "everyday";
+export const formMode = (m: Mode) => m === "date" || m === "tip" || m === "everyday";
 
 export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | ","; everyday: boolean }
 const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;

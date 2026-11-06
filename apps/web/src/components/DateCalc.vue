@@ -268,10 +268,8 @@ async function copy(s: string) {
 </template>
 
 <style>
-/* Calculator's Date mode. Tokens only, like the rest of the calculator (calc.css). The page grows with its forms
-   instead of the keypad's fixed height. */
-html.phone .calc.dmode, .calc.dmode { height: auto; min-height: 0; }
-html:not(.phone) .calc.dmode { max-width: 900px; }
+/* Calculator's Date mode. Tokens only, like the rest of the calculator (calc.css, which also lets the page grow with
+   its forms: .dmode). */
 .dcalc { display: flex; flex-direction: column; gap: var(--spg); }
 .dcalc .dseg { margin: 0; }
 .dcalc .dseg2 { margin: 0 0 var(--hg); }

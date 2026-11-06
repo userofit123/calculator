@@ -12,9 +12,10 @@ import type { convert } from "./en/convert";
 import type { history } from "./en/history";
 import type { date } from "./en/date";
 import type { every } from "./en/every";
+import type { tip } from "./en/tip";
 import type { fin } from "./en/fin";
 import type { look } from "./en/look";
 
 export const EN = { ...common, ...msg, ...calc, ...prog, ...kbd } as const;
-type Lazy = typeof settings & typeof convert & typeof history & typeof date & typeof every & typeof fin & typeof look;
+type Lazy = typeof settings & typeof convert & typeof history & typeof date & typeof every & typeof tip & typeof fin & typeof look;
 export type Key = keyof typeof EN | keyof Lazy;
