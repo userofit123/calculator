@@ -1,6 +1,6 @@
 # Development
 
-Watch the app at **https://calculator.localhost** while it is built. Saved changes show up live (hot reload).
+Watch the app at **https://calculator.local** while it is built. Saved changes show up live (hot reload).
 
 ## Start and stop
 
@@ -27,12 +27,12 @@ Run pnpm through the container, e.g. `./scripts/pnpm.sh --filter @calc/core test
 
 ## Name and HTTPS
 
-- **No hosts entry needed:** every `*.localhost` name points at this computer by itself.
+- **Name lookup** (one time, needs sudo): `echo '127.0.0.1 calculator.local' | sudo tee -a /etc/hosts`
 - **HTTPS** goes through the shared Caddy proxy with a mkcert certificate (`certs/calculator.pem`) (container `caddy-proxy`; its folder is outside this repo, see Motus's
   `docs/development.md` for the rules on touching it). The block it has for this app:
 
   ```
-  https://calculator.localhost {
+  https://calculator.local {
   	tls /etc/caddy/certs/calculator.pem /etc/caddy/certs/calculator-key.pem
   	encode zstd gzip
   	reverse_proxy calculator-web:5173

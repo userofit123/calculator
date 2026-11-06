@@ -33,7 +33,7 @@ Windows) and Android app (Capacitor). No server, no account, no tracking.
 - Dot separators always have equal space on both sides (" · ").
 
 ## Develop
-- `docker compose -f docker-compose.dev.yml up -d` → https://calculator.localhost (Caddy proxy + mkcert certificate; the
+- `docker compose -f docker-compose.dev.yml up -d` → https://calculator.local (Caddy proxy + mkcert certificate; the
   Caddy block lives in the shared proxy, see docs/development.md). Direct: http://127.0.0.1:8795.
 - Run pnpm through the container: `./scripts/pnpm.sh …` (e.g. `./scripts/pnpm.sh --filter @calc/core test`).
 - Checks: `./scripts/pnpm.sh -r typecheck`, `./scripts/pnpm.sh --filter @calc/core test`, `./scripts/pnpm.sh --filter @calc/web exec vite build`.
