@@ -115,7 +115,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "say.power": "乘方",
   "say.cbrt": "三次根号",
   "say.sqrt": "根号",
-  "say.pi": "派",
+  "say.pi": "圆周率",
   "say.percent": "百分号",
   "say.factorial": "的阶乘",
   "say.equals": "等于",

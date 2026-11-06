@@ -104,7 +104,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "key.trig.acosh": "逆双曲線コサイン",
   "key.trig.atanh": "逆双曲線タンジェント",
   "say.timesTen": "かける 10 のべき乗",
-  "say.inverse": "インバース",
+  "say.inverse": "の逆数",
   "say.squared": "の 2 乗",
   "say.cubed": "の 3 乗",
   "say.times": "かける",
