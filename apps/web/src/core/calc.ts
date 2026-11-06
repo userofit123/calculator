@@ -9,10 +9,13 @@ import {
 import { readJson, writeJson } from "./prefs";
 import { addHistory, history, type HistItem } from "./history";
 import { toast } from "./toast";
+import { t as tr, type Key } from "./i18n";
+import { tMsg } from "./msg";
 import { startMode, deviceHints, isFirstOpen } from "./keyboard";
 import { unitOptions, waiting, ready } from "./unitCalc";
 
 export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date" | "everyday";
+// label and hint are English; shown through modeLabel / modeHint (the texts mode.* and modeHint.*)
 export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "basic", label: "Basic", hint: "Everyday sums" },
   { id: "advanced", label: "Advanced", hint: "Powers, roots, trigonometry, logarithms" },
@@ -25,6 +28,8 @@ export const MODES: { id: Mode; label: string; hint: string }[] = [
   // forms like Date (EverydayCalc); listed only when switched on in Settings (settings.everyday)
   { id: "everyday", label: "Everyday", hint: "Percent, discount, tip and split, VAT" },
 ];
+export const modeLabel = (m: Mode) => tr(("mode." + m) as Key);
+export const modeHint = (m: Mode) => tr(("modeHint." + m) as Key);
 /** modes with their own forms in place of the display and keys */
 export const formMode = (m: Mode) => m === "date" || m === "everyday";
 
@@ -41,12 +46,16 @@ export const FORMATS: { id: NumberFormat; label: string; short: string; hint: st
   { id: "sci", label: "Sci", short: "Sci", hint: "Scientific: 1.2345×10³" },
   { id: "eng", label: "Eng", short: "Eng", hint: "Engineering, powers of 3: 12.345×10³" },
 ];
+/** A format's label, short label and hint in the language shown (fmt.*, fmtShort.*, fmtHint.*) */
+export const fmtLabel = (f: NumberFormat) => tr(("fmt." + f) as Key);
+export const fmtShort = (f: NumberFormat) => tr(("fmtShort." + f) as Key);
+export const fmtHint = (f: NumberFormat) => tr(("fmtHint." + f) as Key);
 // the display's chip steps through the everyday ones (Fixed is in the menu and Settings, as it rarely changes)
 const CYCLE: NumberFormat[] = ["auto", "fraction", "mixed", "sci", "eng"];
 /** The next number format for the display's chip: Decimal → Fraction → Mixed → Sci → Eng → Decimal */
 export function cycleFormat() { const i = CYCLE.indexOf(settings.format); settings.format = CYCLE[(i + 1) % CYCLE.length]!; }
 /** Why the answer is shown as a decimal although Fraction or Mixed is chosen ("" when it isn't) */
-export function answerNote(exact: string): string { return exact ? fractionNote(parseStored(exact), settings.format) : ""; }
+export function answerNote(exact: string): string { return exact ? tMsg(fractionNote(parseStored(exact), settings.format)) : ""; }
 export const ANGLES: { id: AngleUnit; label: string }[] = [{ id: "deg", label: "DEG" }, { id: "rad", label: "RAD" }, { id: "grad", label: "GRAD" }];
 
 const savedMode = readJson<Mode | null>("calcMode", null);
@@ -186,7 +195,7 @@ watch(() => calc.mode, (m, old) => {
     calc.answer = ""; calc.error = "";
   });
   kept = { ...leaving, at: edits };
-  if (lost) toast(`Not available in ${MODES.find((x) => x.id === m)!.label} mode`, { kind: "err" });
+  if (lost) toast(tr("calc.notInMode", { mode: modeLabel(m) }), { kind: "err" });
 }, { flush: "sync" });
 // the answer on the display follows the base, word size and sign; one that no longer fits is an overflow
 watch(prog, () => {
@@ -271,7 +280,7 @@ export function typedValue(exact: string): string {
   if (isProg()) {
     if (/^-?\d+$/.test(exact)) return literal(BigInt(exact), prog);
     // (1÷3) would silently be 0 here (÷ is integer division): nothing is typed, and the user is told
-    toast("Not available in Programming mode", { kind: "err" });
+    toast(tr("calc.notInMode", { mode: modeLabel("programming") }), { kind: "err" });
     return "";
   }
   const m = /^(-?)(\d+)\/(\d+)$/.exec(exact);
@@ -308,7 +317,7 @@ export function press(k: string) {
     const expr = calc.expr, r = run(expr);
     // a unit conversion whose code or rates are still loading: = again once they are there (same sum, nothing pressed since)
     if (waiting(r)) {
-      ready(() => run(expr)).then(() => { if (calc.expr === expr && !calc.answer && !calc.error) press("="); }, () => { if (calc.expr === expr && !calc.answer && !calc.error) toast(UNITS_FAILED, { kind: "err" }); });
+      ready(() => run(expr)).then(() => { if (calc.expr === expr && !calc.answer && !calc.error) press("="); }, () => { if (calc.expr === expr && !calc.answer && !calc.error) toast(tMsg(UNITS_FAILED), { kind: "err" }); });
       return;
     }
     if (!("value" in r)) { calc.error = r.error; return; }

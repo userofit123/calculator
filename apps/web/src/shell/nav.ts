@@ -3,16 +3,17 @@
 import { ref, defineAsyncComponent, type Component } from "vue";
 import CalculatorPage from "../pages/CalculatorPage.vue";
 import { sheetIsOpen, closeTopSheet } from "../core/sheets";
+import type { Key } from "../core/i18n";
 
 export type PageName = "calc" | "convert" | "history" | "settings";
-interface NavItem { name: PageName; label: string; icon: string; path: string }
+interface NavItem { name: PageName; label: Key; icon: string; path: string }
 
-/** The menu: the rail on a computer, the bottom tabs on a phone (the same four, in the same order). */
+/** The menu (labels are text keys, see core/i18n.ts): the rail on a computer, the bottom tabs on a phone (the same four, in the same order). */
 export const NAV: NavItem[] = [
-  { name: "calc", label: "Calculator", icon: "calc", path: "/" },
-  { name: "convert", label: "Converter", icon: "convert", path: "/converter" },
-  { name: "history", label: "History", icon: "history", path: "/history" },
-  { name: "settings", label: "Settings", icon: "settings", path: "/settings" },
+  { name: "calc", label: "nav.calc", icon: "calc", path: "/" },
+  { name: "convert", label: "nav.convert", icon: "convert", path: "/converter" },
+  { name: "history", label: "nav.history", icon: "history", path: "/history" },
+  { name: "settings", label: "nav.settings", icon: "settings", path: "/settings" },
 ];
 
 // The calculator is in the main bundle (it is the first screen); the rest loads when first opened.

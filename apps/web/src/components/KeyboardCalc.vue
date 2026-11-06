@@ -18,6 +18,8 @@ import { history, histPrefs } from "../core/history";
 import { freshRecall, recallLines, recallStep, pushCapped, pageKeyTarget } from "../core/keyboard";
 import { isPhone } from "../core/device";
 import { speak } from "../core/speak";
+import { t, type Key } from "../core/i18n";
+import { tMsg } from "../core/msg";
 
 const inp = ref<HTMLInputElement | null>(null);
 const listEl = ref<HTMLElement | null>(null);
@@ -32,16 +34,17 @@ let rc = freshRecall();
 /** Oldest first (the newest at the bottom); programming-mode sums are left out (their digits need their base) */
 const items = computed(() => (histPrefs.keep ? history.filter((h) => !h.b).slice(0, 200).reverse() : session));
 const recallList = computed(() => recallLines(items.value.map((h) => show(h.e)).reverse()));
-const pv = computed(() => linePreview(line.value));
+// (a preview can be the core's "Number is too large": shown in the language shown)
+const pv = computed(() => tMsg(linePreview(line.value)));
 // earlier answers follow the number format and decimal places chosen now, worked out again from each answer in full
 // (a unit conversion's answer keeps its unit: "8.04672 km")
 const answers = computed(() => items.value.map((h) => (h.x ? withUnit(valueText(h.x), h.u) : h.r)));
 const angleLabel = computed(() => ANGLES.find((a) => a.id === settings.angle)!.label);
-const ANGLE_NAMES: Record<string, string> = { deg: "degrees", rad: "radians", grad: "gradians" };
-const angleAria = computed(() => { const i = ANGLES.findIndex((a) => a.id === settings.angle); return `Angle in ${ANGLE_NAMES[settings.angle]}. Switch to ${ANGLE_NAMES[ANGLES[(i + 1) % ANGLES.length]!.id]}`; });
+const angleName = (id: string) => t(("angle." + id) as Key);
+const angleAria = computed(() => { const i = ANGLES.findIndex((a) => a.id === settings.angle); return t("kbd.angleAria", { a: angleName(settings.angle), b: angleName(ANGLES[(i + 1) % ANGLES.length]!.id) }); });
 // a screen reader hears the answer once Enter works the line out (or why it couldn't), not every key's preview
 const announce = ref("");
-const say = (t: string) => { announce.value = ""; setTimeout(() => { announce.value = t; }, 60); };
+const say = (text: string) => { announce.value = ""; setTimeout(() => { announce.value = text; }, 60); };
 function nextAngle() { const i = ANGLES.findIndex((a) => a.id === settings.angle); settings.angle = ANGLES[(i + 1) % ANGLES.length]!.id; }
 
 const toBottom = () => nextTick(() => { if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight; });
@@ -84,14 +87,14 @@ function recall(dir: "up" | "down") {
 }
 /** Enter: a conversion still loading its tables finishes by itself once they are there, if the line is unchanged */
 function enter(retried: boolean) {
-  const t = line.value, er = enterLine(t);
+  const typedLine = line.value, er = enterLine(typedLine);
   if (typeof er !== "string") {
-    er.then(() => { if (line.value === t) { if (retried) { err.value = UNITS_FAILED; } else enter(true); } }, () => { if (line.value === t) { err.value = UNITS_FAILED; say(`Error: ${UNITS_FAILED}`); } });
+    er.then(() => { if (line.value === typedLine) { if (retried) { err.value = UNITS_FAILED; } else enter(true); } }, () => { if (line.value === typedLine) { err.value = UNITS_FAILED; say(t("kbd.error", { msg: tMsg(UNITS_FAILED) })); } });
     return;
   }
-  if (er) { err.value = er; say(`Error: ${er}`); return; }
+  if (er) { err.value = er; say(t("kbd.error", { msg: tMsg(er) })); return; }
   if (!line.value.trim()) return;
-  say(`${speak(show(calc.expr))} equals ${speak(show(withUnit(calc.answer, calc.unit)))}`);
+  say(t("kbd.said", { e: speak(show(calc.expr)), r: speak(show(withUnit(calc.answer, calc.unit))) }));
   if (!histPrefs.keep) pushCapped(session, { id: ++sessionId, e: calc.expr, r: withUnit(calc.answer, calc.unit), x: calc.ans, u: calc.unit || undefined }, 200);
   synced = calc.expr;
   line.value = ""; err.value = ""; rc = freshRecall(); toBottom();
@@ -113,7 +116,7 @@ const useExpr = (e: string) => insert(show(e));
 const useAnswer = (x: string) => { const v = typedValue(x); if (v) insert(show(v)); };
 
 // typing anywhere on the page (not in another field or a popup) goes to the line
-const busy = (t: EventTarget | null) => !!(t as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]") || !!document.querySelector(".scr, #pop.on");
+const busy = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable]") || !!document.querySelector(".scr, #pop.on");
 function onPageKey(e: KeyboardEvent) {
   if (e.ctrlKey || e.metaKey || e.altKey || busy(e.target) || (e.key.length !== 1 && e.key !== "Backspace")) return;
   // only when nothing is focused (or the calculator's own area): Space on a button must press it, not move away
@@ -122,9 +125,9 @@ function onPageKey(e: KeyboardEvent) {
 }
 function onPaste(e: ClipboardEvent) {
   if (busy(e.target)) return;
-  const t = e.clipboardData?.getData("text/plain");
-  if (!t) return;
-  e.preventDefault(); insert(t.replace(/\s+/g, " ").trim());
+  const text = e.clipboardData?.getData("text/plain");
+  if (!text) return;
+  e.preventDefault(); insert(text.replace(/\s+/g, " ").trim());
 }
 onMounted(() => {
   addEventListener("keydown", onPageKey); document.addEventListener("paste", onPaste);
@@ -137,26 +140,26 @@ onBeforeUnmount(() => { removeEventListener("keydown", onPageKey); document.remo
 
 <template>
   <div ref="root" class="kcalc">
-    <ol ref="listEl" class="klist" aria-label="Earlier lines">
+    <ol ref="listEl" class="klist" :aria-label="t('kbd.earlier')">
       <li v-for="(h, i) in items" :key="'id' in h ? h.id : h.t" class="krow">
-        <button type="button" class="kexp num" title="Type in this sum" :aria-label="`${speak(show(h.e))}. Type in this sum`" @click="useExpr(h.e)">{{ show(h.e) }}</button>
-        <button type="button" class="kres num" title="Type in this answer" :aria-label="`Equals ${speak(show(answers[i] ?? h.r))}. Type in this answer`" @click="useAnswer(h.x)">= {{ show(answers[i] ?? h.r) }}</button>
+        <button type="button" class="kexp num" :title="t('kbd.useSum')" :aria-label="t('kbd.useSumAria', { e: speak(show(h.e)) })" @click="useExpr(h.e)">{{ show(h.e) }}</button>
+        <button type="button" class="kres num" :title="t('kbd.useAnswer')" :aria-label="t('kbd.useAnswerAria', { r: speak(show(answers[i] ?? h.r)) })" @click="useAnswer(h.x)">= {{ show(answers[i] ?? h.r) }}</button>
       </li>
-      <li v-if="!items.length" class="kempty">Type a sum below and press Enter. ArrowUp brings back earlier lines.</li>
+      <li v-if="!items.length" class="kempty">{{ t("kbd.empty") }}</li>
     </ol>
     <div class="kline">
       <div class="cbar">
-        <button type="button" class="cflag" title="Angle unit" :aria-label="angleAria" @click="nextAngle">{{ angleLabel }}</button>
-        <span v-if="calc.mem" class="cflag" title="Memory in use"><span aria-hidden="true">M</span><span class="sr">Memory in use</span></span>
-        <NumFormat :note="calc.answer ? [answerNote(calc.ans), calc.note].filter(Boolean).join(' · ') : ''" />
-        <span v-if="calc.ans" class="kans" title="The last answer, as ans">ans = {{ show(valueText(calc.ans)) }}</span>
+        <button type="button" class="cflag" :title="t('kbd.angleUnit')" :aria-label="angleAria" @click="nextAngle">{{ angleLabel }}</button>
+        <span v-if="calc.mem" class="cflag" :title="t('kbd.memory')"><span aria-hidden="true">M</span><span class="sr">{{ t("kbd.memory") }}</span></span>
+        <NumFormat :note="calc.answer ? [answerNote(calc.ans), tMsg(calc.note)].filter(Boolean).join(' · ') : ''" />
+        <span v-if="calc.ans" class="kans num" :title="t('kbd.ans')">ans = {{ show(valueText(calc.ans)) }}</span>
       </div>
       <input
-        ref="inp" v-model="line" class="kin num" type="text" inputmode="text" enterkeyhint="done" autocomplete="off"
-        autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Sum to work out" placeholder="2 × (3 + 4)"
+        ref="inp" v-model="line" class="kin num" dir="ltr" type="text" inputmode="text" enterkeyhint="done" autocomplete="off"
+        autocapitalize="off" autocorrect="off" spellcheck="false" :aria-label="t('kbd.sumAria')" placeholder="2 × (3 + 4)"
         @input="onInput" @keydown="onKey"
       />
-      <div class="kpre num" :class="{ err: !!err }">{{ err || (pv ? "= " + show(pv) : "") }}</div>
+      <div class="kpre" :class="err ? 'err' : 'num'">{{ err ? tMsg(err) : pv ? "= " + show(pv) : "" }}</div>
       <div class="sr" aria-live="polite" aria-atomic="true">{{ announce }}</div>
     </div>
   </div>

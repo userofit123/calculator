@@ -219,3 +219,60 @@ body::after {
   :is(.key, button):disabled { border-color: GrayText; color: GrayText; }
   .nbi, .segi { display: none; } /* the gliding highlights are only a background */
 }
+
+/* ===== Hebrew: right to left (core/i18n.ts sets <html dir="rtl">; index.html does it before the first paint) =====
+   The page mirrors through logical properties (margin-inline-start, inset-inline-end, text-align: start) and the flex
+   and grid order, so the rail moves to the right on its own. What must not mirror stays left to right: numbers, sums
+   and answers (.num), the calculator's display and keypads, the bit view, hex digits, and the colour picker. */
+[dir="rtl"] .num,
+[dir="rtl"] input[type="date"],
+[dir="rtl"] input[type="time"] {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+/* a .num block keeps the side of the mirrored layout it sits on (start and end as its parent reads them), unless its
+   own styles align it */
+:where([dir="rtl"]) :where(.num) {
+  text-align: match-parent;
+}
+[dir="rtl"] .cdisp,
+[dir="rtl"] .cpad,
+[dir="rtl"] .ppad,
+[dir="rtl"] .keys,
+[dir="rtl"] .memk,
+[dir="rtl"] .fkeys,
+[dir="rtl"] .hexk,
+[dir="rtl"] .pbits {
+  direction: ltr;
+}
+/* words inside the left-to-right display (a note, an error) still read right to left */
+[dir="rtl"] .cnote,
+[dir="rtl"] .cres.err {
+  unicode-bidi: plaintext;
+}
+/* icons that point the way forward */
+[dir="rtl"] .ico.flip {
+  transform: scaleX(-1);
+}
+/* a switch's knob slides the other way */
+[dir="rtl"] .tg input[type=checkbox]:checked::after {
+  transform: translateX(-18px);
+}
+/* the Appearance panel opens beside the rail, which is on the right */
+[dir="rtl"] .pop {
+  left: auto;
+  right: calc(3.75rem + 38px + var(--sr));
+}
+html[dir="rtl"][data-nav="mini"]:not(.phone) .pop {
+  left: auto;
+  right: calc(80px + var(--sr));
+}
+html.phone[dir="rtl"] #pop {
+  left: 0;
+  right: 0;
+}
+/* the phone's pages slide towards the tab chosen, which is now the other way */
+[dir="rtl"] .tnx-enter-from { transform: translateX(-40px); }
+[dir="rtl"] .tnx-leave-to { transform: translateX(30px); }
+[dir="rtl"] .tpv-enter-from { transform: translateX(40px); }
+[dir="rtl"] .tpv-leave-to { transform: translateX(-30px); }

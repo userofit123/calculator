@@ -4,6 +4,7 @@
 import { calc } from "./calc";
 import { sheetIsOpen } from "./sheets";
 import { toast } from "./toast";
+import { t } from "./i18n";
 
 /** The minimal shape of document.activeElement that matters here (kept structural so isIdle stays pure and testable). */
 export interface ActiveLike { tagName?: string; type?: string; isContentEditable?: boolean }
@@ -57,7 +58,7 @@ export function startReloadOnMissingFiles() {
     const d = reloadDecision(() => sessionStorage, Date.now());
     if (d === "wait") return;
     e.preventDefault();
-    if (d === "unwritable") { toast("Please reopen the app", { ms: 8000 }); return; }
+    if (d === "unwritable") { toast(t("msg.reopen"), { ms: 8000 }); return; }
     location.reload();
   });
 }

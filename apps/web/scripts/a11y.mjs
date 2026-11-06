@@ -1,7 +1,8 @@
 // Accessibility check: loads the running app (the dev server, or a built copy served elsewhere) in a headless Firefox of
 // its own (own profile, own Marionette port) and runs axe-core on every screen: each calculator mode, the converter,
 // history, settings and the Appearance panel, on the computer and the phone layout. Never part of the app's bundle.
-//   node apps/web/scripts/a11y.mjs [http://127.0.0.1:8795] [--zoom 2 | --text 2] [--hc] [--shots dir] [--json]
+//   node apps/web/scripts/a11y.mjs [http://127.0.0.1:8795] [--zoom 2 | --text 2] [--hc] [--lang he] [--shots dir] [--json]
+// --lang he: every screen in Hebrew (right to left), also reporting anything cut off or running off the page.
 // --zoom 2: 200% page zoom (the window's CSS size halved, everything drawn twice as large: a 1280px window is 640 CSS px
 // wide, the phone 320, WCAG's reflow width); --text 2: text only at 200% (Firefox's system text scale applied to text
 // alone, like Android's font size in the WebView). Both also report anything cut off or running off the page.
@@ -19,6 +20,7 @@ const HC = args.includes("--hc"); // high contrast: Firefox's own colours forced
 const ti = args.indexOf("--text"), TEXT = ti >= 0 ? Number(args[ti + 1]) : 1;
 const JSON_OUT = args.includes("--json");
 const si = args.indexOf("--shots"), SHOTS = si >= 0 ? args[si + 1] : "";
+const li = args.indexOf("--lang"), LANG = li >= 0 ? args[li + 1] : "";
 const PORT = 2900 + Math.floor(Math.random() * 500);
 const AXE = readFileSync(createRequire(import.meta.url).resolve("axe-core/axe.min.js"), "utf8");
 
@@ -71,7 +73,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function open(path, store) {
   await cmd("WebDriver:Navigate", { url: BASE + "/" });
-  await js(`localStorage.clear(); for (const [k, v] of Object.entries(arguments[0])) localStorage.setItem(k, v);`, [store]);
+  await js(`localStorage.clear(); for (const [k, v] of Object.entries(arguments[0])) localStorage.setItem(k, v);`, [LANG ? { ...store, calcLang: LANG } : store]);
   await cmd("WebDriver:Navigate", { url: BASE + path });
   await sleep(1300);
 }
@@ -88,6 +90,7 @@ const overflow = () => js(`const out = [];
     if (el.closest(".cexp, .cres, .pval, .num, .sr, [aria-hidden=true], .tst")) continue; // long numbers scroll or shrink on purpose
     const r = el.getBoundingClientRect();
     if (r.right > innerWidth + 1 && !el.closest(".cvc, .tabs, [data-noswipe], .klist, .mnu, .ddm")) out.push("off the right edge: " + (el.className || el.tagName) + " '" + el.textContent.trim().slice(0, 30) + "'");
+    if (r.left < -1 && !el.closest(".cvc, .tabs, [data-noswipe], .klist, .mnu, .ddm")) out.push("off the left edge: " + (el.className || el.tagName) + " '" + el.textContent.trim().slice(0, 30) + "'");
     if (el.scrollWidth > el.clientWidth + 2 && el.clientWidth > 0 && (el.children.length === 0 || el.matches(".key, .cflag, .seg button, .tabbar button, .nb, .btn, .cvchip"))) out.push("cut off: " + (el.className || el.tagName) + " '" + el.textContent.trim().slice(0, 30) + "' " + el.scrollWidth + ">" + el.clientWidth);
   }
   return [...new Set(out)].slice(0, 15);`);
@@ -112,6 +115,9 @@ scenes.push({ name: "appearance", path: "/", store: DESK, run: `document.querySe
 for (const m of ["basic", "advanced", "programming"]) scenes.push({ name: `phone calc ${m}`, phone: true, path: "/", store: { ...PHONE, calcMode: JSON.stringify(m) } });
 scenes.push({ name: "phone converter", phone: true, path: "/converter", store: PHONE });
 scenes.push({ name: "phone settings", phone: true, path: "/settings", store: PHONE });
+for (const m of ["financial", "keyboard", "date", "everyday"]) scenes.push({ name: `phone calc ${m}`, phone: true, path: "/", store: { ...PHONE, calcMode: JSON.stringify(m), calcSettings: JSON.stringify({ everyday: true }) } });
+scenes.push({ name: "phone history", phone: true, path: "/history", store: { ...PHONE, calcHistory: JSON.stringify([{ t: Date.now(), e: "2×3", r: "6", x: "6" }]) } });
+scenes.push({ name: "phone appearance", phone: true, path: "/settings", store: PHONE, run: `document.querySelector("[data-theme-open]").click();` });
 
 let total = 0;
 const report = [];
@@ -126,7 +132,7 @@ try {
     if (s.check) console.log(`  > ${await js(s.check)}`);
     if (process.env.A11Y_EVAL) console.log(`  ? ${await js(process.env.A11Y_EVAL)}`);
     const v = await axe();
-    const o = ZOOM !== 1 || TEXT !== 1 ? await overflow() : [];
+    const o = ZOOM !== 1 || TEXT !== 1 || LANG ? await overflow() : [];
     const n = v.reduce((a, x) => a + x.count, 0);
     if (SHOTS) writeFileSync(join(SHOTS, s.name.replace(/\W+/g, "-") + ".png"), Buffer.from((await cmd("WebDriver:TakeScreenshot", { full: false })).value, "base64"));
     total += n;

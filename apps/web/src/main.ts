@@ -4,6 +4,7 @@ import { startTheme } from "./core/theme";
 import { startSegSlide } from "./core/segSlide";
 import { startReloadOnMissingFiles, startUpdates } from "./core/update";
 import { installAndroidBridge } from "./native/android";
+import { i18nReady } from "./core/i18n";
 import "./styles/index.css";
 
 // before the theme starts, so the Android app's bars get the first look too
@@ -11,9 +12,14 @@ installAndroidBridge();
 
 startTheme();
 startReloadOnMissingFiles();
-createApp(App).mount("#app");
-// every row of tabs gets its gliding highlight without any code in the pages
-startSegSlide();
+// In Hebrew the app mounts once its texts are here (a small chunk, precached by the service worker, so it takes a few
+// milliseconds even offline); index.html has already set lang and dir, so the page under it is right to left from the start.
+// English needs nothing: i18nReady is already settled and the app mounts in the same task.
+void i18nReady.then(() => {
+  createApp(App).mount("#app");
+  // every row of tabs gets its gliding highlight without any code in the pages
+  startSegSlide();
+});
 
 // The service worker keeps the whole app on the device (every built file, from the first open on), so it works with no
 // connection. Only for the built app: in development it would only get in the way. The desktop and Android apps carry

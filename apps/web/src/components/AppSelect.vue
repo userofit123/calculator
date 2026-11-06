@@ -8,6 +8,7 @@ import { computed, nextTick, ref, useAttrs, useId, watch } from "vue";
 import { isPhone } from "../core/device";
 import Icon from "./Icon.vue";
 import PickerPop from "./PickerPop.vue";
+import { t } from "../core/i18n";
 
 export interface SelectOption<V = string | number> { value: V; label: string; hint?: string; group?: string; disabled?: boolean }
 defineOptions({ inheritAttrs: false });
@@ -89,7 +90,7 @@ function key(e: KeyboardEvent) {
     :aria-activedescendant="open && hi >= 0 ? `${id}-${hi}` : undefined" :disabled="disabled" @click="open ? close() : show()" @keydown="key">
     <span class="v" :class="{ unset: !cur }">{{ cur?.label ?? placeholder ?? "" }}</span><Icon name="down" :size="16" />
   </button>
-  <PickerPop v-if="open" :anchor="btn" :title="title ?? placeholder ?? 'Choose'" @close="close(false)">
+  <PickerPop v-if="open" :anchor="btn" :title="title ?? placeholder ?? t('ui.choose')" @close="close(false)">
     <div :id="`${id}-l`" class="asl" role="listbox">
       <template v-for="[g, os] in groups" :key="g">
         <div v-if="g" class="asg" role="presentation">{{ g }}</div>

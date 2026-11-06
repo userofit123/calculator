@@ -9,6 +9,7 @@ import { calc, prog, progValue, setProgValue, setBase } from "../core/calc";
 import { isPhone } from "../core/device";
 import { toast } from "../core/toast";
 import Icon from "./Icon.vue";
+import { t, tMaybe } from "../core/i18n";
 
 const props = defineProps<{ hit: string; clear: string }>();
 const emit = defineEmits<{ tap: [k: string] }>();
@@ -19,12 +20,12 @@ const value = computed(progValue);
 const rows = computed(() => BASES.map((b) => {
   const v = value.value;
   const s = v === null ? "" : formatInt(v, b.base, prog);
-  return { ...b, text: s && groupDigits(s, b.base === 2 || b.base === 16 ? 4 : 3) };
+  return { ...b, name: tMaybe("prog.base." + b.base, b.name), text: s && groupDigits(s, b.base === 2 || b.base === 16 ? 4 : 3) };
 }));
 async function pickBase(b: Base, text: string) {
   if (b !== prog.base) { setBase(b); return; }
   if (!text) return;
-  try { await navigator.clipboard.writeText(text.replace(/ /g, "")); toast("Copied"); } catch { /* no clipboard here */ }
+  try { await navigator.clipboard.writeText(text.replace(/ /g, "")); toast(t("c.copied")); } catch { /* no clipboard here */ }
 }
 
 // the bits, highest first, in rows of 16 (phone) or 32 (computer), each row in nibbles
@@ -46,26 +47,26 @@ const cycleWord = () => { prog.wordSize = WORD_SIZES[(WORD_SIZES.indexOf(prog.wo
 const second = ref(false);
 interface Key { k: string; label: string; aria: string; k2?: string; label2?: string; aria2?: string; on?: boolean }
 const FKEYS = computed<Key[]>(() => [
-  { k: "2nd", label: "2nd", aria: "Second functions", on: second.value },
-  { k: "op: AND ", label: "AND", aria: "Bitwise AND (&)", k2: "op: NAND ", label2: "NAND", aria2: "Bitwise NAND" },
-  { k: "op: OR ", label: "OR", aria: "Bitwise OR (|)", k2: "op: NOR ", label2: "NOR", aria2: "Bitwise NOR" },
-  { k: "op: XOR ", label: "XOR", aria: "Bitwise XOR (^)", k2: "op: XNOR ", label2: "XNOR", aria2: "Bitwise XNOR" },
-  { k: "fn:NOT ", label: "NOT", aria: "Bitwise NOT (~)" },
-  { k: "op: << ", label: "<<", aria: "Shift left (<)", k2: "op: rol ", label2: "rol", aria2: "Rotate left within the word" },
-  { k: "op: >> ", label: ">>", aria: "Shift right (>)", k2: "op: ror ", label2: "ror", aria2: "Rotate right within the word" },
-  { k: "fn:ones(", label: "1's", aria: "Ones' complement" },
-  { k: "fn:twos(", label: "2's", aria: "Two's complement" },
-  { k: "op: mod ", label: "mod", aria: "Modulo (%)" },
+  { k: "2nd", label: "2nd", aria: t("prog.second"), on: second.value },
+  { k: "op: AND ", label: "AND", aria: t("prog.and"), k2: "op: NAND ", label2: "NAND", aria2: t("prog.nand") },
+  { k: "op: OR ", label: "OR", aria: t("prog.or"), k2: "op: NOR ", label2: "NOR", aria2: t("prog.nor") },
+  { k: "op: XOR ", label: "XOR", aria: t("prog.xor"), k2: "op: XNOR ", label2: "XNOR", aria2: t("prog.xnor") },
+  { k: "fn:NOT ", label: "NOT", aria: t("prog.not") },
+  { k: "op: << ", label: "<<", aria: t("prog.shl"), k2: "op: rol ", label2: "rol", aria2: t("prog.rol") },
+  { k: "op: >> ", label: ">>", aria: t("prog.shr"), k2: "op: ror ", label2: "ror", aria2: t("prog.ror") },
+  { k: "fn:ones(", label: "1's", aria: t("prog.ones") },
+  { k: "fn:twos(", label: "2's", aria: t("prog.twos") },
+  { k: "op: mod ", label: "mod", aria: t("prog.mod") },
 ].map((f) => (second.value && f.k2 ? { ...f, k: f.k2, label: f.label2!, aria: f.aria2! } : f)));
 function fkey(k: string) { if (k === "2nd") { second.value = !second.value; return; } tap(k); }
 
 type Kind = "n" | "op" | "fn" | "eq";
 const KEYS = computed<{ k: string; label?: string; kind: Kind; aria?: string; icon?: string }[]>(() => [
-  { k: props.clear, kind: "fn", aria: props.clear === "C" ? "Clear number" : "Clear all" }, { k: "()", label: "( )", kind: "fn", aria: "Brackets" }, { k: "fn:ans", label: "ans", kind: "fn", aria: "Last answer" }, { k: "÷", kind: "op", aria: "Divide (whole numbers)" },
-  { k: "7", kind: "n" }, { k: "8", kind: "n" }, { k: "9", kind: "n" }, { k: "×", kind: "op", aria: "Multiply" },
-  { k: "4", kind: "n" }, { k: "5", kind: "n" }, { k: "6", kind: "n" }, { k: "−", kind: "op", aria: "Minus" },
-  { k: "1", kind: "n" }, { k: "2", kind: "n" }, { k: "3", kind: "n" }, { k: "+", kind: "op", aria: "Plus" },
-  { k: "±", kind: "n", aria: "Change sign" }, { k: "0", kind: "n" }, { k: "⌫", kind: "fn", aria: "Backspace", icon: "backspace" }, { k: "=", kind: "eq", aria: "Equals" },
+  { k: props.clear, kind: "fn", aria: props.clear === "C" ? t("prog.clearNumber") : t("prog.clearAll") }, { k: "()", label: "( )", kind: "fn", aria: t("prog.brackets") }, { k: "fn:ans", label: "ans", kind: "fn", aria: t("prog.lastAnswer") }, { k: "÷", kind: "op", aria: t("prog.divide") },
+  { k: "7", kind: "n" }, { k: "8", kind: "n" }, { k: "9", kind: "n" }, { k: "×", kind: "op", aria: t("prog.multiply") },
+  { k: "4", kind: "n" }, { k: "5", kind: "n" }, { k: "6", kind: "n" }, { k: "−", kind: "op", aria: t("prog.minus") },
+  { k: "1", kind: "n" }, { k: "2", kind: "n" }, { k: "3", kind: "n" }, { k: "+", kind: "op", aria: t("prog.plus") },
+  { k: "±", kind: "n", aria: t("prog.sign") }, { k: "0", kind: "n" }, { k: "⌫", kind: "fn", aria: t("prog.backspace"), icon: "backspace" }, { k: "=", kind: "eq", aria: t("prog.equals") },
 ]);
 const HEX = ["A", "B", "C", "D", "E", "F"];
 const DIGITS = "0123456789ABCDEF";
@@ -77,24 +78,24 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
   <!-- word size, sign and (phone) the bases/bits switch sit on the mode menu's line, so the keys get the height -->
   <Teleport defer to=".calc-top">
     <div class="pbar">
-      <button type="button" class="cflag" title="Word size" :aria-label="`Word size ${prog.wordSize} bits`" @click="cycleWord">{{ prog.wordSize }}-bit</button>
-      <button type="button" class="cflag" :class="{ on: prog.signed }" title="Signed numbers (two's complement)" :aria-pressed="prog.signed" @click="prog.signed = !prog.signed">{{ prog.signed ? "Signed" : "Unsigned" }}</button>
+      <button type="button" class="cflag" :title="t('prog.wordSize')" :aria-label="t('prog.wordSizeAria', { n: prog.wordSize })" @click="cycleWord">{{ t("prog.bit", { n: prog.wordSize }) }}</button>
+      <button type="button" class="cflag" :class="{ on: prog.signed }" :title="t('prog.signedTitle')" :aria-pressed="prog.signed" @click="prog.signed = !prog.signed">{{ prog.signed ? t("prog.signed") : t("prog.unsigned") }}</button>
       <span class="grow" />
-      <div v-if="isPhone" class="seg sm" role="tablist" aria-label="Show"><button type="button" role="tab" :aria-selected="panel === 'bases'" :class="{ on: panel === 'bases' }" @click="panel = 'bases'">Bases</button><button type="button" role="tab" :aria-selected="panel === 'bits'" :class="{ on: panel === 'bits' }" @click="panel = 'bits'">Bits</button></div>
+      <div v-if="isPhone" class="seg sm" role="tablist" :aria-label="t('prog.show')"><button type="button" role="tab" :aria-selected="panel === 'bases'" :class="{ on: panel === 'bases' }" @click="panel = 'bases'">{{ t("prog.bases") }}</button><button type="button" role="tab" :aria-selected="panel === 'bits'" :class="{ on: panel === 'bits' }" @click="panel = 'bits'">{{ t("prog.bits") }}</button></div>
     </div>
   </Teleport>
   <div class="ppanel">
-    <div v-if="!isPhone || panel === 'bases'" class="pbases" role="group" aria-label="Number base">
-      <button v-for="r in rows" :key="r.base" type="button" class="pbase" :class="{ on: prog.base === r.base }" :aria-pressed="prog.base === r.base" :title="prog.base === r.base ? 'Copy' : `Switch to ${r.name}`"
-        :aria-label="`${r.name} ${r.text || 'empty'}. ${prog.base === r.base ? 'Copy' : 'Switch to ' + r.name}`" @click="pickBase(r.base, r.text)">
+    <div v-if="!isPhone || panel === 'bases'" class="pbases" role="group" :aria-label="t('prog.numberBase')">
+      <button v-for="r in rows" :key="r.base" type="button" class="pbase" :class="{ on: prog.base === r.base }" :aria-pressed="prog.base === r.base" :title="prog.base === r.base ? t('c.copy') : t('prog.switchTo', { name: r.name })"
+        :aria-label="t('prog.baseAria', { name: r.name, value: r.text || t('prog.empty'), action: prog.base === r.base ? t('c.copy') : t('prog.switchTo', { name: r.name }) })" @click="pickBase(r.base, r.text)">
         <span class="plab">{{ r.label }}</span><span class="pval num">{{ r.text || "-" }}</span>
       </button>
     </div>
-    <div v-if="!isPhone || panel === 'bits'" class="pbits num" role="group" aria-label="Bits, highest first" :class="{ off: value === null }">
+    <div v-if="!isPhone || panel === 'bits'" class="pbits num" role="group" :aria-label="t('prog.bitsAria')" :class="{ off: value === null }">
       <div v-for="row in bitRows" :key="row.hi" class="prow">
         <span class="pidx" aria-hidden="true">{{ row.hi }}</span>
         <span v-for="(nb, j) in row.nibbles" :key="j" class="pnib">
-          <button v-for="b in nb" :key="b.i" type="button" class="pbit" :class="{ on: b.on }" :aria-label="`Flip bit ${b.i}`" :aria-pressed="b.on" :disabled="value === null" @click="flip(b.i)">{{ b.on ? 1 : 0 }}</button>
+          <button v-for="b in nb" :key="b.i" type="button" class="pbit" :class="{ on: b.on }" :aria-label="t('prog.flip', { i: b.i })" :aria-pressed="b.on" :disabled="value === null" @click="flip(b.i)">{{ b.on ? 1 : 0 }}</button>
         </span>
         <span class="pidx" aria-hidden="true">{{ row.lo }}</span>
       </div>
@@ -102,14 +103,14 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
   </div>
   <div class="cpad ppad">
     <div class="pfn">
-      <div class="fkeys" role="group" aria-label="Bit operations">
+      <div class="fkeys" role="group" :aria-label="t('prog.bitOps')">
         <button v-for="f in FKEYS" :key="f.aria" type="button" class="key k-fn" :class="{ on: f.on, hit: props.hit === f.k }" :aria-label="f.aria" :aria-pressed="f.on ?? undefined" @click="fkey(f.k)">{{ f.label }}</button>
       </div>
-      <div class="hexk" role="group" aria-label="Hex digits">
+      <div class="hexk" dir="ltr" role="group" :aria-label="t('prog.hexDigits')">
         <button v-for="h in HEX" :key="h" type="button" class="key k-n" :class="{ hit: props.hit === h }" :disabled="off(h)" @click="tap(h)">{{ h }}</button>
       </div>
     </div>
-    <div class="keys" role="group" aria-label="Keypad">
+    <div class="keys" role="group" :aria-label="t('prog.keypad')">
       <button v-for="b in KEYS" :key="b.k" type="button" class="key" :class="['k-' + b.kind, { hit: props.hit === b.k }]" :aria-label="b.aria" :disabled="off(b.k) || (b.k === '⌫' && !calc.expr)" @click="tap(b.k)">
         <Icon v-if="b.icon" :name="b.icon" /><template v-else>{{ b.label ?? b.k }}</template>
       </button>

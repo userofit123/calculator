@@ -6,6 +6,7 @@ import { usePullDown } from "../core/pullDown";
 import { sheetOpened, sheetClosed } from "../core/sheets";
 import { lockScroll } from "../core/scrollLock";
 import Icon from "./Icon.vue";
+import { t } from "../core/i18n";
 
 // noHistory: no Back step of its own (see core/leave.ts)
 const props = defineProps<{ title?: string; size?: "wide" | "full"; noClose?: boolean; noHistory?: boolean }>();
@@ -67,7 +68,7 @@ onBeforeUnmount(() => {
       <div ref="sheet" class="sht" :class="size" role="dialog" aria-modal="true" tabindex="-1" :aria-labelledby="$slots.head ? undefined : titleId" :aria-label="$slots.head ? title : undefined">
         <div class="sh_h">
           <slot name="head"><h2 :id="titleId" class="sh_t">{{ title }}</h2></slot>
-          <button v-if="!noClose" class="ib sm plain" aria-label="Close" @click="emit('close')"><Icon name="close" /></button>
+          <button v-if="!noClose" class="ib sm plain" :aria-label="t('c.close')" @click="emit('close')"><Icon name="close" /></button>
         </div>
         <div class="sh_b"><slot /></div>
         <div v-if="$slots.foot" class="sh_f"><slot name="foot" /></div>

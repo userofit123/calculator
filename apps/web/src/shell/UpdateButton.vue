@@ -6,6 +6,7 @@ import { nextTick } from "vue";
 import { upd, startAppUpdates } from "../core/appUpdate";
 import { go } from "./nav";
 import Icon from "../components/Icon.vue";
+import { t } from "../core/i18n";
 defineProps<{ phone?: boolean }>();
 startAppUpdates();
 function open() {
@@ -20,16 +21,16 @@ function open() {
 <template>
   <template v-if="upd.latest">
     <button v-if="phone" type="button" class="updrow" @click="open">
-      <Icon name="download" :size="18" /><span class="grow">{{ upd.ready ? `Version ${upd.latest} is ready to install` : `Version ${upd.latest} is available` }}</span><b>Update</b>
+      <Icon name="download" :size="18" /><span class="grow">{{ upd.ready ? t("upd.ready", { v: upd.latest }) : t("upd.available", { v: upd.latest }) }}</span><b>{{ t("upd.button") }}</b>
     </button>
-    <button v-else type="button" class="nb upd" :title="`Version ${upd.latest} is available`" :aria-label="`Update: version ${upd.latest} is available`" @click="open">
-      <span class="ic"><Icon name="download" :size="22" /></span>Update
+    <button v-else type="button" class="nb upd" :title="t('upd.available', { v: upd.latest })" :aria-label="t('upd.aria', { v: upd.latest })" @click="open">
+      <span class="ic"><Icon name="download" :size="22" /></span>{{ t("upd.button") }}
     </button>
   </template>
 </template>
 
 <style scoped>
-.updrow { display: flex; align-items: center; gap: var(--lpy); width: 100%; border: 0; border-bottom: 1px solid var(--ol); background: none; color: var(--tx); padding: var(--lpy) var(--cpx); font-size: 13px; cursor: pointer; text-align: left; }
+.updrow { display: flex; align-items: center; gap: var(--lpy); width: 100%; border: 0; border-bottom: 1px solid var(--ol); background: none; color: var(--tx); padding: var(--lpy) var(--cpx); font-size: 13px; cursor: pointer; text-align: start; }
 .updrow .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tx2); }
 .updrow b { color: var(--acc); }
 .upd .ic { color: var(--acc); }

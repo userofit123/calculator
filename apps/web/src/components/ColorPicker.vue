@@ -5,6 +5,7 @@
 import { computed, ref } from "vue";
 import { isPhone } from "../core/device";
 import PickerPop from "./PickerPop.vue";
+import { t } from "../core/i18n";
 
 defineOptions({ inheritAttrs: false });
 const props = defineProps<{ modelValue: string; title?: string }>();
@@ -53,13 +54,14 @@ function typed() { const c = toHsv(text.value); if (c) { hsv.value = c; emit("up
 
 <template>
   <button ref="btn" type="button" class="cpk" v-bind="$attrs" aria-haspopup="dialog" :aria-expanded="open" :style="{ background: modelValue }" @click="open ? close() : show()" @keydown.esc="esc" />
-  <PickerPop v-if="open" :anchor="btn" :title="title ?? 'Colour'" @close="close(false)">
-    <div class="cp" @keydown.esc.stop="close()">
-      <div ref="area" class="sv" tabindex="0" role="slider" aria-label="Shade" :aria-valuetext="text" :style="{ background: hueCss }" @pointerdown="down" @pointermove="move" @pointerup="drag = false" @pointercancel="drag = false" @keydown="areaKey">
+  <PickerPop v-if="open" :anchor="btn" :title="title ?? t('ui.colour')" @close="close(false)">
+    <!-- the square and the hue slider are the colour space itself: left to right in every language -->
+    <div class="cp" dir="ltr" @keydown.esc.stop="close()">
+      <div ref="area" class="sv" tabindex="0" role="slider" :aria-label="t('ui.shade')" :aria-valuetext="text" :style="{ background: hueCss }" @pointerdown="down" @pointermove="move" @pointerup="drag = false" @pointercancel="drag = false" @keydown="areaKey">
         <i :style="{ left: hsv.s * 100 + '%', top: (1 - hsv.v) * 100 + '%', background: toHex(hsv.h, hsv.s, hsv.v) }" />
       </div>
-      <input v-model.number="hsv.h" class="hue" type="range" min="0" max="359" aria-label="Hue" @input="out" />
-      <div class="hx"><span class="sw" :style="{ background: toHex(hsv.h, hsv.s, hsv.v) }" /><input v-model="text" class="in" maxlength="7" spellcheck="false" aria-label="Hex code" @input="typed" @keydown.enter="close()" /></div>
+      <input v-model.number="hsv.h" class="hue" type="range" min="0" max="359" :aria-label="t('ui.hue')" @input="out" />
+      <div class="hx"><span class="sw" :style="{ background: toHex(hsv.h, hsv.s, hsv.v) }" /><input v-model="text" class="in" maxlength="7" spellcheck="false" :aria-label="t('ui.hex')" @input="typed" @keydown.enter="close()" /></div>
     </div>
   </PickerPop>
 </template>

@@ -7,6 +7,7 @@ import { appearanceOpen } from "../core/ui";
 import Icon from "../components/Icon.vue";
 import Logo from "./Logo.vue";
 import UpdateButton from "./UpdateButton.vue";
+import { t } from "../core/i18n";
 
 const nav = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
 
@@ -39,15 +40,15 @@ onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(
 
 <template>
   <div class="shell">
-    <nav ref="nav" aria-label="Menu">
+    <nav ref="nav" :aria-label="t('nav.menu')">
       <i ref="pill" class="nbi" style="transform-origin:0 0" />
       <Logo shuffle />
       <button v-for="p in NAV" :key="p.name" type="button" class="nb" :class="{ on: page === p.name }" :aria-current="page === p.name ? 'page' : undefined" @click="go(p.name)">
-        <span class="ic"><Icon :name="p.icon" :size="22" /></span>{{ p.label }}
+        <span class="ic"><Icon :name="p.icon" :size="22" /></span>{{ t(p.label) }}
       </button>
       <div class="navb">
         <UpdateButton />
-        <button id="themeBtn" type="button" class="nb" @click.stop="appearanceOpen = !appearanceOpen"><span class="ic"><Icon name="palette" :size="22" /></span>Appearance</button>
+        <button id="themeBtn" type="button" class="nb" @click.stop="appearanceOpen = !appearanceOpen"><span class="ic"><Icon name="palette" :size="22" /></span>{{ t("nav.appearance") }}</button>
       </div>
     </nav>
     <!-- no "appear": the first page is there at the first paint, without fading in -->

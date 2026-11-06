@@ -6,6 +6,7 @@ import { computed, nextTick, ref, useId, watch } from "vue";
 import { isPhone } from "../core/device";
 import Icon from "./Icon.vue";
 import PickerPop from "./PickerPop.vue";
+import { t } from "../core/i18n";
 
 export interface PickOption { value: string; label: string; lead?: string; hint?: string; keys?: string }
 const props = defineProps<{ modelValue: string; options: PickOption[]; title: string }>();
@@ -18,7 +19,7 @@ const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,
 const shown = computed(() => {
   const words = norm(find.value).split(/\s+/).filter(Boolean);
   if (!words.length) return props.options;
-  return props.options.filter((o) => { const t = norm(`${o.label} ${o.lead ?? ""} ${o.hint ?? ""} ${o.keys ?? ""} ${o.value}`); return words.every((w) => t.includes(w)); });
+  return props.options.filter((o) => { const text = norm(`${o.label} ${o.lead ?? ""} ${o.hint ?? ""} ${o.keys ?? ""} ${o.value}`); return words.every((w) => text.includes(w)); });
 });
 watch(find, () => { hi.value = 0; });
 watch([hi, open], async () => { await nextTick(); if (open.value) document.getElementById(`${id}-${hi.value}`)?.scrollIntoView({ block: "nearest" }); });
@@ -53,7 +54,7 @@ function btnKey(e: KeyboardEvent) {
   </button>
   <PickerPop v-if="open" :anchor="btn" :title="title" @close="close(false)">
     <div class="upf">
-      <input ref="field" v-model="find" type="search" :placeholder="`Search ${title.toLowerCase()}`" :aria-label="`Search ${title.toLowerCase()}`" autocomplete="off" spellcheck="false" enterkeyhint="done"
+      <input ref="field" v-model="find" type="search" :placeholder="t('ui.searchIn', { what: title.toLowerCase() })" :aria-label="t('ui.searchIn', { what: title.toLowerCase() })" autocomplete="off" spellcheck="false" enterkeyhint="done"
         role="searchbox" :aria-controls="`${id}-l`" :aria-activedescendant="shown.length ? `${id}-${hi}` : undefined" @keydown="key" />
     </div>
     <div :id="`${id}-l`" class="asl upl" role="listbox">
@@ -62,7 +63,7 @@ function btnKey(e: KeyboardEvent) {
         <span v-if="o.lead" class="ld">{{ o.lead }}</span>
         <span class="ol"><span>{{ o.label }}</span><small v-if="o.hint">{{ o.hint }}</small></span><Icon name="check" :size="16" />
       </div>
-      <div v-if="!shown.length" class="none">Nothing matches "{{ find }}"</div>
+      <div v-if="!shown.length" class="none">{{ t("ui.noMatch", { q: find }) }}</div>
     </div>
   </PickerPop>
 </template>

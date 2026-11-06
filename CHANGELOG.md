@@ -23,4 +23,6 @@ docs/apps.md, Releases.
 - Updates inside the desktop and Android apps: they ask GitHub whether a new version is out (switch it off in Settings,
   Updates), show an Update button, and download and check the new version before it is installed. Nothing else is sent.
 - Android app that opens straight onto the calculator, with system bars that follow the look.
+- Hebrew: the whole app in Hebrew with a right-to-left layout (Settings, Language: Auto, English or עברית), while
+  numbers, sums, the keypad and the display stay left to right.
 - Private: no account, no server, no tracking; everything stays on your device.

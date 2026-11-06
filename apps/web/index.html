@@ -15,9 +15,11 @@
     <link rel="apple-touch-icon" href="/icon-maskable-192.png" />
     <link rel="preload" href="/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
     <title>Calculator</title>
-    <!-- Before the first paint: the saved look (all its colours, so nothing flashes) and the phone/desktop layout.
+    <!-- Before the first paint: the saved look (all its colours, so nothing flashes), the language and direction (Hebrew:
+         lang="he" dir="rtl", as core/i18n.ts resolveLang decides) and the phone/desktop layout.
          No splash: the calculator is the first thing drawn. Keys as in core/theme.ts (DKEYS, calcBoot) and core/device.ts. -->
     <script>try{var h=document.documentElement,r=h.style,T=JSON.parse(localStorage.getItem("calcTheme")||"{}");["bg","tex","rad","den","spc","nsp","fnt","nav","ksh","kfb"].forEach(function(k){if(T[k])h.dataset[k]=T[k]});var b=JSON.parse(localStorage.getItem("calcBoot")||"null");if(b){r.background=b.bg;r.colorScheme=b.d?"dark":"light";h.dataset.mode=b.d?"dark":"light";if(b.f)r.setProperty("--font",b.f);for(var p in b.v||{})if(b.v[p])r.setProperty(p,b.v[p]);document.querySelector('meta[name="theme-color"]').setAttribute("content",b.bg)}else{r.background="#17100d";h.dataset.mode="dark"}}catch(e){}
+    (function(){var L="auto";try{L=localStorage.getItem("calcLang")||"auto"}catch(e){}if(L!="en"&&L!="he")L=/^(he|iw)\b/i.test(navigator.language||"")?"he":"en";if(L=="he"){document.documentElement.lang="he";document.documentElement.dir="rtl"}})();
     (function(){var L="auto";try{L=localStorage.getItem("calcLayout")||"auto"}catch(e){}var w=Math.min(innerWidth,document.documentElement.clientWidth||innerWidth),t=matchMedia("(pointer:coarse)").matches;document.documentElement.classList.toggle("phone",L=="phone"||(L=="auto"&&(w<=860||(t&&w<=1100))))})();</script>
   </head>
   <body>

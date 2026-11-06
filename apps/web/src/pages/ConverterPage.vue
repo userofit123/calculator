@@ -6,12 +6,17 @@
 // @calc/core; this page is loaded only when opened, so none of it holds up the calculator's first screen. The last
 // category, units and amount are remembered on this device.
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, rateSourceLine, sourceDayOf, shortDay, RATE_SOURCES, ECB_SOURCE, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
+import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, sourceDayOf, shortDay, RATE_SOURCES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
 import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
 import { readJson, writeJson } from "../core/prefs";
 import { rates, rateDate, refreshRates, autoRefresh } from "../core/rates";
 import { toast } from "../core/toast";
+import { t, tMaybe, lang, locale, unitName, currencyName, type Key, useTexts } from "../core/i18n";
+import { convert as texts } from "../i18n/en/convert";
+// this part loads lazily: its English texts come with it
+useTexts(texts);
+import { tMsg } from "../core/msg";
 import { go } from "../shell/nav";
 import Icon from "../components/Icon.vue";
 import UnitPicker, { type PickOption } from "../components/UnitPicker.vue";
@@ -48,7 +53,14 @@ function swap() { st.units[cat.value.id] = [pair.value[1], pair.value[0]]; }
 
 const isCurrency = computed(() => cat.value.id === "currency");
 // currencies show their code as the badge, never a flag emoji: Windows draws those as two letters
-const options = computed<PickOption[]>(() => [...cat.value.units, ...noRate.value.map(unit)].map((u) => ({ value: u.id, label: u.name, lead: u.symbol, hint: u.hint, keys: u.alias })));
+const options = computed<PickOption[]>(() => [...cat.value.units, ...noRate.value.map(unit)].map((u) => {
+  const n = name(u);
+  // in Hebrew the English name still finds it ("pound", "yen")
+  return { value: u.id, label: n, lead: u.symbol, hint: hint(u), keys: n === u.name ? u.alias : [u.alias, u.name].filter(Boolean).join(" ") };
+}));
+/** a category's, unit's or currency's name in the language shown (core keeps them in English) */
+const catName = (c: Category) => tMaybe("conv.cat." + c.id, c.name);
+const name = (u: Unit) => (isCurrency.value ? currencyName(u.id, u.name) : unitName(u.id, u.name));
 
 // the same engine and options as the calculator (its variables and ans too); money to at most 4 decimals
 const evalOptions = computed<EvalOptions>(() => ({
@@ -56,38 +68,68 @@ const evalOptions = computed<EvalOptions>(() => ({
   variables: calc.vars, ans: calc.ans, maxBits: 110_000,
 }));
 const typed = computed(() => sanitizeInput(st.amount, settings.decimalMark));
-const result = computed(() => (noRate.value.length ? { error: `No rate for ${noRate.value.join(" and ")}` } : typed.value ? convert(cat.value, from.value, to.value, typed.value, evalOptions.value) : null));
+const result = computed(() => (noRate.value.length ? { error: t("msg.noRate", { x: noRate.value.join(lang.value === "he" ? ", " : " and ") }) } : typed.value ? convert(cat.value, from.value, to.value, typed.value, evalOptions.value) : null));
 const all = computed(() => {
   if (!typed.value || noRate.value.includes(from.value)) return [];
   const r = convertAll(cat.value, from.value, typed.value, evalOptions.value);
   return Array.isArray(r) ? r : [];
 });
 const text = (r: { value: string } | { error: string } | null) => (r && "value" in r ? show(r.value) : "");
+/** core's errors are English; the "No rate for" one above is already in the language shown (tMsg leaves it be) */
+const errText = computed(() => (result.value && "error" in result.value ? (noRate.value.length ? result.value.error : tMsg(result.value.error)) : ""));
 const label = (u: Unit) => u.symbol;
 
-async function copy(t: string) {
-  if (!t) return;
-  try { await navigator.clipboard.writeText(t); toast("Copied"); } catch { toast("Couldn't copy", { kind: "err" }); }
+async function copy(s: string) {
+  if (!s) return;
+  try { await navigator.clipboard.writeText(s); toast(t("c.copied")); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
 }
 function pickTo(u: Unit) { if (u.id !== from.value) to.value = u.id; }
 
 /** the ECB's day: most currencies come from it */
 const ecbDay = computed(() => sourceDayOf(rates.set, "ecb") || rates.set.date);
-const ratesLine = computed(() => `Rates of ${rateDate(ecbDay.value)} · ${ECB_SOURCE}`);
+const ratesLine = computed(() => tr("conv.ratesOf", { date: lang.value === "he" ? heDay(ecbDay.value) : rateDate(ecbDay.value), source: t("conv.bank.ecb") }));
+
+// core words a currency's source in English (rateSourceLine, the units' hints); the same lines are built here from
+// the same tables so they follow the language. English reads exactly as core's.
+/** t() for params that are Hebrew text with digits in it (a Hebrew date, a source line): those must not be isolated
+ *  left to right as t() does with digits, or "6 בנוב׳ 2026" would read backwards */
+const tr = (key: Key, p: Record<string, string>) => t(key).replace(/\{(\w+)\}/g, (m, k: string) => p[k] ?? m);
+/** "6 Nov 2026"; in Hebrew the month's name by Intl */
+const heDay = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const day = (d: string) => (lang.value === "he" ? heDay(d) : shortDay(d));
+const bank = (src: string) => tMaybe("conv.bank." + src, RATE_SOURCES[src]?.name ?? src);
+/** as core's rateSourceLine: "National Bank of Ukraine, 6 Nov 2026", "Fixed at 3.6725 per US dollar (...) · ..." */
+function sourceLine(code: string): string {
+  const rs = rates.set;
+  if (code === "EUR") return "";
+  if (rs.rates[code]) return tr("conv.srcDay", { source: bank(rateSourceOf(rs, code)), day: day(rateDayOf(rs, code)) });
+  const fixed = FIXED_EURO_RATES[code];
+  if (fixed) return FIXED_EURO_BY[code] ? t("conv.fixedEuroBy", { rate: fixed, by: FIXED_EURO_BY[code]! }) : t("conv.fixedEuro", { rate: fixed });
+  const peg = USD_PEGS[code];
+  if (peg && rs.rates.USD) return tr("conv.fixedUsd", { rate: peg.rate, by: tMaybe("conv.by." + code, peg.by), day: day(rateDayOf(rs, "USD")) });
+  return "";
+}
+/** a unit's hint in the language shown: a currency's source (as currencyCategory words it) or "No rate for X" */
+function hint(u: Unit): string | undefined {
+  if (!u.hint || !isCurrency.value) return u.hint;
+  if (!has(cat.value, u.id)) return tMsg(u.hint);
+  const rs = rates.set;
+  return rs.rates[u.id] && rateSourceOf(rs, u.id) === "ecb" ? tr("conv.rateOf", { day: day(rateDayOf(rs, u.id)) }) : sourceLine(u.id);
+}
 /** the chosen currencies whose rate isn't the ECB's of that day, each with its source and day:
  *  "UAH: National Bank of Ukraine, 6 Nov 2026", "AED: Fixed at 3.6725 per US dollar (Central Bank of the UAE) · ..." */
 const olderLine = computed(() => !isCurrency.value ? "" : [from.value, to.value]
   .filter((id, i, a) => a.indexOf(id) === i && id !== "EUR" && !noRate.value.includes(id) &&
     !(rates.set.rates[id] && rateSourceOf(rates.set, id) === "ecb" && rateDayOf(rates.set, id) === ecbDay.value))
-  .map((id) => `${id}: ${rateSourceLine(rates.set, id)}`).join(" · "));
-const ratesState = computed(() => rates.loading ? "Checking for newer rates..." : rates.error ? `${rates.error} - using the rates above`
-  : rates.set.fetchedAt ? `Downloaded ${new Date(rates.set.fetchedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : "Rates that came with the app");
+  .map((id) => tr("conv.codeLine", { code: id, line: sourceLine(id) })).join(" · "));
+const ratesState = computed(() => rates.loading ? t("conv.checking") : rates.error ? tr("conv.usingAbove", { error: tMsg(rates.error) })
+  : rates.set.fetchedAt ? tr("conv.downloaded", { when: new Date(rates.set.fetchedAt).toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" }) }) : t("conv.bundled"));
 
 /** a central bank that didn't answer: a calm note with the day of the rate still in use (not an error) */
 const unreachedNotes = computed(() => rates.unreached.map((id) => {
   const code = Object.keys(rates.set.rates).find((c) => rateSourceOf(rates.set, c) === id);
-  const name = `the ${RATE_SOURCES[id]?.name ?? id}`;
-  return code ? `Couldn't reach ${name} - using its rate of ${shortDay(rateDayOf(rates.set, code))}` : `Couldn't reach ${name}`;
+  const who = tMaybe("conv.theBank." + id, `the ${RATE_SOURCES[id]?.name ?? id}`);
+  return code ? tr("conv.unreachedRate", { name: who, day: day(rateDayOf(rates.set, code)) }) : tr("conv.unreached", { name: who });
 }));
 
 const amountEl = ref<HTMLInputElement | null>(null);
@@ -101,32 +143,32 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
 
 <template>
   <div class="page cvp" :class="{ phone: isPhone }">
-    <div class="ph"><div><h1>Converter</h1></div></div>
-    <div class="cvc" role="tablist" aria-label="What to convert">
-      <button v-for="c in categories" :key="c.id" type="button" role="tab" class="cvchip" :class="{ on: c.id === cat.id }" :aria-selected="c.id === cat.id" @click="st.cat = c.id">{{ c.name }}</button>
+    <div class="ph"><div><h1>{{ t("nav.convert") }}</h1></div></div>
+    <div class="cvc" role="tablist" :aria-label="t('conv.what')">
+      <button v-for="c in categories" :key="c.id" type="button" role="tab" class="cvchip" :class="{ on: c.id === cat.id }" :aria-selected="c.id === cat.id" @click="st.cat = c.id">{{ catName(c) }}</button>
     </div>
     <div class="cvg">
       <div class="stack">
         <div class="card cvcard">
-          <label class="cvl" for="cv-amount">From</label>
+          <label class="cvl" for="cv-amount">{{ t("c.from") }}</label>
           <div class="cvrow">
-            <input id="cv-amount" ref="amountEl" v-model="st.amount" class="cvin" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"
-              enterkeyhint="done" :aria-label="`Amount in ${unit(from).name}`" placeholder="Amount" />
-            <div class="cvu"><UnitPicker v-model="from" :options="options" :title="isCurrency ? 'Currency' : 'Unit'" /></div>
+            <input id="cv-amount" ref="amountEl" v-model="st.amount" class="cvin" dir="ltr" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"
+              enterkeyhint="done" :aria-label="t('conv.amountIn', { unit: name(unit(from)) })" :placeholder="t('conv.amount')" />
+            <div class="cvu"><UnitPicker v-model="from" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
           </div>
           <div class="cvsw">
-            <button type="button" class="ib" title="Swap units" aria-label="Swap units" @click="swap"><Icon name="convert" /></button>
+            <button type="button" class="ib" :title="t('conv.swap')" :aria-label="t('conv.swap')" @click="swap"><Icon name="convert" /></button>
           </div>
-          <span class="cvl">To</span>
+          <span class="cvl">{{ t("c.to") }}</span>
           <div class="cvrow">
-            <output class="cvout" :class="{ err: result && 'error' in result }" for="cv-amount" aria-live="polite">
-              {{ result && "error" in result ? result.error : text(result) || "0" }}
+            <output class="cvout" :class="errText ? 'err' : 'num'" for="cv-amount" aria-live="polite">
+              {{ errText || text(result) || "0" }}
             </output>
-            <div class="cvu"><UnitPicker v-model="to" :options="options" :title="isCurrency ? 'Currency' : 'Unit'" /></div>
+            <div class="cvu"><UnitPicker v-model="to" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
           </div>
           <div class="cvact">
-            <span class="cvsum">{{ text(result) ? `${show(typed)} ${label(unit(from))} = ${text(result)} ${label(unit(to))}` : "" }}</span>
-            <button type="button" class="ib" title="Copy result" aria-label="Copy result" :disabled="!text(result)" @click="copy(text(result))">
+            <span class="cvsum num">{{ text(result) ? `${show(typed)} ${label(unit(from))} = ${text(result)} ${label(unit(to))}` : "" }}</span>
+            <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" :disabled="!text(result)" @click="copy(text(result))">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
             </button>
           </div>
@@ -136,21 +178,21 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
             <div v-for="n in unreachedNotes" :key="n" class="s">{{ n }}</div>
             <div class="s">
               <span>{{ ratesState }}</span>
-              <button v-if="rates.online" type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">Refresh</button>
-              <button v-else type="button" class="lnk" @click="go('settings')">Online updates are off</button>
+              <button v-if="rates.online" type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">{{ t("conv.refresh") }}</button>
+              <button v-else type="button" class="lnk" @click="go('settings')">{{ t("conv.onlineOff") }}</button>
             </div>
           </div>
         </div>
       </div>
       <section class="cvall">
-        <div class="sh first"><h2>All units</h2><span v-if="isCurrency" class="cvsrc">{{ ratesLine }}</span></div>
+        <div class="sh first"><h2>{{ t("conv.allUnits") }}</h2><span v-if="isCurrency" class="cvsrc">{{ ratesLine }}</span></div>
         <div class="card flush">
           <button v-for="r in all" :key="r.unit.id" type="button" class="li click lib cvli" :class="{ on: r.unit.id === to, cur: r.unit.id === from }" :aria-pressed="r.unit.id === to" @click="pickTo(r.unit)">
-            <span class="cvsym">{{ label(r.unit) }}</span>
-            <span class="grow"><span class="t">{{ r.unit.name }}</span><span v-if="r.unit.hint" class="s">{{ r.unit.hint }}</span></span>
-            <span class="cvv">{{ "value" in r.result ? show(r.result.value) : r.result.error }}</span>
+            <span class="cvsym num">{{ label(r.unit) }}</span>
+            <span class="grow"><span class="t">{{ name(r.unit) }}</span><span v-if="r.unit.hint" class="s">{{ hint(r.unit) }}</span></span>
+            <span class="cvv" :class="{ num: 'value' in r.result }">{{ "value" in r.result ? show(r.result.value) : tMsg(r.result.error) }}</span>
           </button>
-          <div v-if="!all.length" class="li cvnone">{{ result && "error" in result ? result.error : "Type an amount" }}</div>
+          <div v-if="!all.length" class="li cvnone">{{ errText || t("conv.typeAmount") }}</div>
         </div>
       </section>
     </div>

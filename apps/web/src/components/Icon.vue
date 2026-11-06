@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// One line-icon set for the whole app (24-unit grid, 1.8 stroke), drawn in the current text colour.
+// One line-icon set for the whole app (24-unit grid, 1.8 stroke), drawn in the current text colour. Icons that point
+// the way forward (the chevron) are mirrored right to left (base.css: [dir="rtl"] .ico.flip).
 defineProps<{ name: string; size?: number }>();
 </script>
 
@@ -24,7 +25,7 @@ const ICONS: Record<string, string> = {
 </script>
 
 <template>
-  <svg class="ico" :width="size ?? 20" :height="size ?? 20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <svg class="ico" :class="{ flip: name === 'right' }" :width="size ?? 20" :height="size ?? 20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path :d="ICONS[name] ?? ICONS.info" />
   </svg>
 </template>

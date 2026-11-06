@@ -4,7 +4,8 @@
 // formats and a decimal places stepper. Both are the same settings as Settings → Calculator. Small, so it is in the main
 // bundle with the calculator. `note` says why an answer is a decimal although Fraction or Mixed is chosen.
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
-import { settings, FORMATS, cycleFormat } from "../core/calc";
+import { settings, FORMATS, cycleFormat, fmtLabel, fmtShort, fmtHint } from "../core/calc";
+import { t } from "../core/i18n";
 import { safeArea } from "../core/device";
 import Icon from "./Icon.vue";
 
@@ -22,7 +23,8 @@ async function show() {
   const m = el.value!.getBoundingClientRect(), sa = safeArea();
   pos.value = {
     top: b.bottom + 6 + m.height > innerHeight - sa.bottom - 8 ? Math.max(sa.top + 8, b.top - m.height - 6) : b.bottom + 6,
-    left: Math.max(sa.left + 8, Math.min(b.left, innerWidth - sa.right - m.width - 8)),
+    // right to left, the popover opens from the chip's right edge
+    left: Math.max(sa.left + 8, Math.min(document.documentElement.dir === "rtl" ? b.right - m.width : b.left, innerWidth - sa.right - m.width - 8)),
   };
   setTimeout(() => { addEventListener("click", away, true); addEventListener("keydown", onKey, true); });
   items()[0]?.focus();
@@ -52,24 +54,24 @@ onBeforeUnmount(() => close(false));
 
 <template>
   <button
-    type="button" class="cflag" :title="`Number format: ${fmt.label}. Click for the next one; right-click or long-press for all`"
-    :aria-label="`Number format ${fmt.label}, next`" @click="cycleFormat" @contextmenu.prevent="show"
-  >{{ fmt.short }}</button>
-  <button ref="chip" type="button" class="cflag" title="Number format and decimal places" :aria-label="`${settings.decimals} decimal places. Number format and decimal places`" aria-haspopup="dialog" :aria-expanded="open" @click.stop="show">{{ settings.decimals }} dp</button>
+    type="button" class="cflag" :title="t('ui.nfTitle', { f: fmtLabel(fmt.id) })"
+    :aria-label="t('ui.nfNext', { f: fmtLabel(fmt.id) })" @click="cycleFormat" @contextmenu.prevent="show"
+  >{{ fmtShort(fmt.id) }}</button>
+  <button ref="chip" type="button" class="cflag" :title="t('ui.nfPlaces')" :aria-label="t('ui.nfPlacesAria', { n: settings.decimals })" aria-haspopup="dialog" :aria-expanded="open" @click.stop="show">{{ t("ui.dp", { n: settings.decimals }) }}</button>
   <span class="cnote" :title="note">{{ note }}</span>
   <Teleport to="body">
-    <div v-if="open" ref="el" class="mnu nfpop" role="dialog" aria-label="Number format" :style="{ top: pos.top + 'px', left: pos.left + 'px' }">
-      <div role="radiogroup" aria-label="Number format" class="nfgrp">
+    <div v-if="open" ref="el" class="mnu nfpop" role="dialog" :aria-label="t('ui.nf')" :style="{ top: pos.top + 'px', left: pos.left + 'px' }">
+      <div role="radiogroup" :aria-label="t('ui.nf')" class="nfgrp">
         <button v-for="f in FORMATS" :key="f.id" type="button" role="radio" :aria-checked="settings.format === f.id" :class="{ on: settings.format === f.id }" @click="settings.format = f.id">
-          <span class="mh"><span>{{ f.label }}</span><small>{{ f.hint }}</small></span><Icon v-if="settings.format === f.id" name="check" :size="16" class="mck" />
+          <span class="mh"><span>{{ fmtLabel(f.id) }}</span><small>{{ fmtHint(f.id) }}</small></span><Icon v-if="settings.format === f.id" name="check" :size="16" class="mck" />
         </button>
       </div>
       <hr />
       <div class="nfstep">
-        <span class="grow">Decimal places</span>
-        <button type="button" class="ib sm" aria-label="Fewer decimal places" :disabled="settings.decimals <= 0" @click="step(-1)">−</button>
+        <span class="grow">{{ t("ui.places") }}</span>
+        <button type="button" class="ib sm" :aria-label="t('ui.fewerPlaces')" :disabled="settings.decimals <= 0" @click="step(-1)">−</button>
         <span class="num nfn" aria-live="polite">{{ settings.decimals }}</span>
-        <button type="button" class="ib sm" aria-label="More decimal places" :disabled="settings.decimals >= MAX_PLACES" @click="step(1)">+</button>
+        <button type="button" class="ib sm" :aria-label="t('ui.morePlaces')" :disabled="settings.decimals >= MAX_PLACES" @click="step(1)">+</button>
       </div>
     </div>
   </Teleport>

@@ -6,14 +6,19 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import {
   parseDate, formatIsoDate, daysBetween, addDays, addPeriod, diffYMD, businessDays, dayOfYear, daysInYear, isoWeek, age,
-  describeYMD, describeWeeks, describeDays, parseTime, sumDurations, formatDuration, describeDuration, timeBetween, type YMD,
+  parseTime, sumDurations, formatDuration, timeBetween, type YMD,
 } from "@calc/core";
 import { isPhone } from "../core/device";
+import { describeDays, describeDuration, describeWeeks, describeYMD, lang, locale, plural, t, type Key, useTexts } from "../core/i18n";
+import { date as texts } from "../i18n/en/date";
+// this part loads lazily: its English texts come with it
+useTexts(texts);
+import { tMsg } from "../core/msg";
 import { readJson, writeJson } from "../core/prefs";
 import { toast } from "../core/toast";
 
 type Tab = "between" | "add" | "age" | "time";
-const TABS: [Tab, string][] = [["between", "Between dates"], ["add", "Add or subtract"], ["age", "Age"], ["time", "Time"]];
+const TABS: [Tab, Key][] = [["between", "date.tab.between"], ["add", "date.tab.add"], ["age", "date.tab.age"], ["time", "date.tab.time"]];
 
 /** today on this device's calendar (local, not UTC: just after midnight it is already the new day here) */
 const localToday = () => { const n = new Date(); return formatIsoDate({ y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() }); };
@@ -35,21 +40,24 @@ const DEF: Kept = {
 const saved = readJson<Partial<Kept>>("dateCalc", {});
 // only values of the right type are taken back (an old or edited entry can't break the page)
 const st = reactive<Kept>(Object.fromEntries(Object.entries(DEF).map(([k, v]) => [k, typeof saved[k as keyof Kept] === typeof v ? saved[k as keyof Kept] : v])) as unknown as Kept);
-if (!TABS.some(([t]) => t === st.tab)) st.tab = "between";
+if (!TABS.some(([x]) => x === st.tab)) st.tab = "between";
 watch(st, (v) => writeJson("dateCalc", v), { deep: true });
 
 // ---- showing dates ----
-const fmtLong = new Intl.DateTimeFormat(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
-const fmtShort = new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+// made again when the language changes, so weekday and month names follow it
+const fmtLong = computed(() => new Intl.DateTimeFormat(locale(), { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }));
+const fmtShort = computed(() => new Intl.DateTimeFormat(locale(), { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }));
+const WD = computed(() => new Intl.DateTimeFormat(locale(), { weekday: "long", timeZone: "UTC" }));
 const nf = new Intl.NumberFormat();
 /** the calendar day as a Date at UTC midnight (setUTCFullYear, so years below 100 aren't read as 19xx) */
 const utc = (v: YMD) => { const d = new Date(0); d.setUTCFullYear(v.y, v.m - 1, v.d); return d; };
-const long = (v: YMD) => fmtLong.format(utc(v));
-const short = (v: YMD) => fmtShort.format(utc(v));
-const WD = new Intl.DateTimeFormat(undefined, { weekday: "long", timeZone: "UTC" });
+const long = (v: YMD) => fmtLong.value.format(utc(v));
+const short = (v: YMD) => fmtShort.value.format(utc(v));
 /** "Friday · Week 45 · Day 310 of 365" */
-const about = (v: YMD | null) => (v ? `${WD.format(utc(v))} · Week ${isoWeek(v).week} · Day ${dayOfYear(v)} of ${daysInYear(v.y)}` : "");
+const about = (v: YMD | null) => (v ? t("date.about", { wd: WD.value.format(utc(v)), week: isoWeek(v).week, day: dayOfYear(v), total: daysInYear(v.y) }) : "");
 const dateOf = (s: string) => parseDate(s);
+/** "1 year" / "12 years" (grouped as before in English); Hebrew has its own forms for 1 and 2 */
+const yearsText = (n: number) => (lang.value === "he" ? plural(n, "year") : n === 1 ? "1 year" : `${nf.format(n)} years`);
 
 // ---- between two dates ----
 const A = computed(() => dateOf(st.a)), B = computed(() => dateOf(st.b));
@@ -64,7 +72,7 @@ function swapDates() { [st.a, st.b] = [st.b, st.a]; }
 
 // ---- adding to a date ----
 const S = computed(() => dateOf(st.start));
-const num = (t: string) => { const x = t.trim().replace(/^[−–]/, "-"); return x === "" ? 0 : /^[+-]?\d+$/.test(x) ? Number(x) : NaN; };
+const num = (s: string) => { const x = s.trim().replace(/^[−–]/, "-"); return x === "" ? 0 : /^[+-]?\d+$/.test(x) ? Number(x) : NaN; };
 const added = computed(() => {
   const s = S.value;
   if (!s) return null;
@@ -73,7 +81,7 @@ const added = computed(() => {
   return addPeriod(s, p, st.sub ? -1 : 1);
 });
 const addedDate = computed(() => (added.value && "date" in added.value ? added.value.date : null));
-const PARTS: [keyof Kept & ("years" | "months" | "weeks" | "days"), string][] = [["years", "Years"], ["months", "Months"], ["weeks", "Weeks"], ["days", "Days"]];
+const PARTS: [keyof Kept & ("years" | "months" | "weeks" | "days"), Key][] = [["years", "date.part.years"], ["months", "date.part.months"], ["weeks", "date.part.weeks"], ["days", "date.part.days"]];
 
 // ---- age ----
 const birth = computed(() => dateOf(st.birth)), onDay = computed(() => dateOf(st.on || today.value));
@@ -92,153 +100,155 @@ const copyText = computed(() => {
   if (st.tab === "age") return ageText.value;
   return "";
 });
-async function copy(t: string) {
-  if (!t) return;
-  try { await navigator.clipboard.writeText(t); toast("Copied"); } catch { toast("Couldn't copy", { kind: "err" }); }
+async function copy(s: string) {
+  if (!s) return;
+  try { await navigator.clipboard.writeText(s); toast(t("c.copied")); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
 }
 </script>
 
 <template>
   <div class="dcalc" :class="{ phone: isPhone }">
-    <div class="seg dseg" role="tablist" aria-label="Date calculation">
-      <button v-for="[t, l] in TABS" :key="t" type="button" role="tab" :data-t="t" :class="{ on: st.tab === t }" :aria-selected="st.tab === t" @click="st.tab = t">{{ l }}</button>
+    <div class="seg dseg" role="tablist" :aria-label="t('date.tabs')">
+      <button v-for="[x, l] in TABS" :key="x" type="button" role="tab" :data-t="x" :class="{ on: st.tab === x }" :aria-selected="st.tab === x" @click="st.tab = x">{{ t(l) }}</button>
     </div>
 
     <div v-if="st.tab === 'between'" class="dgrid">
       <div class="card dcard">
         <div class="fld">
-          <label for="d-a">Start date</label>
-          <input id="d-a" v-model="st.a" type="date" min="0001-01-01" max="9999-12-31" />
-          <div class="dnote">{{ about(A) || "Pick a date" }}</div>
+          <label for="d-a">{{ t("date.start") }}</label>
+          <input id="d-a" v-model="st.a" type="date" dir="ltr" min="0001-01-01" max="9999-12-31" />
+          <div class="dnote">{{ about(A) || t("date.pick") }}</div>
         </div>
         <div class="fld">
-          <label for="d-b">End date</label>
-          <input id="d-b" v-model="st.b" type="date" min="0001-01-01" max="9999-12-31" />
-          <div class="dnote">{{ about(B) || "Pick a date" }}</div>
+          <label for="d-b">{{ t("date.end") }}</label>
+          <input id="d-b" v-model="st.b" type="date" dir="ltr" min="0001-01-01" max="9999-12-31" />
+          <div class="dnote">{{ about(B) || t("date.pick") }}</div>
         </div>
         <div class="dbtns">
-          <button type="button" class="btn o sm" @click="swapDates">Swap</button>
-          <button type="button" class="btn o sm" @click="st.a = refreshToday()">Start today</button>
-          <button type="button" class="btn o sm" @click="st.b = refreshToday()">End today</button>
+          <button type="button" class="btn o sm" @click="swapDates">{{ t("c.swap") }}</button>
+          <button type="button" class="btn o sm" @click="st.a = refreshToday()">{{ t("date.startToday") }}</button>
+          <button type="button" class="btn o sm" @click="st.b = refreshToday()">{{ t("date.endToday") }}</button>
         </div>
         <label class="li tg dtg">
-          <div class="grow"><div class="t">Count the end date too</div><div class="s">Monday to Friday is 4 days, or 5 counting both</div></div>
+          <div class="grow"><div class="t">{{ t("date.countEnd") }}</div><div class="s">{{ t("date.countEndHint") }}</div></div>
           <input v-model="st.includeEnd" type="checkbox" />
         </label>
       </div>
       <div class="card dcard dres" aria-live="polite">
         <template v-if="between">
           <div class="dtop">
-            <div class="dbig num">{{ describeDays(between.days) }}</div>
-            <button type="button" class="ib" title="Copy result" aria-label="Copy result" @click="copy(copyText)">
+            <!-- words in Hebrew ("3 ימים"), so only English gets the number styling -->
+            <div class="dbig" :class="{ num: lang !== 'he' }">{{ describeDays(between.days) }}</div>
+            <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" @click="copy(copyText)">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
             </button>
           </div>
-          <div v-if="between.back" class="dnote">The end date is before the start date.</div>
-          <div class="li"><span class="grow">Years, months, days</span><span class="dv">{{ between.ymd }}</span></div>
-          <div class="li"><span class="grow">Weeks</span><span class="dv">{{ between.weeks }}</span></div>
-          <div class="li"><span class="grow">Business days (Mon-Fri)</span><span class="dv num">{{ nf.format(between.work) }}</span></div>
+          <div v-if="between.back" class="dnote">{{ t("date.backwards") }}</div>
+          <div class="li"><span class="grow">{{ t("date.ymd") }}</span><span class="dv">{{ between.ymd }}</span></div>
+          <div class="li"><span class="grow">{{ t("date.weeks") }}</span><span class="dv">{{ between.weeks }}</span></div>
+          <div class="li"><span class="grow">{{ t("date.business") }}</span><span class="dv num">{{ nf.format(between.work) }}</span></div>
         </template>
-        <div v-else class="dnote">Pick both dates.</div>
+        <div v-else class="dnote">{{ t("date.pickBoth") }}</div>
       </div>
     </div>
 
     <div v-else-if="st.tab === 'add'" class="dgrid">
       <div class="card dcard">
         <div class="fld">
-          <label for="d-s">Date</label>
-          <input id="d-s" v-model="st.start" type="date" min="0001-01-01" max="9999-12-31" />
-          <div class="dnote">{{ about(S) || "Pick a date" }}</div>
+          <label for="d-s">{{ t("date.date") }}</label>
+          <input id="d-s" v-model="st.start" type="date" dir="ltr" min="0001-01-01" max="9999-12-31" />
+          <div class="dnote">{{ about(S) || t("date.pick") }}</div>
         </div>
-        <div class="seg sm dseg2"><button type="button" :class="{ on: !st.sub }" :aria-pressed="!st.sub" @click="st.sub = false">Add</button><button type="button" :class="{ on: st.sub }" :aria-pressed="st.sub" @click="st.sub = true">Subtract</button></div>
+        <div class="seg sm dseg2"><button type="button" :class="{ on: !st.sub }" :aria-pressed="!st.sub" @click="st.sub = false">{{ t("date.add") }}</button><button type="button" :class="{ on: st.sub }" :aria-pressed="st.sub" @click="st.sub = true">{{ t("date.sub") }}</button></div>
         <div class="dparts">
           <div v-for="[k, l] in PARTS" :key="k" class="fld">
-            <label :for="'d-' + k">{{ l }}</label>
-            <input :id="'d-' + k" v-model="st[k]" class="num" type="text" inputmode="numeric" autocomplete="off" placeholder="0" />
+            <label :for="'d-' + k">{{ t(l) }}</label>
+            <input :id="'d-' + k" v-model="st[k]" class="num" dir="ltr" type="text" inputmode="numeric" autocomplete="off" placeholder="0" />
           </div>
         </div>
-        <div class="dnote">Years and months are added first, then weeks and days. When the month is shorter, the last day of the month is used: 31 Jan + 1 month is 28 Feb (29 in a leap year).</div>
+        <div class="dnote">{{ t("date.addNote") }}</div>
       </div>
       <div class="card dcard dres" aria-live="polite">
         <template v-if="addedDate">
           <div class="dtop">
             <div class="dbig">{{ long(addedDate) }}</div>
-            <button type="button" class="ib" title="Copy result" aria-label="Copy result" @click="copy(copyText)">
+            <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" @click="copy(copyText)">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
             </button>
           </div>
           <div class="dnote">{{ about(addedDate) }}</div>
-          <div v-if="added && 'clamped' in added && added.clamped" class="dnote dinfo">That month has no day {{ S!.d }}, so its last day was used.</div>
-          <div class="li"><span class="grow">Days from {{ short(S!) }}</span><span class="dv num">{{ nf.format(daysBetween(S!, addedDate)) }}</span></div>
+          <div v-if="added && 'clamped' in added && added.clamped" class="dnote dinfo">{{ t("date.clamped", { d: S!.d }) }}</div>
+          <!-- the date is its own isolate: in Hebrew it mixes words and digits -->
+          <div class="li"><span class="grow">{{ t("date.daysFrom") }} <bdi>{{ short(S!) }}</bdi></span><span class="dv num">{{ nf.format(daysBetween(S!, addedDate)) }}</span></div>
         </template>
-        <div v-else class="dnote" :class="{ dwarn: added && 'error' in added }">{{ added && "error" in added ? added.error : "Pick a date." }}</div>
+        <div v-else class="dnote" :class="{ dwarn: added && 'error' in added }">{{ added && "error" in added ? tMsg(added.error) : t("date.pickDot") }}</div>
       </div>
     </div>
 
     <div v-else-if="st.tab === 'age'" class="dgrid">
       <div class="card dcard">
         <div class="fld">
-          <label for="d-birth">Date of birth</label>
-          <input id="d-birth" v-model="st.birth" type="date" min="0001-01-01" max="9999-12-31" />
-          <div class="dnote">{{ about(birth) || "Pick a date" }}</div>
+          <label for="d-birth">{{ t("date.birth") }}</label>
+          <input id="d-birth" v-model="st.birth" type="date" dir="ltr" min="0001-01-01" max="9999-12-31" />
+          <div class="dnote">{{ about(birth) || t("date.pick") }}</div>
         </div>
         <div class="fld">
-          <label for="d-on">Age on</label>
-          <input id="d-on" v-model="st.on" type="date" min="0001-01-01" max="9999-12-31" />
-          <div class="dnote">{{ st.on ? about(onDay) : "Today" }}</div>
+          <label for="d-on">{{ t("date.ageOn") }}</label>
+          <input id="d-on" v-model="st.on" type="date" dir="ltr" min="0001-01-01" max="9999-12-31" />
+          <div class="dnote">{{ st.on ? about(onDay) : t("c.today") }}</div>
         </div>
-        <div class="dbtns"><button type="button" class="btn o sm" :disabled="!st.on" @click="st.on = ''">Today</button></div>
+        <div class="dbtns"><button type="button" class="btn o sm" :disabled="!st.on" @click="st.on = ''">{{ t("c.today") }}</button></div>
       </div>
       <div class="card dcard dres" aria-live="polite">
         <template v-if="ageR">
           <div class="dtop">
-            <div class="dbig num">{{ ageR.years === 1 ? "1 year" : `${nf.format(ageR.years)} years` }}</div>
-            <button type="button" class="ib" title="Copy result" aria-label="Copy result" @click="copy(copyText)">
+            <div class="dbig" :class="{ num: lang !== 'he' }">{{ yearsText(ageR.years) }}</div>
+            <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" @click="copy(copyText)">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
             </button>
           </div>
-          <div class="li"><span class="grow">Exactly</span><span class="dv">{{ ageText }}</span></div>
-          <div class="li"><span class="grow">In days</span><span class="dv num">{{ nf.format(ageR.totalDays) }}</span></div>
-          <div class="li"><span class="grow">Next birthday</span><span class="dv">{{ long(ageR.nextBirthday) }} · in {{ describeDays(ageR.daysToBirthday) }}</span></div>
-          <div v-if="birth!.m === 2 && birth!.d === 29" class="dnote">Born on 29 Feb: in other years the birthday is counted on 1 Mar.</div>
+          <div class="li"><span class="grow">{{ t("date.exactly") }}</span><span class="dv">{{ ageText }}</span></div>
+          <div class="li"><span class="grow">{{ t("date.inDays") }}</span><span class="dv num">{{ nf.format(ageR.totalDays) }}</span></div>
+          <div class="li"><span class="grow">{{ t("date.nextBirthday") }}</span><span class="dv">{{ long(ageR.nextBirthday) }} · {{ t("date.in") }} {{ describeDays(ageR.daysToBirthday) }}</span></div>
+          <div v-if="birth!.m === 2 && birth!.d === 29" class="dnote">{{ t("date.leap") }}</div>
         </template>
-        <div v-else class="dnote" :class="{ dwarn: birth && onDay }">{{ birth && onDay ? "The date of birth is after that day." : "Pick a date of birth." }}</div>
+        <div v-else class="dnote" :class="{ dwarn: birth && onDay }">{{ birth && onDay ? t("date.birthAfter") : t("date.pickBirth") }}</div>
       </div>
     </div>
 
     <div v-else class="dgrid">
       <div class="card dcard">
-        <h3 class="dh" role="heading" aria-level="2">From one time to another</h3>
+        <h3 class="dh" role="heading" aria-level="2">{{ t("date.fromTo") }}</h3>
         <div class="dparts two">
-          <div class="fld"><label for="d-t1">From</label><input id="d-t1" v-model="st.t1" type="time" /></div>
-          <div class="fld"><label for="d-t2">To</label><input id="d-t2" v-model="st.t2" type="time" /></div>
+          <div class="fld"><label for="d-t1">{{ t("c.from") }}</label><input id="d-t1" v-model="st.t1" type="time" dir="ltr" /></div>
+          <div class="fld"><label for="d-t2">{{ t("c.to") }}</label><input id="d-t2" v-model="st.t2" type="time" dir="ltr" /></div>
         </div>
         <div v-if="span" class="dtop" aria-live="polite">
           <div class="dbig num">{{ formatDuration(span.seconds) }}</div>
-          <button type="button" class="ib" title="Copy result" aria-label="Copy result" @click="copy(formatDuration(span.seconds))">
+          <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" @click="copy(formatDuration(span.seconds))">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
           </button>
         </div>
-        <div v-if="span" class="dnote">{{ describeDuration(span.seconds) }}{{ span.nextDay ? " · ends the next day" : "" }}</div>
-        <div v-else class="dnote">Pick both times.</div>
+        <div v-if="span" class="dnote">{{ describeDuration(span.seconds) }}{{ span.nextDay ? " · " + t("date.nextDay") : "" }}</div>
+        <div v-else class="dnote">{{ t("date.pickTimes") }}</div>
       </div>
       <div class="card dcard">
-        <h3 class="dh" role="heading" aria-level="2">Add and subtract hours</h3>
+        <h3 class="dh" role="heading" aria-level="2">{{ t("date.addHours") }}</h3>
         <div class="fld">
-          <label for="d-durs">Hours and minutes</label>
-          <input id="d-durs" v-model="st.durs" class="num" type="text" autocomplete="off" spellcheck="false" inputmode="text" placeholder="1:30 + 2:45 - 0:20" />
-          <div class="dnote">hours:minutes, or hours:minutes:seconds, with + or - between them</div>
+          <label for="d-durs">{{ t("date.hm") }}</label>
+          <input id="d-durs" v-model="st.durs" class="num" dir="ltr" type="text" autocomplete="off" spellcheck="false" inputmode="text" placeholder="1:30 + 2:45 - 0:20" />
+          <div class="dnote">{{ t("date.hmHint") }}</div>
         </div>
         <template v-if="typeof sum === 'number'">
           <div class="dtop" aria-live="polite">
             <div class="dbig num">{{ formatDuration(sum) }}</div>
-            <button type="button" class="ib" title="Copy result" aria-label="Copy result" @click="copy(formatDuration(sum))">
+            <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" @click="copy(formatDuration(sum))">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
             </button>
           </div>
           <div class="dnote">{{ describeDuration(sum) }}</div>
         </template>
-        <div v-else-if="sum" class="dnote dwarn" role="alert">{{ sum.error }}</div>
+        <div v-else-if="sum" class="dnote dwarn" role="alert">{{ tMsg(sum.error) }}</div>
       </div>
     </div>
   </div>
