@@ -1,0 +1,43 @@
+# Development environment: watch the app at https://calculator.localhost while it is being built.
+#   docker compose -f docker-compose.dev.yml up -d
+# The shared Caddy proxy (another project) serves https://calculator.localhost and forwards to the "calculator-web"
+# container on the external "proxy" network. Nothing here publishes ports 80/443, so other sites are untouched.
+name: calculator
+
+x-node: &node
+  image: node:22-alpine
+  user: "1000:1000"
+  working_dir: /repo
+  volumes:
+    - ./:/repo
+  environment: &node-env
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    npm_config_store_dir: /repo/.pnpm-store
+    CHOKIDAR_USEPOLLING: "1"   # notice every change in the shared folder, however the file was saved
+    WATCH_POLL: "1"
+
+services:
+  install:   # installs packages once per "up", then exits
+    <<: *node
+    command: corepack pnpm install
+    networks: [dev]
+
+  web:
+    <<: *node
+    container_name: calculator-web   # the name Caddy forwards to
+    restart: unless-stopped
+    command: corepack pnpm --filter @calc/web dev
+    environment:
+      <<: *node-env
+      VITE_HMR_HOST: calculator.localhost
+    ports:
+      - "127.0.0.1:8795:5173"   # direct access without the proxy: http://127.0.0.1:8795
+    depends_on:
+      install: { condition: service_completed_successfully }
+    networks: [dev, proxy]
+
+networks:
+  dev: {}            # package installs need the internet
+  proxy:
+    external: true
+    name: proxy

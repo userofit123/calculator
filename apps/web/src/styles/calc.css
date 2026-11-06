@@ -1,0 +1,73 @@
+/* The calculator: the mode switch, the display and the keypad. Tokens only: the keys follow the colour set, the
+   density (their height and the gaps between them), the corners (or round, Appearance > Style > Calculator keys) and
+   the key press feedback. On the phone the keypad fills the space between the display and the tabs. */
+
+/* key size and gaps per density (Cozy is the default) */
+html { --kh: 58px; --kg: 10px; --kfs: 24px; --kr: var(--r-md); }
+html[data-den="compact"] { --kh: 48px; --kg: 6px; --kfs: 21px; }
+html[data-den="roomy"] { --kh: 68px; --kg: 14px; --kfs: 27px; }
+html[data-ksh="round"] { --kr: 999px; }
+
+.calc { display: flex; flex-direction: column; gap: var(--hg); max-width: 460px; }
+.calc-top { display: flex; align-items: center; justify-content: space-between; min-height: 36px; }
+
+/* the mode switch: a quiet button with the mode's name, like the GNOME calculator's mode menu */
+.mnub { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--tx); font-size: 17px; font-weight: 600; letter-spacing: -.2px; padding: 6px 8px 6px 10px; margin-inline-start: -10px; border-radius: var(--pill); cursor: pointer; transition: background .2s; }
+.mnub:hover, .mnub[aria-expanded="true"] { background: var(--s2); }
+.mnub .ico { color: var(--tx2); }
+
+/* the display: what is typed (small, quiet) above the answer (big) */
+.cdisp { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: var(--cpy) var(--cpx); border-radius: var(--r); background: var(--s1); border: 1px solid var(--ol); min-height: 128px; justify-content: flex-end; }
+.cexp { min-height: 1.4em; font-size: 20px; color: var(--tx2); text-align: end; white-space: nowrap; overflow-x: auto; scrollbar-width: none; direction: ltr; }
+.cexp::-webkit-scrollbar { display: none; }
+.ceq { color: var(--tx2); }
+.cres { display: block; width: 100%; border: 0; background: none; padding: 0; font-family: inherit; text-align: end; font-size: 52px; font-weight: 500; letter-spacing: -1px; line-height: 1.15; color: var(--tx); white-space: nowrap; overflow-x: auto; scrollbar-width: none; cursor: copy; transition: color .15s, font-size .15s; }
+.cres::-webkit-scrollbar { display: none; }
+.cres.m { font-size: 42px; }
+.cres.s { font-size: 32px; }
+.cres.xs { font-size: 24px; letter-spacing: 0; }
+.cres.pre { color: var(--tx2); }
+.cres.err { color: var(--neg); font-size: 24px; letter-spacing: 0; }
+.cnote { display: flex; align-items: center; gap: 8px; padding: calc(var(--cpy) * .5) var(--cpx); border-radius: var(--r-sm); background: var(--s1); }
+
+/* the keypad: numbers on a surface tone, operators tinted with the accent, functions quieter, = the one filled key */
+.keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(var(--kh), auto); gap: var(--kg); }
+.key { border: 0; border-radius: var(--kr); font-family: inherit; font-size: var(--kfs); font-weight: 500; cursor: pointer; display: grid; place-items: center; min-width: 0; user-select: none; -webkit-user-select: none; touch-action: manipulation; transition: background .15s, color .15s, transform .12s var(--ease), box-shadow .15s; }
+.key .ico { width: 24px; height: 24px; }
+.k-n { background: var(--s2); color: var(--tx); }
+.k-n:hover { background: color-mix(in srgb, var(--tx) 14%, var(--bg)); }
+.k-op { background: color-mix(in srgb, var(--acc) 18%, var(--bg)); color: var(--acc); font-size: calc(var(--kfs) + 4px); }
+.k-op:hover { background: color-mix(in srgb, var(--acc) 26%, var(--bg)); }
+.k-fn { background: var(--s1); color: var(--tx2); font-size: calc(var(--kfs) - 3px); }
+.k-fn:hover { background: var(--s2); color: var(--tx); }
+.k-eq { background: linear-gradient(135deg, var(--acc), var(--acc2)); color: var(--on); font-size: calc(var(--kfs) + 6px); box-shadow: 0 10px 24px -12px var(--acc); }
+.k-eq:hover { filter: brightness(1.06); }
+.key:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* key press feedback (Appearance > Style > Calculator keys): pressed in, lit up, or none. .hit is a keyboard press */
+html:not([data-kfb="glow"]):not([data-kfb="none"]) .key:is(:active, .hit) { transform: scale(.93); }
+html[data-kfb="glow"] .key:is(:active, .hit) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 45%, transparent); background: color-mix(in srgb, var(--acc) 34%, var(--bg)); color: var(--tx); }
+html[data-kfb="glow"] .k-eq:is(:active, .hit) { background: linear-gradient(135deg, var(--acc2), var(--acc)); color: var(--on); }
+
+/* surfaces (Appearance > Style > Surface) reach the display and the keys like the cards */
+body.outline .cdisp { background: none; }
+body.outline .k-n, body.outline .k-fn { background: none; box-shadow: inset 0 0 0 1px var(--ol); }
+body.raised .cdisp, body.raised .key:not(.k-eq) { box-shadow: 0 1px 0 color-mix(in srgb, var(--tx) 6%, transparent) inset, 0 6px 16px -10px var(--scrim); }
+body.glass .cdisp, body.glass .k-n, body.glass .k-fn { background: color-mix(in srgb, var(--s2) calc(var(--gop) * 100%), transparent); backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); -webkit-backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); }
+
+/* the phone: the calculator fills the screen between the top and the tabs, the keys share the height left */
+html.phone .pmain:has(> .calc) { padding-bottom: 12px; }
+html.phone .calc { max-width: none; height: calc(100dvh - var(--tabh) - var(--sb) - var(--st) - 14px - 12px - 16px); min-height: 440px; }
+html.phone .cdisp { flex: 1 1 auto; min-height: 120px; max-height: 34%; }
+html.phone .keys { flex: 1 1 auto; grid-auto-rows: minmax(min(var(--kh), 44px), 1fr); }
+
+/* a computer: the calculator sits in the middle of the page */
+html:not(.phone) .calc { margin: 0 auto; padding-top: 4vh; }
+
+/* the placeholder pages (Converter, History) and Settings */
+.soon { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: calc(var(--cpy) * 3) var(--cpx); color: var(--tx2); }
+.soon .ico { color: var(--acc); }
+.soon b { color: var(--tx); font-size: 17px; }
+.about p { line-height: 1.55; color: var(--tx2); }
+.about p + p { margin-top: var(--hg); }
+.about b { color: var(--tx); }
