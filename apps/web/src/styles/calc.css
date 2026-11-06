@@ -137,7 +137,8 @@ html:not(.phone) .calc.dmode { max-width: 900px; }
 html.phone .card .li:has(> .seg, > .fpick) { flex-wrap: wrap; row-gap: 8px; }
 html.phone .card .li:has(> .seg, > .fpick) > .grow { flex: 1 1 calc(100% - 48px); }
 html.phone .card .li:has(> .seg, > .fpick) > :is(.seg, .fpick) { margin-inline-start: auto; }
-.card .li > .fpick { width: 112px; flex: none; }
+/* at least as wide as before; wider for a long name ("Automatisch", "中文 (简体)"), up to the row's cap (app.css) */
+.card .li > .fpick { min-width: 112px; flex: none; }
 .hres.long { font-size: 17px; }
 
 /* a switch inside a settings row */

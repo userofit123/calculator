@@ -30,7 +30,7 @@ onMounted(() => { tick = window.setInterval(refreshToday, 60000); document.addEv
 onUnmounted(() => { window.clearInterval(tick); document.removeEventListener("visibilitychange", refreshToday); });
 
 // The weekend for business days: Sat-Sun, or Fri-Sat (Israel's Sunday-to-Thursday week). Until it is chosen here it
-// follows the language: Fri-Sat in Hebrew, Sat-Sun otherwise.
+// follows the language: Fri-Sat in Hebrew and Arabic, Sat-Sun otherwise.
 type Weekend = "satSun" | "friSat";
 const WEEKENDS: [Weekend, Key, Key, readonly number[]][] = [
   ["satSun", "date.weekend.satSun", "date.work.monFri", WEEKEND_SAT_SUN],
@@ -64,8 +64,8 @@ const short = (v: YMD) => fmtShort.value.format(utc(v));
 /** "Friday · Week 45 · Day 310 of 365" */
 const about = (v: YMD | null) => (v ? t("date.about", { wd: WD.value.format(utc(v)), week: isoWeek(v).week, day: dayOfYear(v), total: daysInYear(v.y) }) : "");
 const dateOf = (s: string) => parseDate(s);
-/** "1 year" / "12 years" (grouped as before in English); Hebrew has its own forms for 1 and 2 */
-const yearsText = (n: number) => (lang.value === "he" ? plural(n, "year") : n === 1 ? "1 year" : `${nf.format(n)} years`);
+/** "1 year" / "12 years" (grouped as before in English); other languages by their plural rules (Hebrew has its own forms for 1 and 2) */
+const yearsText = (n: number) => (lang.value !== "en" ? plural(n, "year") : n === 1 ? "1 year" : `${nf.format(n)} years`);
 
 // ---- between two dates ----
 const A = computed(() => dateOf(st.a)), B = computed(() => dateOf(st.b));
@@ -76,7 +76,7 @@ const between = computed(() => {
   const end = st.includeEnd ? addDays(e, 1) : e, days = daysBetween(s, end);
   return { days, back, ymd: describeYMD(diffYMD(s, end)), weeks: describeWeeks(days), work: Math.abs(businessDays(s, e, st.includeEnd, weekend.value[3])) };
 });
-const weekend = computed(() => WEEKENDS.find(([x]) => x === (st.weekend || (lang.value === "he" ? "friSat" : "satSun")))!);
+const weekend = computed(() => WEEKENDS.find(([x]) => x === (st.weekend || (lang.value === "he" || lang.value === "ar" ? "friSat" : "satSun")))!);
 function swapDates() { [st.a, st.b] = [st.b, st.a]; }
 
 // ---- adding to a date ----
@@ -150,8 +150,8 @@ async function copy(s: string) {
       <div class="card dcard dres" aria-live="polite">
         <template v-if="between">
           <div class="dtop">
-            <!-- words in Hebrew ("3 ימים"), so only English gets the number styling -->
-            <div class="dbig" :class="{ num: lang !== 'he' }">{{ describeDays(between.days) }}</div>
+            <!-- words in other languages ("3 ימים", "3 дня"), so only English gets the number styling -->
+            <div class="dbig" :class="{ num: lang === 'en' }">{{ describeDays(between.days) }}</div>
             <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" @click="copy(copyText)">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
             </button>
@@ -215,7 +215,7 @@ async function copy(s: string) {
       <div class="card dcard dres" aria-live="polite">
         <template v-if="ageR">
           <div class="dtop">
-            <div class="dbig" :class="{ num: lang !== 'he' }">{{ yearsText(ageR.years) }}</div>
+            <div class="dbig" :class="{ num: lang === 'en' }">{{ yearsText(ageR.years) }}</div>
             <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" @click="copy(copyText)">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
             </button>

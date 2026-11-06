@@ -10,7 +10,8 @@ import Icon from "./Icon.vue";
 import PickerPop from "./PickerPop.vue";
 import { t } from "../core/i18n";
 
-export interface SelectOption<V = string | number> { value: V; label: string; hint?: string; group?: string; disabled?: boolean }
+// `lang`: the label is in another language than the page (a language picker), so a screen reader says it right
+export interface SelectOption<V = string | number> { value: V; label: string; hint?: string; group?: string; disabled?: boolean; lang?: string }
 defineOptions({ inheritAttrs: false });
 const props = defineProps<{ modelValue: T; options: (Extract<T, string> | SelectOption<T>)[]; placeholder?: string; disabled?: boolean; title?: string }>();
 const emit = defineEmits<{ "update:modelValue": [v: T]; change: [v: T] }>();
@@ -88,7 +89,7 @@ function key(e: KeyboardEvent) {
 <template>
   <button ref="btn" type="button" class="fpick" v-bind="$attrs" :aria-label="name" role="combobox" aria-haspopup="listbox" :aria-expanded="open" :aria-controls="open ? `${id}-l` : undefined"
     :aria-activedescendant="open && hi >= 0 ? `${id}-${hi}` : undefined" :disabled="disabled" @click="open ? close() : show()" @keydown="key">
-    <span class="v" :class="{ unset: !cur }">{{ cur?.label ?? placeholder ?? "" }}</span><Icon name="down" :size="16" />
+    <span class="v" :class="{ unset: !cur }" :lang="cur?.lang">{{ cur?.label ?? placeholder ?? "" }}</span><Icon name="down" :size="16" />
   </button>
   <PickerPop v-if="open" :anchor="btn" :title="title ?? placeholder ?? t('ui.choose')" @close="close(false)">
     <div :id="`${id}-l`" class="asl" role="listbox">
@@ -96,7 +97,7 @@ function key(e: KeyboardEvent) {
         <div v-if="g" class="asg" role="presentation">{{ g }}</div>
         <div v-for="o in os" :id="`${id}-${flat.indexOf(o)}`" :key="String(o.value)" class="aso" role="option" :aria-selected="o.value === modelValue" :aria-disabled="o.disabled || undefined"
           :class="{ sel: o.value === modelValue, hi: flat.indexOf(o) === hi, dis: o.disabled }" @click="pick(o)" @mousemove="!o.disabled && (hi = flat.indexOf(o))">
-          <span class="ol"><span>{{ o.label }}</span><small v-if="o.hint">{{ o.hint }}</small></span><Icon name="check" :size="16" />
+          <span class="ol"><span :lang="o.lang">{{ o.label }}</span><small v-if="o.hint">{{ o.hint }}</small></span><Icon name="check" :size="16" />
           <slot name="end" :option="o" />
         </div>
       </template>

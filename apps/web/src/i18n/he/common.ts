@@ -32,6 +32,5 @@ export const common: Record<keyof typeof EN, string> = {
   "lang.title": "שפה",
   "lang.hint": "אוטומטי לפי שפת המכשיר",
   "lang.auto": "אוטומטי",
-  "lang.en": "English",
-  "lang.he": "עברית",
+  "dur.minus": "מינוס",
 };

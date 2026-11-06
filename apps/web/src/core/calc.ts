@@ -9,7 +9,8 @@ import {
 import { readJson, writeJson } from "./prefs";
 import { addHistory, history, type HistItem } from "./history";
 import { toast } from "./toast";
-import { t as tr, type Key } from "./i18n";
+import { t as tr, type Key, langChoice, resolveLang } from "./i18n";
+import { LANG_INFO } from "../i18n/langs";
 import { tMsg } from "./msg";
 import { startMode, deviceHints, isFirstOpen } from "./keyboard";
 import { unitOptions, waiting, ready } from "./unitCalc";
@@ -37,7 +38,9 @@ export const formMode = (m: Mode) => m === "date" || m === "tip" || m === "every
 
 export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | ","; everyday: boolean }
 const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;
-export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: ".", everyday: false, ...readJson<Partial<CalcSettings>>("calcSettings", {}) });
+// On a first run (no settings saved yet) the decimal mark follows the language: a comma in German, French, Russian, …
+const firstMark = (): "." | "," => (!hadSettings && LANG_INFO[resolveLang(langChoice.value)].comma ? "," : ".");
+export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: firstMark(), everyday: false, ...readJson<Partial<CalcSettings>>("calcSettings", {}) });
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
 /** The number formats: label for Settings and the display's menu, short label for the display's chip */
 export const FORMATS: { id: NumberFormat; label: string; short: string; hint: string }[] = [

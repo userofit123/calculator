@@ -8,7 +8,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { readNumber, money, plain, tipSplit, formatDisplay, type Q } from "@calc/core";
 import { settings } from "../core/calc";
 import { isPhone } from "../core/device";
-import { lang, t, type Key, useTexts } from "../core/i18n";
+import { lower, t, type Key, useTexts } from "../core/i18n";
 import { tip as texts } from "../i18n/en/tip";
 // this part loads lazily: its English texts come with it
 useTexts(texts);
@@ -104,7 +104,7 @@ async function copy(s: string) {
   try { await navigator.clipboard.writeText(s); toast(t("c.copied")); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
 }
 /** "Copy tip" (English puts the row's name in lower case; Hebrew has no case) */
-const copyTitle = (k: Key) => t("tip.copyRow", { label: lang.value === "he" ? t(k) : t(k).toLowerCase() });
+const copyTitle = (k: Key) => t("tip.copyRow", { label: lower(t(k)) });
 const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
 // in Tip mode on a computer the bill is ready to type into (on a phone the on-screen keyboard would cover the page)
 onMounted(() => { if (!props.inTab && !isPhone.value) billEl.value?.focus(); });

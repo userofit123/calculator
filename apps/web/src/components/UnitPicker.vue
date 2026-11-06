@@ -6,7 +6,7 @@ import { computed, nextTick, ref, useId, watch } from "vue";
 import { isPhone } from "../core/device";
 import Icon from "./Icon.vue";
 import PickerPop from "./PickerPop.vue";
-import { t } from "../core/i18n";
+import { lower, t } from "../core/i18n";
 
 export interface PickOption { value: string; label: string; lead?: string; hint?: string; keys?: string }
 const props = defineProps<{ modelValue: string; options: PickOption[]; title: string }>();
@@ -54,7 +54,7 @@ function btnKey(e: KeyboardEvent) {
   </button>
   <PickerPop v-if="open" :anchor="btn" :title="title" @close="close(false)">
     <div class="upf">
-      <input ref="field" v-model="find" type="search" :placeholder="t('ui.searchIn', { what: title.toLowerCase() })" :aria-label="t('ui.searchIn', { what: title.toLowerCase() })" autocomplete="off" spellcheck="false" enterkeyhint="done"
+      <input ref="field" v-model="find" type="search" :placeholder="t('ui.searchIn', { what: lower(title) })" :aria-label="t('ui.searchIn', { what: lower(title) })" autocomplete="off" spellcheck="false" enterkeyhint="done"
         role="searchbox" :aria-controls="`${id}-l`" :aria-activedescendant="shown.length ? `${id}-${hi}` : undefined" @keydown="key" />
     </div>
     <div :id="`${id}-l`" class="asl upl" role="listbox">

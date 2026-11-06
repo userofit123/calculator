@@ -3,7 +3,7 @@
 // a year) as a line with a soft area under it, the look of Money Manager's account chart (components/charts/LineChart.vue):
 // dashed grid, value labels on the left, dates along the bottom, a dashed line and a dot that follow the pointer, a
 // finger or the arrow keys, with a small box showing that day and its rate. Drawn as plain SVG, no chart library.
-// Time always runs left to right, in Hebrew too. Loaded as its own chunk, only in the Currency category; it asks for
+// Time always runs left to right, in right-to-left languages too. Loaded as its own chunk, only in the Currency category; it asks for
 // data only while open and only with online updates on (core/rateHistory.ts), and shows what this device keeps offline.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
@@ -13,7 +13,7 @@ import { history, ensureHistory, heldDays } from "../core/rateHistory";
 import { rates } from "../core/rates";
 import { show } from "../core/calc";
 import { readJson, writeJson } from "../core/prefs";
-import { t, lang, locale, currencyName, type Key } from "../core/i18n";
+import { t, rtl as isRtl, locale, currencyName, type Key } from "../core/i18n";
 import { canMove, dur } from "../core/motion";
 import Icon from "./Icon.vue";
 
@@ -28,7 +28,7 @@ watch(period, (v) => writeJson("rateGraphPeriod", v));
 /** the period chips are a radio group: the arrow keys move the choice (and the focus) to the next or previous one */
 function chipKey(e: KeyboardEvent, p: GraphPeriod) {
   const n = GRAPH_PERIODS.length, i = GRAPH_PERIODS.indexOf(p);
-  const rtl = lang.value === "he" ? -1 : 1;
+  const rtl = isRtl.value ? -1 : 1;
   const d = e.key === "ArrowDown" ? 1 : e.key === "ArrowUp" ? -1 : e.key === "ArrowRight" ? rtl : e.key === "ArrowLeft" ? -rtl : 0;
   if (!d) return;
   e.preventDefault();
@@ -157,7 +157,7 @@ watch(drawKey, (k, old) => {
 
 const name = (c: string) => currencyName(c, CURRENCY_NAMES[c] ?? c);
 const pairText = computed(() => `${props.from} → ${props.to}`);
-const isHe = computed(() => lang.value === "he");
+
 </script>
 
 <template>
@@ -197,7 +197,7 @@ const isHe = computed(() => lang.value === "he");
               <circle :cx="G.xs[hv]" :cy="G.y(tipPoint.value)" r="5" fill="var(--acc)" stroke="var(--bg)" stroke-width="2" class="hl" />
             </template>
           </svg>
-          <div ref="tip" class="rgtip" :dir="isHe ? 'rtl' : 'ltr'" :style="tipStyle" aria-hidden="true">
+          <div ref="tip" class="rgtip" :dir="isRtl ? 'rtl' : 'ltr'" :style="tipStyle" aria-hidden="true">
             <template v-if="tipPoint"><b>{{ longDay(tipPoint.day) }}</b><span class="num"><bdi>{{ num(tipPoint.value) }}</bdi> {{ to }}</span></template>
           </div>
         </div>

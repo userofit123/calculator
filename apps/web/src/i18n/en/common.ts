@@ -31,6 +31,6 @@ export const common = {
   "lang.title": "Language",
   "lang.hint": "Auto follows this device's language",
   "lang.auto": "Auto",
-  "lang.en": "English",
-  "lang.he": "עברית",
+  // "minus 1 hour, 2 minutes": a negative duration in words (core/i18n.ts describeDuration)
+  "dur.minus": "minus",
 } as const;

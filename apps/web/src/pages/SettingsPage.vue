@@ -5,7 +5,8 @@
 import { appearanceOpen } from "../core/ui";
 import { layoutChoice, setLayout } from "../core/device";
 import { settings, ANGLES, FORMATS, fmtLabel, fmtHint } from "../core/calc";
-import { t, locale, langChoice, setLang, type LangChoice, useTexts } from "../core/i18n";
+import { t, lang, locale, langChoice, setLang, resolveLang, type LangChoice, useTexts } from "../core/i18n";
+import { LANGS, LANG_INFO } from "../i18n/langs";
 import { settings as texts } from "../i18n/en/settings";
 // this part loads lazily: its English texts come with it
 useTexts(texts);
@@ -47,8 +48,18 @@ const DECIMALS = Array.from({ length: 16 }, (_, i) => ({ value: i, label: String
 const FORMAT_OPTIONS = computed(() => FORMATS.map((f) => ({ value: f.id, label: fmtLabel(f.id) })));
 const MARKS = [".", ","] as const;
 const LAYOUTS = [["auto", "set.layout.auto"], ["phone", "set.layout.phone"], ["desktop", "set.layout.desktop"]] as const satisfies readonly [typeof layoutChoice.value, string][];
-// the language names are in their own language (lang= so a screen reader says them right)
-const LANGS = [["auto", "lang.auto", undefined], ["en", "lang.en", "en"], ["he", "lang.he", "he"]] as const satisfies readonly [LangChoice, string, string | undefined][];
+// Each language by its own name (lang= so a screen reader says it right), with its name in the language shown under it
+// (typing its first letters jumps to it); Auto shows which one it means now.
+function inShown(locale: string): string {
+  try { return new Intl.DisplayNames([LANG_INFO[lang.value].locale], { type: "language" }).of(locale.replace(/-u-.*$/, "")) ?? ""; } catch { return ""; }
+}
+const LANG_OPTIONS = computed(() => [
+  { value: "auto" as LangChoice, label: t("lang.auto"), hint: LANG_INFO[resolveLang("auto")].name },
+  ...LANGS.map((l) => {
+    const h = inShown(l.locale);
+    return { value: l.code as LangChoice, label: l.name, lang: l.locale.replace(/-u-.*$/, ""), hint: h && h.toLocaleLowerCase() !== l.name.toLocaleLowerCase() ? h : undefined };
+  }),
+]);
 </script>
 
 <template>
@@ -67,7 +78,7 @@ const LANGS = [["auto", "lang.auto", undefined], ["en", "lang.en", "en"], ["he",
           </div>
           <div class="li">
             <Icon name="info" /><div class="grow"><div class="t">{{ t("lang.title") }}</div><div class="s">{{ t("lang.hint") }}</div></div>
-            <div class="seg"><button v-for="[c, k, l] in LANGS" :key="c" type="button" :lang="l" :class="{ on: langChoice === c }" :aria-pressed="langChoice === c" @click="setLang(c)">{{ t(k) }}</button></div>
+            <AppSelect :model-value="langChoice" :options="LANG_OPTIONS" :title="t('lang.title')" @update:model-value="setLang" />
           </div>
         </div>
       </section>

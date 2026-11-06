@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { EN_ALL as EN } from "../src/i18n/en-all";
 import type { Key } from "../src/i18n/en";
 import { HE } from "../src/i18n/he";
-import { t, iso, setLang, lang, resolveLang, plural, describeYMD, describeDuration } from "../src/core/i18n";
+import { t, iso, setLang, lang, resolveLang, plural, describeYMD, describeDuration, describeWeeks, rtl, lower, applyLang } from "../src/core/i18n";
+import { LANGS } from "../src/i18n/langs";
 import { tMsg, knownMsg } from "../src/core/msg";
 import { speak } from "../src/core/speak";
 
@@ -62,7 +63,14 @@ describe("t()", () => {
     expect(resolveLang("auto", "iw")).toBe("he");
     expect(resolveLang("auto", "en-GB")).toBe("en");
     expect(resolveLang("en", "he-IL")).toBe("en");
-    expect(resolveLang("he", "en-US")).toBe("he");
+    expect(resolveLang("he", "en-US")).toBe("he");    // the first of the browser's languages the app has, by its main part
+    expect(resolveLang("auto", ["ca-ES", "es-ES", "en"])).toBe("es");
+    expect(resolveLang("auto", ["pt-PT"])).toBe("pt");
+    expect(resolveLang("auto", ["zh-Hans-CN"])).toBe("zh");
+    expect(resolveLang("auto", ["in-ID"])).toBe("id");
+    expect(resolveLang("auto", ["sw", "xx"])).toBe("en");
+    expect(resolveLang("ar", ["de"])).toBe("ar");
+    expect(resolveLang("klingon", ["de-AT"])).toBe("de");
   });
 });
 
@@ -105,6 +113,39 @@ describe("Hebrew words", () => {
   });
 });
 
+describe("other languages", () => {
+  afterAll(() => setLang("en"));
+  it("counts by each language's plural rules", async () => {
+    await setLang("ru");
+    expect(rtl.value).toBe(false);
+    expect([1, 2, 5, 21, 0].map((n) => plural(n, "day"))).toEqual(["1 день", "2 дня", "5 дней", "21 день", "0 дней"]);
+    expect(plural(-3, "year")).toBe("-3 года");
+    await setLang("pl");
+    expect([1, 3, 5, 22].map((n) => plural(n, "month"))).toEqual(["1 miesiąc", "3 miesiące", "5 miesięcy", "22 miesiące"]);
+    await setLang("ja");
+    expect(describeYMD({ years: 2, months: 3, days: 0 })).toBe("2年3か月");
+    expect(describeWeeks(10)).toBe("1週間3日");
+    await setLang("de");
+    expect(describeDuration(-3720)).toBe("minus 1 Stunde, 2 Minuten");
+    expect(lower("Trinkgeld")).toBe("Trinkgeld"); // German nouns keep their capital
+    await setLang("tr");
+    expect(lower("İndirim")).toBe("indirim"); // Turkish rules for the dotted I
+    await setLang("ar");
+    expect(lang.value).toBe("ar");
+    expect(rtl.value).toBe(true);
+    const root = { lang: "", dir: "" } as HTMLElement;
+    applyLang("ar", root);
+    expect(root).toMatchObject({ lang: "ar", dir: "rtl" });
+    expect([1, 2, 3, 11, 100].map((n) => plural(n, "day"))).toEqual(["يوم واحد", "يومان", "\u20663\u2069 أيام", "\u206611\u2069 يومًا", "\u2066100\u2069 يوم"]);
+    // numbers in an Arabic sentence stay Latin digits, isolated left to right
+    expect(t("upd.available", { v: "1.2.0" })).toContain("\u20661.2.0\u2069");
+    await setLang("zh");
+    applyLang("zh", root);
+    expect(root).toMatchObject({ lang: "zh-CN", dir: "ltr" });
+    expect(iso("12")).toBe("12");
+  });
+});
+
 describe("before the first paint", () => {
   const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const head = html.slice(0, html.indexOf("</head>"));
@@ -125,7 +166,17 @@ describe("before the first paint", () => {
     expect(run(null, "he-IL")).toMatchObject({ lang: "he", dir: "rtl" });
     expect(run("auto", "he")).toMatchObject({ dir: "rtl" });
     expect(run("en", "he-IL").dir).toBe("");
-    expect(run(null, "en-GB").dir).toBe("");
+    expect(run(null, "en-GB").dir).toBe("");    expect(run("ar", "en-US")).toMatchObject({ lang: "ar", dir: "rtl" });
+    expect(run(null, "ar-EG")).toMatchObject({ lang: "ar", dir: "rtl" });
+    expect(run(null, "zh-TW")).toMatchObject({ lang: "zh-CN", dir: "" });
+    expect(run("pt", "en")).toMatchObject({ lang: "pt-BR", dir: "" });
+    expect(run(null, "fr-CA")).toMatchObject({ lang: "fr", dir: "" });
+    expect(run(null, "sw")).toMatchObject({ lang: "en", dir: "" });
+  });
+  it("knows the same languages, and the same right-to-left ones, as i18n/langs.ts", () => {
+    const codes = /var C="([^"]+)"/.exec(boot)![1]!.split(" ").sort();
+    expect(codes).toEqual(LANGS.map((l) => l.code).sort());
+    for (const l of LANGS) expect(run(l.code, "en").dir, l.code).toBe(l.rtl ? "rtl" : "");
   });
   it("mounts the app only once the saved language's texts are here", () => {
     const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");

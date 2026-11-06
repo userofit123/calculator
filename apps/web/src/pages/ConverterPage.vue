@@ -12,7 +12,7 @@ import { isPhone } from "../core/device";
 import { readJson, writeJson } from "../core/prefs";
 import { rates, rateDate, refreshRates, autoRefresh } from "../core/rates";
 import { toast } from "../core/toast";
-import { t, tMaybe, lang, locale, unitName, currencyName, type Key, useTexts } from "../core/i18n";
+import { t, tMaybe, lang, listOf, locale, unitName, currencyName, type Key, useTexts } from "../core/i18n";
 import { convert as texts } from "../i18n/en/convert";
 // this part loads lazily: its English texts come with it
 useTexts(texts);
@@ -64,7 +64,7 @@ const isCurrency = computed(() => cat.value.id === "currency");
 // currencies show their code as the badge, never a flag emoji: Windows draws those as two letters
 const options = computed<PickOption[]>(() => [...cat.value.units, ...noRate.value.map(unit)].map((u) => {
   const n = name(u);
-  // in Hebrew the English name still finds it ("pound", "yen")
+  // in another language the English name still finds it ("pound", "yen")
   return { value: u.id, label: n, lead: u.symbol, hint: hint(u), keys: n === u.name ? u.alias : [u.alias, u.name].filter(Boolean).join(" ") };
 }));
 /** a category's, unit's or currency's name in the language shown (core keeps them in English) */
@@ -80,7 +80,7 @@ const fullOptions = computed<EvalOptions>(() => ({
 // value; money keeps its cents however large the amount, so currencies stay at their 4 decimals
 const evalOptions = computed<EvalOptions>(() => (isCurrency.value ? fullOptions.value : { ...fullOptions.value, significant: CONVERT_DIGITS }));
 const typed = computed(() => sanitizeInput(st.amount, settings.decimalMark));
-const result = computed(() => (noRate.value.length ? { error: t("msg.noRate", { x: noRate.value.join(lang.value === "he" ? ", " : " and ") }) } : typed.value ? convert(cat.value, from.value, to.value, typed.value, evalOptions.value) : null));
+const result = computed(() => (noRate.value.length ? { error: t("msg.noRate", { x: listOf(noRate.value) }) } : typed.value ? convert(cat.value, from.value, to.value, typed.value, evalOptions.value) : null));
 const all = computed(() => {
   if (!typed.value || noRate.value.includes(from.value)) return [];
   const r = convertAll(cat.value, from.value, typed.value, evalOptions.value);
@@ -101,16 +101,16 @@ function pickTo(u: Unit) { if (u.id !== from.value) to.value = u.id; }
 
 /** the ECB's day: most currencies come from it */
 const ecbDay = computed(() => sourceDayOf(rates.set, "ecb") || rates.set.date);
-const ratesLine = computed(() => tr("conv.ratesOf", { date: lang.value === "he" ? heDay(ecbDay.value) : rateDate(ecbDay.value), source: t("conv.bank.ecb") }));
+const ratesLine = computed(() => tr("conv.ratesOf", { date: lang.value === "en" ? rateDate(ecbDay.value) : heDay(ecbDay.value), source: t("conv.bank.ecb") }));
 
 // core words a currency's source in English (rateSourceLine, the units' hints); the same lines are built here from
 // the same tables so they follow the language. English reads exactly as core's.
 /** t() for params that are Hebrew text with digits in it (a Hebrew date, a source line): those must not be isolated
  *  left to right as t() does with digits, or "6 בנוב׳ 2026" would read backwards */
 const tr = (key: Key, p: Record<string, string>) => t(key).replace(/\{(\w+)\}/g, (m, k: string) => p[k] ?? m);
-/** "6 Nov 2026"; in Hebrew the month's name by Intl */
+/** "6 Nov 2026"; in other languages the month's name by Intl */
 const heDay = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString(locale(), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-const day = (d: string) => (lang.value === "he" ? heDay(d) : shortDay(d));
+const day = (d: string) => (lang.value === "en" ? shortDay(d) : heDay(d));
 const bank = (src: string) => tMaybe("conv.bank." + src, RATE_SOURCES[src]?.name ?? src);
 /** as core's rateSourceLine: "National Bank of Ukraine, 6 Nov 2026", "Fixed at 3.6725 per US dollar (...) · ..." */
 function sourceLine(code: string): string {
