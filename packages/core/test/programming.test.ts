@@ -235,7 +235,12 @@ describe("sums from the other modes (review C-12 #2)", () => {
   it("whole-number sums carry over, ^ as **", () => {
     expect(toProgramming("10+5")).toBe("10+5");
     expect(toProgramming("2^3 mod 3 − ans")).toBe("2**3 mod 3 − ans");
-    expect(toProgramming("2×(3÷4)")).toBe("2×(3÷4)");
+    expect(toProgramming("6÷2")).toBe("6÷2");
+    expect(toProgramming("2×(8÷4)")).toBe("2×(8÷4)");
+    expect(toProgramming("10+")).toBe("10+");
+  });
+  it("sums whose answer would change (÷ is integer division here) are refused", () => {
+    for (const s of ["1÷2", "7÷2", "1÷3×3", "10/4", "2×(3÷4)"]) expect(toProgramming(s), s).toBeNull();
   });
   it("names, decimals, scientific notation and other-meaning symbols are refused, not reinterpreted", () => {
     for (const s of ["2×e", "e^2", "2.5e3+1", "1e−7", "1E5", "a+1", "face+1", "0b", "π", "sin(30)", "50%", "|−5|", "3²", "2.5", "5!", "ans2"])

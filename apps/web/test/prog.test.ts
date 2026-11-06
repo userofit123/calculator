@@ -6,7 +6,7 @@ vi.hoisted(() => {
 });
 import { nextTick } from "vue";
 import { toggleBit } from "@calc/core";
-import { calc, press, keyFor, preview, prog, progValue, setBase, setProgValue, paste, current, restoreExpr } from "../src/core/calc";
+import { calc, press, keyFor, preview, prog, progValue, setBase, setProgValue, paste, current, restoreExpr, typedValue } from "../src/core/calc";
 import { history } from "../src/core/history";
 import { toasts } from "../src/core/toast";
 
@@ -195,6 +195,27 @@ describe("a sum from another mode, into programming mode and back", () => {
     expect(roundTrip("10+5")).toEqual({ inProg: "10+5", inHex: "A+5", back: "10+5" });
     const r = roundTrip("2^3"); expect(r.inProg).toBe("2**3"); expect(r.back).toBe("2^3");
     calc.mode = "programming"; expect(current()?.exact).toBe("8");
+  });
+  for (const sum of ["1÷2", "7÷2", "1÷3×3", "10/4"]) {
+    it(`${sum}: would give another answer here, so not carried over, and given back on the way out`, () => {
+      toasts.splice(0);
+      const r = roundTrip(sum);
+      expect(r.inProg).toBe("");
+      expect(toasts.map((t) => t.text)).toContain("Not available in Programming mode");
+      expect(r.back).toBe(sum);
+    });
+  }
+  it("6÷2 (whole, same value here) still carries over", () => {
+    expect(roundTrip("6÷2")).toEqual({ inProg: "6÷2", inHex: "6÷2", back: "6÷2" });
+    calc.mode = "programming"; expect(current()?.exact).toBe("3");
+  });
+  it("a fractional history answer or memory is not typed into a programming sum", () => {
+    toasts.splice(0); press("AC"); calc.mem = "1/3";
+    press("MR"); expect(calc.expr).toBe("");
+    expect(typedValue("1/3")).toBe("");
+    expect(toasts.map((t) => t.text)).toContain("Not available in Programming mode");
+    expect(typedValue("12")).toBe("12");
+    calc.mem = "";
   });
   it("an answer that can't go in is given back too", () => {
     calc.mode = "basic"; type("1/2="); toasts.splice(0);

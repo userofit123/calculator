@@ -19,9 +19,11 @@ function clear() {
 
 /** x: the answer in full (exact, so 1/3 used again is still 1/3), r: as shown, for answers too long to have been kept */
 function useResult(x: string, r: string) {
+  const v = typedValue(x || r);
+  if (!v) return; // a fraction can't go into a programming-mode sum (typedValue says so)
   // after an operator or "(" the answer joins the sum being typed, otherwise it starts a new one
   if (calc.answer || calc.error || !/[+−×÷^(]$/.test(calc.expr)) { press("AC"); }
-  press("fn:" + typedValue(x || r));
+  press("fn:" + v);
   go("calc");
 }
 // a programming-mode sum comes back in programming mode, with its base, word size and sign

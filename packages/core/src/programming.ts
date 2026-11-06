@@ -16,6 +16,7 @@
 // Number literals: digits in the chosen base, a subscript base (1010₂, 777₈, 99₁₀, FF₁₆) or a prefix: 0x and 0o always,
 // 0b except in hex mode (where 0B1 is the hex number B1).
 import { CalcError, bitLength } from "./rational";
+import { evaluate } from "./evaluate";
 
 export type Base = 2 | 8 | 10 | 16;
 export type WordSize = 8 | 16 | 32 | 64;
@@ -317,6 +318,11 @@ export function toProgramming(expression: string): string | null {
     if (!m) return null;
     out += m[0] === "^" ? "**" : m[0];
   }
+  // ÷ is integer division here (1÷2 is 0, 7÷2 is 3): a sum whose answer would change isn't carried over. Whole in
+  // Basic and the same here, or not workable in either (half typed), keeps its meaning.
+  const basic = evaluate(expression);
+  const prog = evaluateProgramming(out, { base: 10, wordSize: 64, signed: true });
+  if ("value" in basic ? !("value" in prog) || !/^-?\d+$/.test(basic.exact) || basic.exact !== prog.exact : "value" in prog) return null;
   return out;
 }
 

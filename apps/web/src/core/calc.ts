@@ -216,7 +216,12 @@ function memAdd(sign: "+" | "−") {
 }
 /** A stored value (an answer in full, memory) typed into the sum without losing anything: 1/3 is (1÷3) */
 export function typedValue(exact: string): string {
-  if (isProg() && /^-?\d+$/.test(exact)) return literal(BigInt(exact), prog);
+  if (isProg()) {
+    if (/^-?\d+$/.test(exact)) return literal(BigInt(exact), prog);
+    // (1÷3) would silently be 0 here (÷ is integer division): nothing is typed, and the user is told
+    toast("Not available in Programming mode", { kind: "err" });
+    return "";
+  }
   const m = /^(-?)(\d+)\/(\d+)$/.exec(exact);
   return m ? `(${m[1] ? "−" : ""}${m[2]}÷${m[3]})` : exact.replace(/-/g, "−");
 }
@@ -252,7 +257,7 @@ export function press(k: string) {
     return;
   }
   if (k === "MC") { calc.mem = ""; return; }
-  if (k === "MR") { if (calc.mem) operand(typedValue(calc.mem)); return; }
+  if (k === "MR") { if (calc.mem) { const v = typedValue(calc.mem); if (v) operand(v); } return; }
   if (k === "M+") return memAdd("+");
   if (k === "M−") return memAdd("−");
   if (k.startsWith("fn:")) return operand(k.slice(3));
