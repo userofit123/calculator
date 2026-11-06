@@ -1,0 +1,74 @@
+{
+"status": 200,
+"results": {
+"fecha": "2026-11-05",
+"detalle": [
+{
+"codigoMoneda": "ARS",
+"descripcion": "PESO",
+"tipoPase": 0.000647,
+"tipoCotizacion": 0.0
+},
+{
+"codigoMoneda": "AUD",
+"descripcion": "DOLAR AUSTRALIA",
+"tipoPase": 0.6949,
+"tipoCotizacion": 1073.96795
+},
+{
+"codigoMoneda": "BRL",
+"descripcion": "REAL",
+"tipoPase": 0.182229,
+"tipoCotizacion": 281.634959
+},
+{
+"codigoMoneda": "CAD",
+"descripcion": "DOLAR CANADIEN.",
+"tipoPase": 0.715001,
+"tipoCotizacion": 1105.033605
+},
+{
+"codigoMoneda": "CHF",
+"descripcion": "FRANCO SUIZO",
+"tipoPase": 1.228501,
+"tipoCotizacion": 1898.648649
+},
+{
+"codigoMoneda": "CLP",
+"descripcion": "PESO CHILENO",
+"tipoPase": 0.001023,
+"tipoCotizacion": 1.581009
+},
+{
+"codigoMoneda": "EUR",
+"descripcion": "EURO",
+"tipoPase": 1.1242,
+"tipoCotizacion": 1737.4511
+},
+{
+"codigoMoneda": "GBP",
+"descripcion": "LIBRA ESTERLINA",
+"tipoPase": 1.3485,
+"tipoCotizacion": 2084.10675
+},
+{
+"codigoMoneda": "JPY",
+"descripcion": "YENS",
+"tipoPase": 0.006345,
+"tipoCotizacion": 9.80585
+},
+{
+"codigoMoneda": "REF",
+"descripcion": "DOLAR REFERENCIA COM 3500",
+"tipoPase": 0.0,
+"tipoCotizacion": 1545.3974
+},
+{
+"codigoMoneda": "USD",
+"descripcion": "DOLAR E.E.U.U.",
+"tipoPase": 0.0,
+"tipoCotizacion": 1545.5
+}
+]
+}
+}

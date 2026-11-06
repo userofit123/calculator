@@ -1,0 +1,98 @@
+[
+{
+"r030": 36,
+"txt": "Австралійський долар",
+"rate": 31.862,
+"cc": "AUD",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 124,
+"txt": "Канадський долар",
+"rate": 32.5575,
+"cc": "CAD",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 156,
+"txt": "Юань Женьміньбі",
+"rate": 6.814,
+"cc": "CNY",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 392,
+"txt": "Єна",
+"rate": 0.28701,
+"cc": "JPY",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 682,
+"txt": "Саудівський ріял",
+"rate": 12.1071,
+"cc": "SAR",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 756,
+"txt": "Швейцарський франк",
+"rate": 55.6145,
+"cc": "CHF",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 784,
+"txt": "Дирхам ОАЕ",
+"rate": 12.3722,
+"cc": "AED",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 818,
+"txt": "Єгипетський фунт",
+"rate": 0.8432,
+"cc": "EGP",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 826,
+"txt": "Фунт стерлінгів",
+"rate": 61.2004,
+"cc": "GBP",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 840,
+"txt": "Долар США",
+"rate": 45.4432,
+"cc": "USD",
+"exchangedate": "06.11.2026",
+"special": "N"
+},
+{
+"r030": 978,
+"txt": "Євро",
+"rate": 51.0406,
+"cc": "EUR",
+"exchangedate": "06.11.2026",
+"special": null
+},
+{
+"r030": 985,
+"txt": "Злотий",
+"rate": 11.6239,
+"cc": "PLN",
+"exchangedate": "06.11.2026",
+"special": null
+}
+]

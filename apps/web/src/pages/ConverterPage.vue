@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// The converter: currency (the ECB's euro reference rates) and every unit category of GNOME's calculator, plus a few
+// The converter: currency (the ECB's euro reference rates, and central banks' own official rates for currencies the
+// ECB doesn't quote, each shown with its bank and day) and every unit category of GNOME's calculator, plus a few
 // more. The amount is any expression the calculator understands ("3/4", "12 × 1.5"); the result follows as you type,
 // and the list below shows the amount in every unit of the category. The maths (and the unit tables) are in
 // @calc/core; this page is loaded only when opened, so none of it holds up the calculator's first screen. The last
 // category, units and amount are remembered on this device.
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, shortDay, ECB_SOURCE, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
+import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, rateSourceLine, sourceDayOf, ECB_SOURCE, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
 import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
 import { readJson, writeJson } from "../core/prefs";
@@ -70,10 +71,15 @@ async function copy(t: string) {
 }
 function pickTo(u: Unit) { if (u.id !== from.value) to.value = u.id; }
 
-const ratesLine = computed(() => `Rates of ${rateDate(rates.set.date)} · ${ECB_SOURCE}`);
-/** the chosen currencies whose rate is from another day than the set's newest, "USD: 3 Nov 2026" */
-const olderLine = computed(() => !isCurrency.value ? "" : [from.value, to.value].filter((id, i, a) => a.indexOf(id) === i && !noRate.value.includes(id) && rateDayOf(rates.set, id) !== rates.set.date)
-  .map((id) => `${id} rate of ${shortDay(rateDayOf(rates.set, id))}`).join(" · "));
+/** the ECB's day: most currencies come from it */
+const ecbDay = computed(() => sourceDayOf(rates.set, "ecb") || rates.set.date);
+const ratesLine = computed(() => `Rates of ${rateDate(ecbDay.value)} · ${ECB_SOURCE}`);
+/** the chosen currencies whose rate isn't the ECB's of that day, each with its source and day:
+ *  "UAH: National Bank of Ukraine, 6 Nov 2026", "AED: Fixed at 3.6725 per US dollar (Central Bank of the UAE) · ..." */
+const olderLine = computed(() => !isCurrency.value ? "" : [from.value, to.value]
+  .filter((id, i, a) => a.indexOf(id) === i && id !== "EUR" && !noRate.value.includes(id) &&
+    !(rates.set.rates[id] && rateSourceOf(rates.set, id) === "ecb" && rateDayOf(rates.set, id) === ecbDay.value))
+  .map((id) => `${id}: ${rateSourceLine(rates.set, id)}`).join(" · "));
 const ratesState = computed(() => rates.loading ? "Checking for newer rates..." : rates.error ? `${rates.error} - using the rates above`
   : rates.set.fetchedAt ? `Downloaded ${new Date(rates.set.fetchedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : "Rates that came with the app");
 

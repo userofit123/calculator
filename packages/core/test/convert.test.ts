@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
+  parseNbuJson, parseBcraJson, rateSourceLine, sourceDayOf, CENTRAL_BANK_SOURCES, USD_PEGS,
   UNIT_CATEGORIES, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions,
 } from "../src";
 
@@ -222,5 +224,78 @@ ${["AUD", "CAD", "CHF", "CNY", "CZK", "DKK", "HKD", "HUF", "PLN"].map((c) => `EX
     expect(BUNDLED_RATES.rates.USD).toMatch(/^\d+\.\d+$/);
     const r = convert(currencyCategory(BUNDLED_RATES), "USD", "USD", "5");
     expect("value" in r && r.value).toBe("5");
+  });
+});
+
+describe("currencies from central banks (not quoted by the ECB)", () => {
+  const fixture = (f: string) => readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8");
+  const ecb = { date: "2026-11-05", rates: { USD: "1.1224", JPY: "177.85", GBP: "0.83393" } };
+  it("National Bank of Ukraine: the hryvnia rate of the euro and its day", () => {
+    expect(parseNbuJson(fixture("nbu.json"))).toEqual({ date: "2026-11-06", rates: { UAH: "51.0406" }, sources: { UAH: "nbu" } });
+  });
+  it("BCRA: the peso quote of the euro and its day", () => {
+    expect(parseBcraJson(fixture("bcra.json"))).toEqual({ date: "2026-11-05", rates: { ARS: "1737.4511" }, sources: { ARS: "bcra" } });
+  });
+  it("each live source gives only its own currency", () => {
+    expect(CENTRAL_BANK_SOURCES.map((s) => [s.id, s.currency])).toEqual([["nbu", "UAH"], ["bcra", "ARS"]]);
+    expect(Object.keys(parseNbuJson(fixture("nbu.json")).rates)).toEqual(["UAH"]);
+  });
+  it("answers that aren't usable throw (so the saved rates stay)", () => {
+    const nbu = JSON.parse(fixture("nbu.json")) as { cc: string; rate: unknown; exchangedate: string }[];
+    const without = (f: (x: (typeof nbu)[number]) => void) => JSON.stringify(nbu.map((x) => { const y = { ...x }; if (y.cc === "EUR") f(y); return y; }));
+    for (const bad of ["<html>busy</html>", "{}", "[]", without((x) => { x.rate = 0; }), without((x) => { x.rate = "51"; }), without((x) => { x.exchangedate = "2026-11-06"; }), without((x) => { x.cc = "XXX"; })]) {
+      expect(() => parseNbuJson(bad)).toThrow();
+    }
+    const bcra = JSON.parse(fixture("bcra.json")) as { results: { fecha: string; detalle: { codigoMoneda: string; tipoCotizacion: unknown }[] } };
+    const alter = (f: (b: typeof bcra) => void) => { const b = structuredClone(bcra); f(b); return JSON.stringify(b); };
+    for (const bad of ["not json", "{\"status\":400,\"errorMessages\":[\"x\"]}", alter((b) => { b.results.fecha = "5/11/2026"; }),
+      alter((b) => { b.results.detalle = b.results.detalle.filter((x) => x.codigoMoneda !== "EUR"); }),
+      alter((b) => { b.results.detalle.find((x) => x.codigoMoneda === "EUR")!.tipoCotizacion = -1; })]) {
+      expect(() => parseBcraJson(bad)).toThrow();
+    }
+  });
+  it("merging keeps each rate's source and day; a failed source keeps its saved rate", () => {
+    const m = mergeRates(mergeRates(ecb, parseNbuJson(fixture("nbu.json"))), parseBcraJson(fixture("bcra.json")));
+    expect(m.date).toBe("2026-11-06");
+    expect(m.sources).toEqual({ ARS: "bcra", UAH: "nbu" });
+    expect(m.dates).toEqual({ ARS: "2026-11-05", GBP: "2026-11-05", JPY: "2026-11-05", USD: "2026-11-05" });
+    expect(sourceDayOf(m, "ecb")).toBe("2026-11-05");
+    // a newer ECB day alone (the banks failed): the hryvnia and peso keep their rate, day and source
+    const n = mergeRates(m, { date: "2026-11-09", rates: { USD: "1.13" } });
+    expect(n.rates.UAH).toBe("51.0406"); expect(n.sources).toEqual({ ARS: "bcra", UAH: "nbu" }); expect(n.dates!.UAH).toBe("2026-11-06");
+    expect(n.sources!.USD).toBeUndefined();
+  });
+  it("shows the bank and the day of each rate", () => {
+    const m = mergeRates(mergeRates(ecb, parseNbuJson(fixture("nbu.json"))), parseBcraJson(fixture("bcra.json")));
+    const cur = currencyCategory(m), hint = (id: string) => cur.units.find((u) => u.id === id)?.hint;
+    expect(hint("UAH")).toBe("National Bank of Ukraine, 6 Nov 2026");
+    expect(hint("ARS")).toBe("Central Bank of Argentina, 5 Nov 2026");
+    expect(hint("USD")).toBeUndefined(); // the ECB's newest day: no note
+    expect(rateSourceLine(m, "USD")).toBe("European Central Bank reference rates, 5 Nov 2026");
+    expect(cv(cur, "EUR", "UAH", "2")).toBe("102.0812");
+    expect(cv(cur, "UAH", "ARS", "51.0406", { decimals: 4 })).toBe("1737.4511");
+  });
+  it("dollar pegs: peg × the ECB's dollar rate, exactly", () => {
+    const cur = currencyCategory(ecb), hint = (id: string) => cur.units.find((u) => u.id === id)?.hint;
+    expect(cv(cur, "USD", "AED", "1")).toBe("3.6725");
+    expect(cv(cur, "SAR", "USD", "3.75")).toBe("1");
+    expect(cv(cur, "EUR", "SAR", "1")).toBe("4.209");
+    const r = convert(cur, "AED", "SAR", "3.6725"); expect("exact" in r && r.exact).toBe("15/4");
+    expect(hint("AED")).toBe("Fixed at 3.6725 per US dollar (Central Bank of the UAE) · ECB dollar rate of 5 Nov 2026");
+    expect(Object.keys(USD_PEGS).every((c) => cur.units.some((u) => u.id === c))).toBe(true);
+    // with no dollar rate there is nothing to work them out from: left out
+    expect(currencyCategory({ date: "2026-11-05", rates: { JPY: "177.85" } }).units.some((u) => u.id === "AED")).toBe(false);
+  });
+  it("CFA francs: fixed euro parity", () => {
+    const cur = currencyCategory(ecb);
+    expect(cv(cur, "EUR", "XOF", "1")).toBe("655.957");
+    expect(cv(cur, "XAF", "XOF", "100")).toBe("100");
+    expect(cur.units.find((u) => u.id === "XOF")!.hint).toBe("Fixed at 655.957 per euro (BCEAO)");
+  });
+  it("the bundled snapshot has the central banks' currencies with their sources", () => {
+    for (const s of CENTRAL_BANK_SOURCES) {
+      expect(BUNDLED_RATES.rates[s.currency]).toMatch(/^\d+(\.\d+)?$/);
+      expect(BUNDLED_RATES.sources?.[s.currency]).toBe(s.id);
+    }
   });
 });

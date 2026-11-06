@@ -21,7 +21,7 @@ function keepChange(e: Event) {
 function turnOff(del: boolean) { askOff.value = false; setKeepHistory(false, del); }
 // --- end History ---
 // --- Converter / Currency rates (C-14) ---
-import { ECB_SOURCE } from "@calc/core";
+import { ECB_SOURCE, sourceDayOf } from "@calc/core";
 import { rates, rateDate, refreshRates } from "../core/rates";
 // --- end Converter / Currency rates ---
 
@@ -107,14 +107,15 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
         <div class="card flush">
           <label class="li tg">
             <Icon name="convert" /><div class="grow"><div class="t">Update currency rates online</div><div class="s">Downloads the latest
-              rates straight from the European Central Bank: when the converter's Currency category is opened, when the device comes
+              rates straight from the European Central Bank, and for the Ukrainian hryvnia and the Argentine peso from the National
+              Bank of Ukraine and the Central Bank of Argentina (official sources only): when the converter's Currency category is opened, when the device comes
               back online, when you switch this on, and on Refresh now. On its own at most every 4 hours; after a failed try it waits
               at least 30 minutes (then longer). No account, no cookies, nothing about you is sent. Off: no network requests at all;
               the converter keeps using the rates it has.</div></div>
             <input v-model="rates.online" type="checkbox" />
           </label>
           <div class="li">
-            <Icon name="history" /><div class="grow"><div class="t">Rates of {{ rateDate(rates.set.date) }}</div>
+            <Icon name="history" /><div class="grow"><div class="t">Rates of {{ rateDate(sourceDayOf(rates.set, "ecb") || rates.set.date) }}</div>
               <div class="s">{{ ECB_SOURCE }} · {{ rates.loading ? "Checking..." : rates.error ? rates.error
                 : rates.set.fetchedAt ? `downloaded ${new Date(rates.set.fetchedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : "came with the app" }}</div></div>
             <button type="button" class="btn o s" :disabled="!rates.online || rates.loading" @click="refreshRates()">Refresh now</button>
