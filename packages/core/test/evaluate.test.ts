@@ -449,6 +449,21 @@ describe("powers past the smallest number kept", () => {
   it("10^−60000 × 10^−60000 is ≈0, not too large", () => expect(exactOf("10^-60000 × 10^-60000")).toBe("≈0"));
   it("…and 1 ÷ it is too large", () => expect(err("1/(10^-60000 × 10^-60000)")).toBe("Number is too large"));
   it("(√2×10^−400)^1000 is ≈0", () => expect(exactOf("(√2×10^-400)^1000")).toBe("≈0"));
+  // an exact base out of a double's range to a power below the smallest number kept: ≈0, not "too large"
+  for (const e of ["(10^-60000)^2", "(2^-200000)^2", "(2^-200000)^3", "(1e-99990)^2", "(10^-60000)^2.5", "(10^-60000)^(5/2)", "√(10^-60000)^4"])
+    it(`${e} is ≈0`, () => expect(exactOf(e)).toBe("≈0"));
+  it("(10^−99990)^−2 is too large", () => expect(err("(10^-99990)^-2")).toBe("Number is too large"));
+  it("(10^−60000)^2 ÷ 10^−60000 is back in range", () => expect(exactOf("(10^-60000)^2 / 10^-60000")).toMatch(/^≈1(\.0*)?e-60000$/));
+  // a power whose exponent is past a double but whose log10 (≈ −2.119×10^307) is not: worked out
+  it("1.05^(−10^309) is ≈0", () => expect(exactOf("1.05^(-10^309)")).toBe("≈0"));
+  it("1.05^(−10^309) ÷ 1.05^(−10^309) ≈ 1", () => expect(exactOf("1.05^(-10^309)/1.05^(-10^309)")).toBe("≈1"));
+  it("log(1.05^(−10^309); 1.05^(−10^309)) = 1", () => expect(v("log(1.05^(-10^309); 1.05^(-10^309))")).toBe("1"));
+  it("log 1.05^(−10^309)", () => expect(v("log(1.05^(-10^309))")).toMatch(/^-2\.1189299\d*×10³⁰⁷$/));
+  // past even that (log10 ≈ −2.1×10^398, beyond a double) the exponent can't be known: an error, not ≈0 or "Not a real number"
+  it("1.05^(−10^400) is ≈0", () => expect(exactOf("1.05^(-10^400)")).toBe("≈0"));
+  it("1.05^(−10^400) ÷ itself", () => expect(err("1.05^(-10^400)/1.05^(-10^400)")).toBe("Not precise enough"));
+  it("log of it in itself", () => expect(err("log(1.05^(-10^400); 1.05^(-10^400))")).toBe("Not precise enough"));
+  it("its log is too large", () => expect(err("log(1.05^(-10^400))")).toBe("Number is too large"));
   it("0 × 2^(−10^6) = 0", () => expect(v("0 × 2^(−10^6)")).toBe("0"));
   it("2^(−10^6) ÷ 0", () => expect(err("2^(−10^6)/0")).toBe("Division by zero"));
   it("ceil and floor of it", () => { expect(v("ceil(2^(−10^6))")).toBe("1"); expect(v("floor(−2^(−10^6))")).toBe("-1"); expect(v("floor(2^(−10^6))")).toBe("0"); });

@@ -86,6 +86,8 @@ function fromL10(s: number, l: number, p = 15, big = 0): Value {
 /** m × 10^e (m a double ≠ 0, e whole): a tiny value below the smallest number kept, else the number to p digits */
 function fromME(m: number, e: number, p: number): Value {
   const l = e + Math.log10(Math.abs(m));
+  // an exponent that can't be known (−∞ − −∞: the quotient of two numbers too small even for their log) is not ≈0
+  if (Number.isNaN(l)) throw new CalcError("Not precise enough");
   if (!(l >= UNDERFLOW_L10)) return tiny(m, e, p);
   if (l > MAX_BITS * Math.LOG10E * Math.LN2) throw new CalcError("Number is too large");
   const M = BigInt(Math.round(m * 1e14)), k = e - 14;
@@ -152,7 +154,11 @@ function pow(a: Value, b: Value): Value {
     // a whole power past the largest number kept exactly (1.05^(−10^7) has 211,894 digits) is approximated below instead
     if (isInt(b.q)) { try { return { q: powInt(a.q, b.q.n) }; } catch (e) { if (!tooLarge(e)) throw e; } }
     // a rational power p/r: exact when the r-th root comes out (8^(1/3) = 2, 4^1.5 = 8)
-    else if (b.q.d <= 1000n) { const r = rootExact(a.q, Number(b.q.d)); if (r) return { q: powInt(r, b.q.n) }; }
+    else if (b.q.d <= 1000n) {
+      const r = rootExact(a.q, Number(b.q.d));
+      // (10^−60000)^(5/2): the root comes out but its power is past the largest number kept: by logarithms below
+      if (r) { try { return { q: powInt(r, b.q.n) }; } catch (e) { if (!tooLarge(e)) throw e; } }
+    }
   }
   if (isTiny(a) || isTiny(b)) return powTiny(a, b);
   const sa = sgn(a);
@@ -182,7 +188,18 @@ function pow(a: Value, b: Value): Value {
     return approx(mul(q(BigInt(sign)), powInt(m.a, b.q.n)), p - Math.log10(Math.abs(Number(b.q.n))));
   }
   const r = powNum(qOf(m), qOf(b));
+  // an exponent past a double (1.05^(−10^309)) makes powNum's log10 infinite, though the log10 of the result,
+  // log10 m × b ≈ −2.119×10^307, may still fit in one: worked out as 10^(log10 |log10 m| + log10 |b|), so the
+  // same power gives the same log (1.05^(−10^309) ÷ 1.05^(−10^309) ≈ 1); past even that (1.05^(−10^400), log10
+  // ≈ −2.1×10^398) it stays ∓∞, and what can't be known from it is "Not precise enough" (fromME, logBase)
+  if ("l10" in r && !Number.isFinite(r.l10)) {
+    const la = log10Of(m);
+    r.l10 = Math.sign(la) * sgn(b) * 10 ** (Math.log10(Math.abs(la)) + log10Of(b));
+  }
   if ("f" in r) return precision(m) === Infinity && precision(b) === Infinity ? fl(sign * r.f) : approx(mul(q(BigInt(sign)), cleanFloat(r.f)), Math.min(p, 15));
+  // smaller than the smallest number kept ((10^−60000)^2): a tiny value, before the exact power below is built past
+  // the largest number kept and says "too large"
+  if (r.l10 < UNDERFLOW_L10) return fromL10(sign, r.l10, p);
   // a root out of a double's range gets its 30 digits ((−2×10^1000)^(1/3) like ∛(−2×10^1000))
   if (exact(m) && exact(b) && b.q.d <= 400n && b.q.n >= -1000n && b.q.n <= 1000n) {
     const rt = rootApprox(m.q, Number(b.q.d));
@@ -309,6 +326,8 @@ function logBase(v: Value, base: Value): Value {
   if (sgn(v) <= 0) throw new CalcError("Logarithm of zero or less");
   if (sgn(base) <= 0 || (exact(base) ? cmp(base.q, ONE) === 0 : num(base) === 1)) throw new CalcError("Invalid logarithm base");
   const r = lnOf(v) / lnOf(base);
+  // −∞ ÷ −∞: both too small even for their log (log(1.05^(−10^1000); 1.05^(−10^1000)))
+  if (Number.isNaN(r)) throw new CalcError("Not precise enough");
   const k = Math.round(r);
   if (exact(v) && exact(base) && Math.abs(r - k) < 1e-9 * Math.max(1, Math.abs(k))) {
     // a power too large to check is not the value either
