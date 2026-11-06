@@ -5,7 +5,7 @@ export { FUNCTIONS } from "./parse";
 export { FINANCIAL, financialName } from "./financial";
 export { sanitizeInput } from "./input";
 export {
-  evaluateProgramming, formatInt, groupDigits, literal, rebase, fitsWord, toWord, fromWord, toggleBit, BASES, WORD_SIZES,
+  evaluateProgramming, formatInt, groupDigits, literal, rebase, toProgramming, fromProgramming, fitsWord, toWord, fromWord, toggleBit, BASES, WORD_SIZES,
   type Base, type WordSize, type ProgOptions, type ProgResult,
 } from "./programming";
 // The converter (units and ECB currency rates); only the Converter page and Settings use these, so they stay out of the first screen's bundle

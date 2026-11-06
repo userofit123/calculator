@@ -68,8 +68,12 @@ export function groupDigits(s: string, n: number, sep = " "): string {
   for (let i = d.length; i > 0; i -= n) out = d.slice(Math.max(0, i - n), i) + (out ? sep + out : "");
   return neg + out;
 }
-/** A value as it is typed into an expression in the chosen base (a negative decimal one in brackets) */
+/** A value as it is typed into an expression in the chosen base (a negative decimal one in brackets). One whose digits
+ *  would read back as another number is written in decimal with its base (−5 unsigned, or 200 in signed 8 bits, would
+ *  otherwise be the bit patterns FB and C8, read as 251 and −56), so it keeps its value and = says what's wrong with it. */
 export function literal(v: bigint, o: ProgOptions): string {
+  const r = word(o);
+  if (o.base !== 10 && !fitsWord(v, o) && (v < 0n || (o.signed && v >= r.half && v <= r.mask))) return v < 0n ? `(−${-v}₁₀)` : `${v}₁₀`;
   const s = formatInt(v, o.base, o);
   return s.startsWith("-") ? `(−${s.slice(1)})` : s;
 }
@@ -285,17 +289,51 @@ export function evaluateProgramming(expression: string, o: ProgOptions): ProgRes
  *  still means the same. Numbers with their own base (0x1F, 101₂), operators and names are left as they are. Each word
  *  is read on its own, so a sum that isn't finished or has a mistake in it (12 + 0x) still has all its numbers moved. */
 export function rebase(expression: string, from: ProgOptions, to: Base): string {
-  const r = word(from), target = { ...from, base: to };
+  const target = { ...from, base: to };
+  // 0b101 would be the hex number B101 in hex mode: written with its base as a subscript instead; a half-typed 0b (no
+  // digits yet) has no value, and as hex digits it would be 11, so it goes
+  const bin = (w: string) => (w.length > 2 ? w.slice(2) + "₂" : "");
   return expression.replace(/[0-9A-Za-z_]+[₀-₉]*/g, (w) => {
     let toks: Tok[];
-    try { toks = tokenize(w, from); } catch { return w; }
+    try { toks = tokenize(w, from); } catch { return to === 16 && from.base !== 16 && /^0b/i.test(w) ? bin(w) : w; }
     const t = toks[0];
     if (toks.length !== 1 || !t || t.t !== "num") return w;
-    // 0b101 would be the hex number B101 in hex mode: written with its base as a subscript instead
-    if (!t.bare) return to === 16 && /^0b/i.test(w) ? w.slice(2) + "₂" : w;
-    // signed: a non-decimal number with the top bit set is a bit pattern that reads as negative, so a bigger decimal
-    // number (128 in 8 bits, fine on the way to 128 − 1) keeps its value written in decimal with its base
-    if (from.signed && to !== 10 && t.v >= r.half && t.v <= r.mask) return t.v.toString() + "₁₀";
+    if (!t.bare) return to === 16 && /^0b/i.test(w) ? bin(w) : w;
+    // signed: a decimal number past the top bit (128 in 8 bits, fine on the way to 128 − 1) would be a bit pattern
+    // that reads as negative in the other bases: literal keeps its value written in decimal with its base
     return literal(t.v, target);
   });
+}
+
+/** A sum typed in another mode written for programming mode (in decimal, ^ as **), or null when it holds something
+ *  programming mode can't (a fraction, scientific notation, a constant, variable or function, %, |x|, x²): read there
+ *  it would mean something else (e is the hex digit 14, ^ is XOR, % is mod), so it isn't reinterpreted. */
+export function toProgramming(expression: string): string | null {
+  const re = /\s+|\d+(?![\p{L}\p{N}_.,])|(?<![\p{L}\p{N}_])(?:ans|mod)(?![\p{L}\p{N}_])|[+\-−×*÷/()]|\^/uy;
+  let out = "";
+  re.lastIndex = 0;
+  while (re.lastIndex < expression.length) {
+    const m = re.exec(expression);
+    if (!m) return null;
+    out += m[0] === "^" ? "**" : m[0];
+  }
+  return out;
+}
+
+/** A programming-mode sum written for the other modes: every number in decimal (a bit pattern that reads as negative
+ *  as its negative value), ** as ^. null when it holds something they can't (AND, shifts, NOT, XOR, ones/twos). */
+export function fromProgramming(expression: string, o: ProgOptions): string | null {
+  const dec = { ...o, base: 10 as Base };
+  let ok = true;
+  const out = expression.replace(/[0-9A-Za-z_]+[₀-₉]*|\*\*|[^\s+\-−×*÷/()]/g, (w) => {
+    if (w === "**") return "^";
+    if (/^(?:ans|mod)$/i.test(w)) return w.toLowerCase();
+    let toks: Tok[] = [];
+    try { toks = tokenize(w, o); } catch { /* not a number */ }
+    const t = toks[0];
+    if (toks.length === 1 && t?.t === "num") return literal(t.v, dec);
+    ok = false;
+    return w;
+  });
+  return ok ? out : null;
 }

@@ -4,10 +4,11 @@
 import { reactive, watch } from "vue";
 import {
   evaluate, formatDisplay, sanitizeInput, storable, RESERVED, type AngleUnit, type EvalOptions, type EvalResult, type NumberFormat,
-  evaluateProgramming, formatInt, fitsWord, literal, rebase, type Base, type WordSize, type ProgOptions,
+  evaluateProgramming, formatInt, fitsWord, literal, rebase, toProgramming, fromProgramming, type Base, type WordSize, type ProgOptions,
 } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
 import { addHistory, type HistItem } from "./history";
+import { toast } from "./toast";
 
 export type Mode = "basic" | "advanced" | "financial" | "programming";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
@@ -69,33 +70,72 @@ export function progValue(): bigint | null {
 }
 /** Shows another number (a bit flipped in the bit view): typed in as a new sum in the current base */
 export function setProgValue(v: bigint) { calc.expr = literal(v, prog); calc.answer = ""; calc.error = ""; }
+// Changing base or mode rewrites the display for the new one, which can't always give back the very text the user
+// typed (0b half-typed, 2×e, a sum with AND going to Basic). So the text before each change is kept, and coming back
+// to where it was typed without having edited anything in between brings that text back as it was. Edits are counted;
+// the rewrites made here don't count as edits.
+let edits = 0, quiet = false;
+watch(() => [calc.expr, calc.answer, calc.error], () => { if (!quiet) edits++; }, { flush: "sync" });
+const rewrite = (f: () => void) => { quiet = true; try { f(); } finally { quiet = false; } };
+const progKey = () => `${prog.wordSize} ${prog.signed}`;
+/** the display before the last change to or from programming mode (and the base, word size and sign it was read with) */
+let kept: { prog: boolean; expr: string; answer: string; error: string; base: Base; o: string; at: number } | null = null;
+/** the sum in each base it was shown in since the last edit (with the word size and sign it was read with) */
+let baseTexts: { at: number; o: string; t: Partial<Record<Base, string>> } | null = null;
 /** Changes base; a sum being typed has its numbers rewritten, so it keeps its meaning */
 export function setBase(b: Base) {
-  if (!calc.answer && !calc.error && calc.expr) calc.expr = rebase(calc.expr, progOptions(), b);
+  if (!calc.answer && !calc.error && calc.expr) {
+    if (!baseTexts || baseTexts.at !== edits || baseTexts.o !== progKey()) baseTexts = { at: edits, o: progKey(), t: {} };
+    baseTexts.t[prog.base] = calc.expr;
+    const t = baseTexts.t[b] ?? rebase(calc.expr, progOptions(), b);
+    rewrite(() => { calc.expr = t; });
+  }
   prog.base = b;
 }
-/** Brings a sum back from history: a programming-mode one in programming mode, with its base, word size and sign (its
- *  digits mean nothing in another base, and FF + 1 gives another answer in another word size) */
+/** the last mode other than programming, for a history entry from one of them */
+let plainMode: Mode = calc.mode === "programming" ? "basic" : calc.mode;
+/** Brings a sum back from history in the mode it was worked out in: a programming-mode one with its base, word size
+ *  and sign (its digits mean nothing in another base, and FF + 1 gives another answer in another word size), any
+ *  other one out of programming mode (10 + 5 typed in Basic is 0x15 read in hex) */
 export function restoreExpr(h: Pick<HistItem, "e" | "b" | "w" | "s">) {
+  // the display is replaced: nothing on it is carried over to the entry's mode, or brought back
+  calc.expr = ""; calc.answer = ""; calc.error = ""; kept = null;
   if (h.b) {
     calc.mode = "programming";
     prog.base = h.b as Base;
     // entries from before word size and sign were kept leave them as they are
     if (h.w) prog.wordSize = h.w as WordSize;
     if (h.s !== undefined) prog.signed = h.s;
-  }
-  calc.expr = h.e; calc.answer = ""; calc.error = "";
+  } else if (isProg()) calc.mode = plainMode;
+  calc.expr = h.e;
 }
-// Programming mode's digits mean something else in the other modes (FF is a variable there, 0.5 isn't a whole number),
-// so changing to or from it carries the number on the display over written for the new mode (one with a fraction can't
-// go into programming mode and is cleared), and a sum being typed has its numbers rewritten in the new base. Run at
+// Programming mode's digits mean something else in the other modes (FF is a variable there, 0.5 isn't a whole number,
+// ^ is XOR), so changing to or from it carries the number on the display over written for the new mode, and a sum being
+// typed has its numbers rewritten in the new base. What the new mode can't hold (a fraction, e, a variable, AND in
+// Basic) isn't reinterpreted: the display is cleared with a message, and coming back unedited brings it back. Run at
 // once (sync), before anything else is typed in the new mode.
 watch(() => calc.mode, (m, old) => {
+  if (m !== "programming") plainMode = m;
   if ((m === "programming") === (old === "programming")) return;
-  const dec = { ...prog, base: 10 as Base };
-  if (calc.answer) calc.expr = !isProg() ? typedValue(calc.ans) : /^-?\d+$/.test(calc.ans) ? literal(BigInt(calc.ans), prog) : "";
-  else if (calc.expr) calc.expr = isProg() ? rebase(calc.expr, dec, prog.base) : rebase(calc.expr, progOptions(), 10);
-  calc.answer = ""; calc.error = "";
+  const toProg = isProg();
+  const back = kept && kept.at === edits && kept.prog === toProg && (!toProg || (kept.base === prog.base && kept.o === progKey())) ? kept : null;
+  const leaving = { prog: !toProg, expr: calc.expr, answer: calc.answer, error: calc.error, base: prog.base, o: progKey() };
+  let lost = false;
+  rewrite(() => {
+    if (back) { calc.expr = back.expr; calc.answer = back.answer; calc.error = back.error; return; }
+    if (calc.answer) {
+      if (!toProg) calc.expr = typedValue(calc.ans);
+      else if (/^-?\d+$/.test(calc.ans)) calc.expr = literal(BigInt(calc.ans), prog);
+      else { calc.expr = ""; lost = true; }
+    } else if (calc.expr) {
+      const t = toProg ? toProgramming(calc.expr) : fromProgramming(calc.expr, progOptions());
+      if (t === null) { calc.expr = ""; lost = true; }
+      else calc.expr = toProg ? rebase(t, { ...prog, base: 10 }, prog.base) : t;
+    }
+    calc.answer = ""; calc.error = "";
+  });
+  kept = { ...leaving, at: edits };
+  if (lost) toast(`Not available in ${MODES.find((x) => x.id === m)!.label} mode`, { kind: "err" });
 }, { flush: "sync" });
 // the answer on the display follows the base, word size and sign; one that no longer fits is an overflow
 watch(prog, () => {

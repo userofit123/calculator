@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateProgramming, formatInt, groupDigits, literal, rebase, toggleBit, fromWord, toWord, fitsWord, type ProgOptions } from "../src";
+import { evaluateProgramming, formatInt, groupDigits, literal, rebase, toProgramming, fromProgramming, toggleBit, fromWord, toWord, fitsWord, type ProgOptions } from "../src";
 
 const U8: ProgOptions = { base: 10, wordSize: 8, signed: false };
 const U64: ProgOptions = { base: 10, wordSize: 64, signed: false };
@@ -194,5 +194,57 @@ describe("switching base while typing", () => {
   it("rewrites the numbers of a sum that can't be read yet, one by one", () => {
     expect(rebase("12 + 0x", U64, 16)).toBe("C + 0x");
     expect(rebase("10 AND (", U64, 2)).toBe("1010 AND (");
+  });
+});
+
+describe("values that don't fit the word keep their value (review C-12 #1)", () => {
+  const S8h = { ...S8, base: 16 as const }, U8b = { ...U64, wordSize: 8 as const, base: 2 as const };
+  it("a negative number unsigned, or one past the signed range, is written in decimal with its base", () => {
+    expect(literal(-5n, { ...U64, base: 16 })).toBe("(−5₁₀)");
+    expect(literal(-5n, U8b)).toBe("(−5₁₀)");
+    expect(literal(200n, S8h)).toBe("200₁₀");
+    expect(literal(-200n, S8h)).toBe("(−200₁₀)");
+  });
+  it("ones that fit, or can't be misread, are plain digits", () => {
+    expect(literal(-5n, S8h)).toBe("FB");
+    expect(literal(200n, { ...S8h, signed: false })).toBe("C8");
+    expect(literal(300n, S8h)).toBe("12C");
+    expect(literal(-5n, { ...U64, base: 10 })).toBe("(−5)");
+  });
+  it("reading it back gives the value or an error, never another number", () => {
+    for (const wordSize of [8, 16, 32, 64] as const) for (const signed of [false, true]) for (const base of [2, 8, 10, 16] as const) {
+      const o = { base, wordSize, signed };
+      for (const v of [-5n, 5n, 200n, -200n, 300n, 40000n, -40000n, 1n << 31n, -(1n << 31n), (1n << 63n) + 1n, -(1n << 63n), 1n << 64n]) {
+        const r = evaluateProgramming(literal(v, o), o);
+        if ("exact" in r) expect(r.exact).toBe(v.toString());
+        else expect(fitsWord(v, o)).toBe(false);
+      }
+    }
+  });
+});
+
+describe("half-typed 0b (review C-12 #4)", () => {
+  it("goes in hex (it would be the digits 0B) and isn't turned into 11 on the way back", () => {
+    expect(rebase("12+0b", U64, 16)).toBe("C+");
+    expect(rebase("0b12", U64, 16)).toBe("12₂");
+    expect(rebase("0b", U64, 2)).toBe("0b");
+  });
+});
+
+describe("sums from the other modes (review C-12 #2)", () => {
+  it("whole-number sums carry over, ^ as **", () => {
+    expect(toProgramming("10+5")).toBe("10+5");
+    expect(toProgramming("2^3 mod 3 − ans")).toBe("2**3 mod 3 − ans");
+    expect(toProgramming("2×(3÷4)")).toBe("2×(3÷4)");
+  });
+  it("names, decimals, scientific notation and other-meaning symbols are refused, not reinterpreted", () => {
+    for (const s of ["2×e", "e^2", "2.5e3+1", "1e−7", "1E5", "a+1", "face+1", "0b", "π", "sin(30)", "50%", "|−5|", "3²", "2.5", "5!", "ans2"])
+      expect(toProgramming(s), s).toBeNull();
+  });
+  it("programming sums go back in decimal, or are refused when the other modes can't hold them", () => {
+    expect(fromProgramming("FF+1", { ...U64, base: 16 })).toBe("255+1");
+    expect(fromProgramming("FB+0x10+10₈", { ...S8, base: 16 })).toBe("(−5)+16+8");
+    expect(fromProgramming("2**3 mod ans", U64)).toBe("2^3 mod ans");
+    for (const s of ["FF AND 1", "NOT 5", "1<<2", "5^3", "5%3", "ones(1)", "12+0x"]) expect(fromProgramming(s, { ...U64, base: 16 }), s).toBeNull();
   });
 });
