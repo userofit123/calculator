@@ -90,3 +90,54 @@ A release build (`./gradlew assembleRelease -PappVersion=1.2.3`) is signed when 
 outside the repo and is never committed: `CALC_KEYSTORE` (path to the .jks), `CALC_KEYSTORE_PASSWORD`, and optionally
 `CALC_KEY_ALIAS` (default `calculator`) and `CALC_KEY_PASSWORD`. The launcher icons are made from
 `apps/web/public/icon.svg` with `python3 make-icons.py` (needs ImageMagick).
+
+## Releases
+
+Every push to main and every pull request runs the checks (`.github/workflows/ci.yml`): types, the maths and web app
+tests, the web build, an Android debug build and an unpacked desktop build. Nothing is signed or published there.
+
+A release is published by `.github/workflows/release.yml` when CHANGELOG.md on main gets a new top `## [x.y.z]` section:
+
+1. While working, write each user-visible change under `## Unreleased` in CHANGELOG.md, in plain words. Never add a
+   `## [x.y.z]` heading by hand: on main that publishes a release.
+2. To release: `node scripts/bump.mjs 0.2.0` (or `pnpm bump 0.2.0`). It sets the version in package.json and
+   apps/desktop/package.json (the web app shows the root version; the Android app gets it from the workflow as
+   `-PappVersion`, which also makes its versionCode) and turns "Unreleased" into `## [0.2.0] - date`. Read the section
+   over, commit, and merge or push to main.
+3. The workflow reads the top version, skips it if the tag `v0.2.0` already exists, runs the tests, builds the web app
+   once and packs it into the desktop and Android apps, and builds `calculator-0.2.0-x86_64.AppImage`, `-amd64.deb`,
+   `-x86_64.rpm`, `calculator-0.2.0-setup.exe`, the signed `calculator-0.2.0.apk` and `calculator-0.2.0-web.zip`.
+4. Only when every build succeeded it writes `android-latest.json` (version, download address, sha256 and size of the
+   APK, for the in-app updater) and `SHA256SUMS`, and creates the GitHub release `v0.2.0` with the CHANGELOG section as
+   its notes and all those files attached.
+
+To build a version again (for example after a failed run), run the Release workflow by hand (Actions → Release → Run
+workflow) with "Build again" ticked; the files of the existing release are replaced.
+
+### Android signing key
+
+Every version of the APK must be signed with the same key, or phones refuse to install the update over the old one. The
+release stops with an error when the key is missing; it never publishes an unsigned APK. Make the key once, outside the
+repository (never commit it), and keep a copy of the .jks and its password somewhere safe:
+
+```sh
+keytool -genkeypair -v -keystore calculator.jks -alias calculator -keyalg RSA -keysize 4096 -validity 36500 \
+  -dname "CN=Calculator"
+base64 -w0 calculator.jks > calculator.jks.b64
+```
+
+`keytool` comes with any JDK (17 or newer). The `-dname` is stored in the APK's certificate, which anyone can read: keep
+it to the app name, with no personal name, place or email. keytool asks for a password (use one password for the store
+and the key, or set CALC_KEY_PASSWORD too).
+
+Then add these under GitHub → the repository → Settings → Secrets and variables → Actions → New repository secret:
+
+| Secret | Value |
+| --- | --- |
+| `CALC_KEYSTORE` | the contents of `calculator.jks.b64` |
+| `CALC_KEYSTORE_PASSWORD` | the keystore password |
+| `CALC_KEY_ALIAS` | optional, defaults to `calculator` |
+| `CALC_KEY_PASSWORD` | optional, defaults to the keystore password |
+
+Or with the GitHub CLI: `gh secret set CALC_KEYSTORE < calculator.jks.b64` and `gh secret set CALC_KEYSTORE_PASSWORD`.
+Delete `calculator.jks.b64` afterwards. The desktop installers are not signed (Windows SmartScreen warns once, see above).

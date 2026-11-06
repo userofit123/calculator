@@ -1,0 +1,61 @@
+# Checks every push to main and every pull request: types, maths tests, the web app's tests and build, and that the
+# Android and desktop apps still build. Nothing is signed or published here.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm --filter @calc/core test
+      # the web app's tests run with core's vitest (the web package has none of its own)
+      - run: pnpm --filter @calc/core exec vitest run --dir ../../apps/web/test
+      - run: pnpm --filter @calc/web exec vite build
+  # Compiles the Android app without signing, so a broken build shows up before a release.
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21, cache: gradle }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @calc/web exec vite build
+      - name: Copy the app into the Android project
+        working-directory: apps/android
+        run: node prepare-web.mjs && npx cap sync android
+      - name: Compile the debug build
+        working-directory: apps/android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+  # Packages the desktop app as an unpacked folder (no installers): quick, and catches a broken Electron build.
+  desktop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @calc/web exec vite build
+      - name: Package (unpacked)
+        working-directory: apps/desktop
+        run: |
+          node build.mjs
+          npx electron-builder --linux dir --publish never
