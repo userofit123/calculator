@@ -7,6 +7,19 @@ import { layoutChoice, setLayout } from "../core/device";
 import { settings, ANGLES, type CalcSettings } from "../core/calc";
 import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
+// --- History (C-26) ---
+import { ref } from "vue";
+import { histPrefs, history, setKeepHistory } from "../core/history";
+import Sheet from "../components/Sheet.vue";
+const askOff = ref(false);
+/** Off asks first when there is a history to keep or delete */
+function keepChange(e: Event) {
+  const on = (e.target as HTMLInputElement).checked;
+  if (on || !history.length) return setKeepHistory(on);
+  (e.target as HTMLInputElement).checked = true; askOff.value = true;
+}
+function turnOff(del: boolean) { askOff.value = false; setKeepHistory(false, del); }
+// --- end History ---
 // --- Converter / Currency rates (C-14) ---
 import { ECB_SOURCE } from "@calc/core";
 import { rates, rateDate, refreshRates } from "../core/rates";
@@ -60,6 +73,21 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
           </label>
         </div>
       </section>
+      <!-- History (C-26) -->
+      <section>
+        <div class="sh"><h2>History</h2></div>
+        <div class="card flush">
+          <label class="li tg">
+            <Icon name="history" /><div class="grow"><div class="t">Keep history</div><div class="s">Off: nothing new is saved. Pinned entries and the 200-entry list stay on this device only.</div></div>
+            <input :checked="histPrefs.keep" type="checkbox" @change="keepChange" />
+          </label>
+        </div>
+        <Sheet v-if="askOff" title="Stop keeping history" @close="askOff = false">
+          <p>Keep the {{ history.length }} saved calculations, or delete them?</p>
+          <div class="seg" style="margin-top: var(--hg)"><button type="button" @click="turnOff(false)">Keep them</button><button type="button" @click="turnOff(true)">Delete them</button></div>
+        </Sheet>
+      </section>
+      <!-- end History -->
       <!-- Converter / Currency rates (C-14) -->
       <section>
         <div class="sh"><h2>Currency rates</h2></div>

@@ -255,7 +255,7 @@ export function press(k: string) {
     if (open() > 0) calc.expr += ")".repeat(open()); // the brackets closed for you show in the sum and its history
     calc.answer = r.value; calc.error = ""; calc.ans = r.exact;
     if ("assigned" in r && typeof r.assigned === "string") calc.vars[r.assigned] = r.exact;
-    addHistory(calc.expr, r.value, r.exact, isProg() ? { ...prog } : undefined);
+    addHistory(calc.expr, r.value, r.exact, isProg() ? { ...prog } : undefined, calc.mode);
     return;
   }
   if (k === "MC") { calc.mem = ""; return; }
