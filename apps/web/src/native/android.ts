@@ -32,6 +32,7 @@ export function installAndroidBridge() {
   window.calcApp = {
     setBars: (bg: string, dark: boolean) => {
       const c = /^#[0-9a-f]{3}$/i.test(bg) ? "#" + [...bg.slice(1)].map((x) => x + x).join("") : bg;
+      if (!/^#[0-9a-f]{6}$/i.test(c)) return;
       P("CalcBars")?.set?.({ bg: c, dark }).catch(() => {});
     },
   };

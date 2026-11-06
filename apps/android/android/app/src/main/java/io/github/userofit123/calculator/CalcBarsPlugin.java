@@ -98,6 +98,7 @@ public class CalcBarsPlugin extends Plugin {
         String bg = call.getString("bg");
         boolean dark = Boolean.TRUE.equals(call.getBoolean("dark", true));
         int parsed;
+        if (bg == null || !bg.matches("#[0-9a-fA-F]{6}")) { call.reject("Not a colour"); return; }
         try { parsed = Color.parseColor(bg); } catch (Exception e) { call.reject("Not a colour"); return; }
         final int c = parsed;
         getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("bg", c).putBoolean("dark", dark).apply();
