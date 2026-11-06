@@ -5,6 +5,8 @@ import { ref, watch } from "vue";
 import { NAV, PAGES, page, go } from "./nav";
 import { sheetIsOpen } from "../core/sheets";
 import Icon from "../components/Icon.vue";
+import UpdateButton from "./UpdateButton.vue";
+import { upd } from "../core/appUpdate";
 
 const order = NAV.map((n) => n.name);
 const motion = ref("page");
@@ -28,9 +30,10 @@ function te(e: TouchEvent) {
 </script>
 
 <template>
-  <div class="pshell" @touchstart.passive="ts" @touchend.passive="te">
+  <div class="pshell" :class="{ hasupd: !!upd.latest }" @touchstart.passive="ts" @touchend.passive="te">
     <div class="pmain"><Transition :name="motion" mode="out-in"><component :is="PAGES[page]" :key="page" /></Transition></div>
     <div class="dock">
+      <UpdateButton phone />
       <div class="tabbar" :style="{ '--tabs': NAV.length }">
         <button v-for="t in NAV" :key="t.name" type="button" :class="{ on: page === t.name }" :aria-current="page === t.name ? 'page' : undefined" @click="go(t.name)"><span class="ic"><Icon :name="t.icon" :size="22" /></span>{{ t.label }}</button>
       </div>

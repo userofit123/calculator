@@ -7,3 +7,14 @@ contextBridge.exposeInMainWorld("calcDesktop", true);
 contextBridge.exposeInMainWorld("calcApp", {
   setBars: (bg: string) => { if (typeof bg === "string") ipcRenderer.send("look:bg", bg); },
 });
+// in-app updates (Settings → Updates): the main process makes the requests, the page only asks and shows
+let onProgress: ((share: number) => void) | null = null;
+ipcRenderer.on("update:progress", (_e, p: number) => onProgress?.(p));
+contextBridge.exposeInMainWorld("calcUpdate", {
+  version: () => ipcRenderer.invoke("update:version"),
+  mode: () => ipcRenderer.invoke("update:mode"),
+  latest: () => ipcRenderer.invoke("update:latest"),
+  download: (version: string) => ipcRenderer.invoke("update:download", String(version)),
+  onProgress: (cb: (share: number) => void) => { onProgress = typeof cb === "function" ? cb : null; },
+  install: () => ipcRenderer.invoke("update:install"),
+});

@@ -10,6 +10,7 @@ const ICONS: Record<string, string> = {
   more: "M12 6h.01M12 12h.01M12 18h.01",
   close: "M6 6l12 12M18 6 6 18",
   check: "M5 12.5 10 17 19 7",
+  download: "M12 4v11M7 10l5 5 5-5M5 20h14",
   right: "M9 18l6-6-6-6",
   down: "M6 9l6 6 6-6",
   trash: "M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",

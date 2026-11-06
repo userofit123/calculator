@@ -22,14 +22,23 @@ make it wider for the desktop layout.
 
 - No account, no server, no analytics, no tracking, no crash reports.
 - Everything (history, settings, look, the last currency rates) stays on your computer.
-- The only thing the app ever downloads is the European Central Bank's public currency rates, to keep the currency
-  converter current. It sends nothing about you, and you can switch it off in Settings. Rates ship with the app, so the
-  converter works without it.
+- The app goes online for two things only, and each can be switched off in Settings: the European Central Bank's public
+  currency rates (to keep the converter current; rates ship with the app, so it works without them) and the update
+  check (see [Updates and privacy](#updates-and-privacy)). Neither sends anything about you.
 
 ### Works offline
 
 Every mode and conversion works with no connection. Links (for example to the source code) open in your web browser,
 never inside the app, and only a few addresses are allowed (this project's page and the ECB).
+
+### Updates
+
+The AppImage and the Windows version update themselves: when a new version is out, an **Update** button appears in the
+menu (and Settings → Updates shows the version and what's new). **Download** fetches it from this project's GitHub
+release and checks it against the release's `latest-linux.yml` / `latest.yml` (SHA-512) before anything is used;
+**Restart and install** closes the app, installs it and opens the new version. Nothing is downloaded or installed
+without your click. The `.deb` and `.rpm` are installed by your system's package manager, so there the app only says a
+new version is out and links to the release page: download the new package and open it like the first time.
 
 ### Build it yourself
 
@@ -69,14 +78,24 @@ dark or light with it. Back closes an open panel, then goes back through the pag
 ### Private
 
 - No account, no server, no analytics, no tracking, no crash reports, no Google Play services or Firebase.
-- The only permission is internet access, used only for the European Central Bank's public currency rates (switch it
-  off in Settings; rates ship with the app). It sends nothing about you.
+- Two permissions: internet access, used only for the European Central Bank's public currency rates and the update
+  check (each can be switched off in Settings; rates ship with the app), and "install apps", used only to hand an update
+  you chose to Android's installer. Neither sends anything about you.
 - Everything (history, settings, look, the last currency rates) stays on the phone and is left out of Android's cloud
   backup.
 
 ### Works offline
 
 Every mode and conversion works in airplane mode, from the first open after installing.
+
+### Updates
+
+When a new version is out, an **Update** row appears above the tabs (and Settings → Updates shows the version and
+what's new). **Download** fetches `calculator-x.y.z.apk` from this project's GitHub release into the app's own storage
+and checks it before it can be installed: its size and SHA-256 must be the ones in the release's `android-latest.json`,
+and it must be Calculator, exactly that version, newer than the one you have, and signed with the same key. Anything
+else is deleted. **Install** opens Android's installer, which asks you to confirm (the first time Android also asks you
+to allow Calculator to install apps). Your history and settings stay.
 
 ### Build it yourself
 
@@ -95,6 +114,22 @@ outside the repo and is never committed: `CALC_KEYSTORE` (path to the .jks), `CA
 `CALC_KEY_ALIAS` (default `calculator`) and `CALC_KEY_PASSWORD`. The launcher icons are made from
 `apps/web/public/icon.svg` with `python3 make-icons.py` (needs ImageMagick).
 
+## Updates and privacy
+
+What the update check contacts, and when (the desktop and Android apps only; the web app updates itself through its
+service worker and has no update check):
+
+- **What:** one request to GitHub's public API, `https://api.github.com/repos/userofit123/calculator/releases/latest`
+  (the Android app also reads that release's `android-latest.json`). It carries no account, cookie or identifier of
+  you or the device; GitHub sees the request like any visit to a public page (your IP address). Downloading an update
+  you chose fetches its files from the same release (github.com, which redirects to GitHub's file host).
+- **Who makes it:** the app itself (the desktop app's main process, the Android app's updater), never the page: the
+  page's own rules still allow only the ECB rates, and the requests may reach GitHub's addresses and nothing else.
+- **When:** with "Check for updates automatically" on (the default, as in Motus), a few seconds after the app opens
+  and then every 6 hours while it is open, at most once every 6 hours; and whenever you press **Check now**.
+- **How to switch it off:** Settings → Updates → "Check for updates automatically". Then the app never checks on its
+  own; Check now still works when you press it.
+
 ## Releases
 
 Every push to main and every pull request runs the checks (`.github/workflows/ci.yml`): types, the maths and web app
@@ -112,8 +147,11 @@ A release is published by `.github/workflows/release.yml` when CHANGELOG.md on m
    once and packs it into the desktop and Android apps, and builds `calculator-0.2.0-x86_64.AppImage`, `-amd64.deb`,
    `-x86_64.rpm`, `calculator-0.2.0-setup.exe`, the signed `calculator-0.2.0.apk` and `calculator-0.2.0-web.zip`.
 4. Only when every build succeeded it writes `android-latest.json` (version, download address, sha256 and size of the
-   APK, for the in-app updater) and `SHA256SUMS`, and creates the GitHub release `v0.2.0` with the CHANGELOG section as
-   its notes and all those files attached.
+   APK, for the Android app's updater) and `SHA256SUMS`, and creates the GitHub release `v0.2.0` with the CHANGELOG
+   section as its notes and all those files attached, together with `latest-linux.yml`, `latest.yml` and the
+   `.blockmap` files that electron-builder writes for the desktop app's updater (electron-updater). electron-builder
+   runs with `--publish never`; the `publish` setting in apps/desktop/package.json is what makes it write those files
+   and tells the app where its updates come from.
 5. After the release is published, the `pages` job builds the web app again for the `/calculator/` sub-path
    (`CALC_BASE=/calculator/`; every address in the app starts from Vite's base) and deploys it to GitHub Pages:
    https://userofit123.github.io/calculator/ (the repository's Pages source is "GitHub Actions"). `404.html` is a copy

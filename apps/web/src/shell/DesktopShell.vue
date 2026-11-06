@@ -6,6 +6,7 @@ import { NAV, PAGES, page, go } from "./nav";
 import { appearanceOpen } from "../core/ui";
 import Icon from "../components/Icon.vue";
 import Logo from "./Logo.vue";
+import UpdateButton from "./UpdateButton.vue";
 
 const nav = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
 
@@ -45,6 +46,7 @@ onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(
         <span class="ic"><Icon :name="p.icon" :size="22" /></span>{{ p.label }}
       </button>
       <div class="navb">
+        <UpdateButton />
         <button id="themeBtn" type="button" class="nb" @click.stop="appearanceOpen = !appearanceOpen"><span class="ic"><Icon name="palette" :size="22" /></span>Appearance</button>
       </div>
     </nav>

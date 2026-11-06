@@ -1,8 +1,9 @@
 // The Calculator desktop app: the built web app (apps/web/dist) shown in a window, straight from files inside the app.
 // No server, no account, nothing loaded from the internet: the pages come through the app:// scheme below, and the only
 // request that may leave the computer is the optional ECB currency-rate refresh made by the page itself.
-// Updates are left out for now; electron-updater can be added later next to whenReady (see the note there).
+// The optional update check (Settings → Updates) is made here in the main process, in its own sessions, never by the page.
 import { app, BrowserWindow, Menu, ipcMain, protocol, session, shell, screen } from "electron";
+import { autoUpdater } from "electron-updater";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
@@ -121,6 +122,79 @@ ipcMain.on("look:bg", (e, bg: unknown) => {
   if (readJson<{ bg?: string }>(BOOT, {}).bg !== bg) writeJson(BOOT, { bg });
 });
 
+// ----- updates from GitHub Releases (task C-27, after Motus) -----
+// The page asks (Settings → Updates: automatic checks on by default, Check now); this process makes the requests, in
+// sessions of their own that may reach GitHub and nothing else, so the page's own rules stay "the ECB only". The check is
+// one GET of the public releases/latest API with no cookies and no identifiers. Downloading and installing are always
+// the person's tap: electron-updater fetches latest.yml / latest-linux.yml and the installer from the release, checks
+// its SHA-512 against latest.yml, and installs only on "Restart and install". The AppImage and the Windows installer
+// update themselves; the .deb and .rpm are the system's packages, so there the page links to the release page instead.
+const UPDATE_HOSTS = new Set(["api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]);
+const RELEASES_API = "https://api.github.com/repos/userofit123/calculator/releases/latest";
+/** Only https to GitHub's hosts, and nothing in these sessions is kept on disk or sent back (no cookies, no cache). */
+function githubOnly(s: Electron.Session) {
+  s.webRequest.onBeforeRequest((d, cb) => { let ok = false; try { const u = new URL(d.url); ok = u.protocol === "https:" && UPDATE_HOSTS.has(u.hostname); } catch { /* no */ } cb({ cancel: !ok }); });
+  s.webRequest.onBeforeSendHeaders((d, cb) => { const h = { ...d.requestHeaders }; delete h.Cookie; delete h.Referer; cb({ requestHeaders: h }); });
+  s.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
+}
+// "install": electron-updater can replace this copy (the AppImage, the Windows installer); "link": a .deb / .rpm (or
+// running from the source), which the person updates from the release page
+const updateMode = (): "install" | "link" => (app.isPackaged && (process.platform === "win32" || (process.platform === "linux" && !!process.env.APPIMAGE)) ? "install" : "link");
+let checkSession: Electron.Session | null = null;
+let downloaded = "";
+function fromApp(e: Electron.IpcMainInvokeEvent) { return !!win && e.sender === win.webContents && e.senderFrame?.url.startsWith(ORIGIN + "/"); }
+function startUpdates() {
+  // in memory only (no "persist:"): nothing of the check is written to disk
+  checkSession = session.fromPartition("calc-update-check", { cache: false });
+  githubOnly(checkSession);
+  // electron-updater's own session (electronHttpExecutor: partition "electron-updater")
+  githubOnly(session.fromPartition("electron-updater", { cache: false }));
+  ipcMain.handle("update:version", (e) => (fromApp(e) ? app.getVersion() : ""));
+  ipcMain.handle("update:mode", (e) => (fromApp(e) ? updateMode() : "link"));
+  // the release's tag, notes, page and draft flags, read and judged by the page (apps/web/src/core/releases.ts)
+  ipcMain.handle("update:latest", async (e) => {
+    if (!fromApp(e)) throw new Error("Not allowed");
+    const r = await checkSession!.fetch(RELEASES_API, { headers: { accept: "application/vnd.github+json", "user-agent": "Calculator" }, credentials: "omit", cache: "no-store", signal: AbortSignal.timeout(20_000) })
+      .catch(() => { throw new Error("Could not reach GitHub"); });
+    if (r.status === 404) throw new Error("No release yet");
+    if (r.status === 403 || r.status === 429) throw new Error("GitHub is busy, try again later");
+    if (!r.ok) throw new Error("Could not reach GitHub");
+    const j = (await r.json()) as Record<string, unknown>;
+    const assets = Array.isArray(j.assets) ? (j.assets as Record<string, unknown>[]).map((a) => ({ name: a.name, browser_download_url: a.browser_download_url })) : [];
+    return { tag_name: j.tag_name, body: j.body, html_url: j.html_url, draft: j.draft, prerelease: j.prerelease, assets };
+  });
+  ipcMain.handle("update:download", async (e, want: unknown) => {
+    if (!fromApp(e) || updateMode() !== "install" || typeof want !== "string") throw new Error("Not allowed");
+    autoUpdater.autoDownload = false;
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.allowDowngrade = false;
+    autoUpdater.allowPrerelease = false;
+    autoUpdater.logger = null;
+    autoUpdater.removeAllListeners("download-progress");
+    autoUpdater.on("download-progress", (p) => {
+      win?.setProgressBar(p.total > 0 ? p.percent / 100 : -1);
+      win?.webContents.send("update:progress", p.total > 0 ? p.percent / 100 : -1);
+    });
+    try {
+      const r = await autoUpdater.checkForUpdates().catch(() => null);
+      const v = r?.updateInfo?.version;
+      // the version the page showed (and its notes) must be the one about to be downloaded
+      if (!r || !v) throw new Error("Could not reach GitHub");
+      if (v !== want) throw new Error("A different version was found: check again");
+      // checks the file's SHA-512 against latest.yml; a damaged download fails here
+      await autoUpdater.downloadUpdate();
+      downloaded = v;
+    } catch (err) {
+      throw new Error((err as Error)?.message?.startsWith("A different") ? (err as Error).message : "The download didn't finish or didn't match: try again");
+    } finally { win?.setProgressBar(-1); }
+  });
+  ipcMain.handle("update:install", (e) => {
+    if (!fromApp(e) || !downloaded) throw new Error("Nothing downloaded");
+    // closes the app, installs (the Windows installer silently, the AppImage replaced in place) and starts it again
+    setImmediate(() => autoUpdater.quitAndInstall(true, true));
+  });
+}
+
 app.setAppUserModelId("io.github.userofit123.calculator");
 // one window: opening the app again brings the open one to the front
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -141,7 +215,7 @@ else {
     const allowed = new Set(["clipboard-sanitized-write"]);
     s.setPermissionRequestHandler((_wc, perm, cb) => cb(allowed.has(perm)));
     s.setPermissionCheckHandler((_wc, perm) => allowed.has(perm));
-    // In-app updates (task C-27) belong here: electron-updater's autoUpdater, started only when the person asks.
+    startUpdates();
     win = createWindow();
   });
   app.on("window-all-closed", () => app.quit());

@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         // the first frame is ready, with no exit animation and no waiting for anything
         SplashScreen.installSplashScreen(this).setOnExitAnimationListener(v -> { v.remove(); CalcBarsPlugin.restore(this); });
         registerPlugin(CalcBarsPlugin.class);
+        registerPlugin(CalcUpdaterPlugin.class);
         super.onCreate(savedInstanceState);
         // From the second start on, the window and the page behind it take the last look's background (CalcBarsPlugin
         // remembers it), so a light look doesn't open on the default dark colour for a moment

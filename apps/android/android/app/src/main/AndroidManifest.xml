@@ -27,9 +27,23 @@
 
         </activity>
 
+        <!-- Only for the in-app updater (CalcUpdaterPlugin): lets Android's installer read the checked update in
+             cache/updates and nothing else (res/xml/update_paths.xml). Not exported; access is granted per install. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
+
     </application>
 
-    <!-- The only permission: the optional currency-rate refresh from the European Central Bank (can be switched off in
-         Settings). Everything else is inside the app and works offline. -->
+    <!-- Internet: the optional currency-rate refresh from the European Central Bank and the optional update check on
+         GitHub (both can be switched off in Settings). Everything else is inside the app and works offline. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Installing an update the person chose in Settings, Updates: Android's installer still asks to confirm. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

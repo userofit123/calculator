@@ -18,8 +18,9 @@ Windows) and Android app (Capacitor). No server, no account, no tracking.
 ## Rules
 - **Private from the start.** Nothing personal in the repo, commits or app: no name, email, location, analytics, telemetry or
   crash reporting. Git identity is `userofit123` with the GitHub no-reply address (the pre-commit hook enforces it; commit
-  times are stored in UTC by the post-commit hook). The only network request the app makes is the optional currency-rate
-  refresh (public ECB rates, no key, no identifiers), which can be switched off in Settings.
+  times are stored in UTC by the post-commit hook). The only network requests the app makes are the optional currency-rate
+  refresh (public ECB rates, no key, no identifiers) and, in the desktop and Android apps, the optional update check
+  (GitHub's public releases, no identifiers); both can be switched off in Settings.
 - **Opens instantly.** The first paint must not wait for anything: the saved look and layout are applied by an inline script
   in index.html, the calculator is the first screen and is in the main bundle, everything else (converter tables, settings,
   Appearance panel) loads lazily. No splash delays. The service worker precaches the built files so later opens are offline.

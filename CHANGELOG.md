@@ -18,5 +18,7 @@ docs/apps.md, Releases.
 - Hosted web version at https://userofit123.github.io/calculator/, updated with every release: open it in a browser
   and install it; once opened it works offline.
 - Desktop app for Linux (AppImage, deb, rpm) and Windows.
+- Updates inside the desktop and Android apps: they ask GitHub whether a new version is out (switch it off in Settings,
+  Updates), show an Update button, and download and check the new version before it is installed. Nothing else is sent.
 - Android app that opens straight onto the calculator, with system bars that follow the look.
 - Private: no account, no server, no tracking; everything stays on your device.
