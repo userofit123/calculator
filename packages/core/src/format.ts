@@ -5,8 +5,10 @@
 // a double (rounded to those digits before anything discrete and before it is shown, stored as "≈1.414…e500").
 import { type Q, CalcError, exponent10, parseDecimal, toFixed, isInt, q, roundSig, toNumber } from "./rational";
 
-/** q: exact; f: a double (15 trustworthy digits); a: an approximation beyond a double's range, good to p digits */
-export type Value = { q: Q } | { f: number } | { a: Q; p: number };
+/** q: exact; f: a double (15 trustworthy digits); a: an approximation beyond a double's range, good to p digits;
+ *  m: a number below the smallest one kept (about 10^−100000) but not 0, m × 10^e (1 ≤ |m| < 10, e whole), good to p digits. It is shown
+ *  and stored as ≈0, but dividing by it is "Number is too large" (not "Division by zero") and its log is worked out. */
+export type Value = { q: Q } | { f: number } | { a: Q; p: number } | { m: number; e: number; p: number };
 /** The most digits an approximation keeps */
 export const APPROX_DIGITS = 30;
 /** The digits a value can be trusted with (exact: all) */
@@ -38,7 +40,7 @@ export function cleanFloat(x: number): Q {
   return parseDecimal(x.toPrecision(15));
 }
 /** The value as a fraction of its trustworthy digits: what anything discrete (floor, mod, factorial) works on */
-export const asQ = (v: Value): Q => ("q" in v ? v.q : "f" in v ? cleanFloat(v.f) : roundSig(v.a, v.p));
+export const asQ = (v: Value): Q => ("q" in v ? v.q : "f" in v ? cleanFloat(v.f) : "m" in v ? q(0n) : roundSig(v.a, v.p));
 
 /** a ÷ 10^e, left unreduced: only rounded for showing, so a gcd of numbers with thousands of digits isn't worth it */
 const by10 = (a: Q, e: number): Q => (e >= 0 ? { n: a.n, d: a.d * 10n ** BigInt(e) } : { n: a.n * 10n ** BigInt(-e), d: a.d });
@@ -77,6 +79,7 @@ export function exactText(v: Value): string {
     return "≈" + String(v.f);
   }
   if ("a" in v) return approxText(v.a, v.p);
+  if ("m" in v) return "≈0";
   return isInt(v.q) ? v.q.n.toString() : `${v.q.n}/${v.q.d}`;
 }
 /** x rounded to p significant digits, marked approximate: "≈1.41421356237309504880168872421e500" */
@@ -124,5 +127,5 @@ export function formatDisplay(s: string, o: DisplayOptions = {}): string {
 export function storable(s: string, max = 2000): string {
   if (s.length <= max) return s;
   const v = parseStored(s);
-  return "f" in v ? exactText(v) : approxText("q" in v ? v.q : v.a, "q" in v ? APPROX_DIGITS : v.p);
+  return "f" in v || "m" in v ? exactText(v) : approxText("q" in v ? v.q : v.a, "q" in v ? APPROX_DIGITS : v.p);
 }

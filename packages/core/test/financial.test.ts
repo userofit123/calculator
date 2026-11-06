@@ -169,3 +169,13 @@ describe("approximate answers are stored as approximate", () => {
   it("Pmt(1000; 10^−9; 360)", () => expect(exactOf("Pmt(1000; 10^−9; 360)")).toMatch(/^≈2\.7777782791/));
   it("Pmt(200000; 0.05/12; 360)", () => expect(exactOf("Pmt(200000; 0.05/12; 360)")).toMatch(/^≈1073\.64324602/));
 });
+
+describe("a rate below the smallest number kept", () => {
+  const v = (e: string) => { const r = evaluate(e); return "value" in r ? r.value : "error: " + r.error; };
+  // as good as no interest, to every digit: not 0 (Division by zero) and not off by the rate's logarithm
+  it("Pmt(1000; 2^(−10^6); 12)", () => expect(v("Pmt(1000; 2^(−10^6); 12)")).toBe("83.333333333333"));
+  it("Fv(100; 2^(−10^6); 12)", () => expect(v("Fv(100; 2^(−10^6); 12)")).toBe("1200"));
+  it("Pv(100; 2^(−10^6); 12)", () => expect(v("Pv(100; 2^(−10^6); 12)")).toBe("1200"));
+  it("Term(100; 1000; 2^(−10^6))", () => expect(v("Term(100; 1000; 2^(−10^6))")).toBe("10"));
+  it("Ctrm(2^(−10^6); 2; 1) is too large", () => expect(v("Ctrm(2^(−10^6); 2; 1)")).toBe("error: Number is too large"));
+});

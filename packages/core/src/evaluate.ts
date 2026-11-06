@@ -5,9 +5,9 @@
 // Every step takes bounded time, whatever is typed: the preview works it out on every key press.
 import {
   type Q, CalcError, q, ZERO, ONE, add, sub, mul, div, neg, isInt, cmp, floor, trunc, powInt, rootExact, rootApprox, lnQ, toNumber, parseDecimal, withBudget, OverBudget,
-  powNum, fromLog10, exponent10, bitLength, MAX_BITS,
+  powNum, exponent10, bitLength, MAX_BITS,
 } from "./rational";
-import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored, approx, precision, cleanFloat } from "./format";
+import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored, approx, precision, cleanFloat, APPROX_DIGITS } from "./format";
 import { parse, type Node } from "./parse";
 import { financial, financialName, type FinOps } from "./financial";
 
@@ -33,12 +33,24 @@ export const RESERVED = new Set(["ans", "mod", ...Object.keys(CONSTANTS)]);
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 
 const exact = (v: Value): v is { q: Q } => "q" in v;
-const num = (v: Value) => (exact(v) ? toNumber(v.q) : "f" in v ? v.f : toNumber(v.a));
 const isApprox = (v: Value): v is { a: Q; p: number } => "a" in v;
-/** The value as a fraction for working on beyond a double's range: exact, a double's 15 digits, or the approximation */
-const qOf = (v: Value): Q => (exact(v) ? v.q : "f" in v ? cleanFloat(v.f) : v.a);
-const sgn = (v: Value) => { const x = exact(v) ? v.q.n : "a" in v ? v.a.n : v.f; return x > 0 ? 1 : x < 0 ? -1 : 0; };
-const negV = (v: Value): Value => (exact(v) ? { q: neg(v.q) } : "a" in v ? { a: neg(v.a), p: v.p } : fl(-v.f));
+/** Below the smallest number kept, but not 0 (see Value) */
+type Tiny = { m: number; e: number; p: number };
+const isTiny = (v: Value): v is Tiny => "m" in v;
+/** x × 10^e (x a double ≠ 0) as a tiny value, good to p digits */
+function tiny(x: number, e: number, p: number): Tiny {
+  if (!Number.isFinite(e)) return { m: Math.sign(x), e, p: 1 }; // too small even for a log (1.05^(−10^400))
+  const k = Math.floor(Math.log10(Math.abs(x)));
+  let m = x / 10 ** k;
+  if (Math.abs(m) >= 10) { m /= 10; e++; } else if (Math.abs(m) < 1) { m *= 10; e--; }
+  return { m, e: e + k, p };
+}
+const num = (v: Value) => (exact(v) ? toNumber(v.q) : "f" in v ? v.f : isTiny(v) ? 0 : toNumber(v.a));
+/** The value as a fraction for working on beyond a double's range: exact, a double's 15 digits, or the approximation
+ *  (a tiny value is 0 here: the callers that care deal with it first) */
+const qOf = (v: Value): Q => (exact(v) ? v.q : "f" in v ? cleanFloat(v.f) : isTiny(v) ? ZERO : v.a);
+const sgn = (v: Value) => { const x = exact(v) ? v.q.n : "a" in v ? v.a.n : isTiny(v) ? v.m : v.f; return x > 0 ? 1 : x < 0 ? -1 : 0; };
+const negV = (v: Value): Value => (exact(v) ? { q: neg(v.q) } : "a" in v ? { a: neg(v.a), p: v.p } : isTiny(v) ? { ...v, m: -v.m } : fl(-v.f));
 const absV = (v: Value): Value => (sgn(v) < 0 ? negV(v) : v);
 /** A value a double can't hold: exact beyond its range, or an approximation (always beyond it) */
 const big = (v: Value) => isApprox(v) || (exact(v) && outOfDouble(v.q));
@@ -51,10 +63,73 @@ const Z: Value = { q: ZERO };
 /** An exact value a double can't hold (beyond 1.8×10^308, or so small that it would be 0) */
 const outOfDouble = (a: Q) => { const x = Math.abs(toNumber(a)); return a.n !== 0n && (!Number.isFinite(x) || x < 1e-300); };
 /** ln of a value; exact values beyond a double still work (ln(10^400)) */
-const lnOf = (v: Value) => ("f" in v ? Math.log(v.f) : lnQ(exact(v) ? v.q : v.a));
-const intOf = (v: Value) => { const a = asQ(v); return isInt(a) ? a.n : null; };
+const lnOf = (v: Value) => ("f" in v ? Math.log(v.f) : isTiny(v) ? (v.e + Math.log10(Math.abs(v.m))) * Math.LN10 : lnQ(exact(v) ? v.q : v.a));
+/** log10 |v| for v ≠ 0, also beyond a double and for a tiny value */
+const log10Of = (v: Value) => (isTiny(v) ? v.e + Math.log10(Math.abs(v.m)) : lnOf(absV(v)) / Math.LN10);
+/** v ≠ 0 as m × 10^e: a double's own digits when it fits in one (so 1000 × tiny ÷ tiny is 1000 to every digit),
+ *  else by its logarithm */
+function meOf(v: Value): [number, number] {
+  if (isTiny(v)) return [v.m, v.e];
+  const x = num(v);
+  if (x !== 0 && Number.isFinite(x)) return [x, 0];
+  const l = log10Of(v), e = Math.floor(l);
+  return [sgn(v) * 10 ** (l - e), e];
+}
+/** A tiny value is not whole (Γ(tiny) is huge, tiny! ≈ 1) */
+const intOf = (v: Value) => { if (isTiny(v)) return null; const a = asQ(v); return isInt(a) ? a.n : null; };
+/** sign × 10^l, worked out by logarithms: below the smallest number kept a tiny value, past the largest "Number is too
+ *  large". Its digits are those of a double's log of that size (fewer when the logs it came from were large: `big`). */
+function fromL10(s: number, l: number, p = 15, big = 0): Value {
+  const e = Math.floor(l);
+  return fromME(Number.isFinite(e) ? s * 10 ** (l - e) : s, e, Math.max(1, Math.min(p, 15.5 - Math.log10(Math.max(1, Math.abs(l), Math.abs(big))))));
+}
+/** m × 10^e (m a double ≠ 0, e whole): a tiny value below the smallest number kept, else the number to p digits */
+function fromME(m: number, e: number, p: number): Value {
+  const l = e + Math.log10(Math.abs(m));
+  if (!(l >= UNDERFLOW_L10)) return tiny(m, e, p);
+  if (l > MAX_BITS * Math.LOG10E * Math.LN2) throw new CalcError("Number is too large");
+  const M = BigInt(Math.round(m * 1e14)), k = e - 14;
+  return approx(k >= 0 ? q(M * 10n ** BigInt(k)) : q(M, 10n ** BigInt(-k)), p);
+}
+/** a × b or a ÷ b (both ≠ 0) by their m × 10^e: for a tiny value, or a result that would be one */
+function mulME(op: "*" | "/", a: Value, b: Value): Value {
+  const [ma, ea] = meOf(a), [mb, eb] = meOf(b);
+  return op === "*" ? fromME(ma * mb, ea + eb, Math.min(precision(a), precision(b))) : fromME(ma / mb, ea - eb, Math.min(precision(a), precision(b)));
+}
+
+/** + − × ÷ with a tiny value. Next to any other number it is lost in + and − (1 + tiny ≈ 1); × and ÷ go by logarithms,
+ *  so 1 ÷ tiny is "Number is too large" and tiny ÷ tiny is worked out, while ÷ a real 0 is still "Division by zero". */
+function arithTiny(op: "+" | "-" | "*" | "/", a: Value, b: Value): Value {
+  if (op === "+" || op === "-") {
+    const c = op === "-" ? negV(b) : b;
+    if (!isTiny(a) || !isTiny(c)) {
+      const x = isTiny(a) ? c : a;
+      if (sgn(x) === 0) return isTiny(a) ? a : c;
+      // no longer exact: 1 + tiny is 1 only approximately
+      return exact(x) ? approx(x.q, APPROX_DIGITS) : x;
+    }
+    const [hi, lo] = a.e >= c.e ? [a, c] : [c, a];
+    const x = !(hi.e - lo.e <= 20) ? hi.m : hi.m + lo.m * 10 ** (lo.e - hi.e);
+    // two tiny values that cancel (2^(−10^6) − 2^(−10^6)): approximately 0, like two doubles
+    return x === 0 ? fl(0) : tiny(x, hi.e, Math.min(a.p, c.p));
+  }
+  if (op === "/" && sgn(b) === 0) throw new CalcError("Division by zero");
+  if (sgn(a) === 0 || sgn(b) === 0) return fl(0);
+  return mulME(op, a, b);
+}
 
 function arith(op: "+" | "-" | "*" | "/", a: Value, b: Value): Value {
+  if (isTiny(a) || isTiny(b)) return arithTiny(op, a, b);
+  try { return arithQ(op, a, b); } catch (e) {
+    // a product or quotient below the smallest number kept (10^−60000 × 10^−60000) is tiny, not "too large"
+    if (tooLarge(e) && (op === "*" || op === "/") && sgn(a) !== 0 && sgn(b) !== 0) {
+      const l = op === "*" ? log10Of(a) + log10Of(b) : log10Of(a) - log10Of(b);
+      if (l < UNDERFLOW_L10) return mulME(op, a, b);
+    }
+    throw e;
+  }
+}
+function arithQ(op: "+" | "-" | "*" | "/", a: Value, b: Value): Value {
   const exactOp = (x: Q, y: Q) => (op === "+" ? add(x, y) : op === "-" ? sub(x, y) : op === "*" ? mul(x, y) : div(x, y));
   if (exact(a) && exact(b)) return { q: exactOp(a.q, b.q) };
   if (op === "/" && sgn(b) === 0) throw new CalcError("Division by zero");
@@ -79,6 +154,7 @@ function pow(a: Value, b: Value): Value {
     // a rational power p/r: exact when the r-th root comes out (8^(1/3) = 2, 4^1.5 = 8)
     else if (b.q.d <= 1000n) { const r = rootExact(a.q, Number(b.q.d)); if (r) return { q: powInt(r, b.q.n) }; }
   }
+  if (isTiny(a) || isTiny(b)) return powTiny(a, b);
   const sa = sgn(a);
   if (sa === 0) { if (num(b) < 0) throw new CalcError("Division by zero"); return fl(0 ** num(b)); }
   // a negative number to a power: real for an odd root ((−8)^(1/3) = −2) and for whole powers
@@ -101,6 +177,8 @@ function pow(a: Value, b: Value): Value {
   // beyond a double's range (in or out)
   let p = Math.min(precision(m), precision(b));
   if (isApprox(m) && exact(b) && isInt(b.q) && b.q.n >= -10000n && b.q.n <= 10000n) {
+    const l = log10Of(m) * Number(b.q.n);
+    if (l < UNDERFLOW_L10) return fromL10(sign, l); // (≈10^−400)^1000
     return approx(mul(q(BigInt(sign)), powInt(m.a, b.q.n)), p - Math.log10(Math.abs(Number(b.q.n))));
   }
   const r = powNum(qOf(m), qOf(b));
@@ -110,17 +188,36 @@ function pow(a: Value, b: Value): Value {
     const rt = rootApprox(m.q, Number(b.q.d));
     return approx(mul(q(BigInt(sign)), powInt(rt, b.q.n)), 30 - Math.log10(Math.abs(Number(b.q.n))));
   }
-  // smaller than the smallest number the calculator holds (10^−100000): approximately 0, as a double would underflow
-  if (r.l10 < UNDERFLOW_L10) return fl(0);
-  return approx(mul(q(BigInt(sign)), fromLog10(r.l10)), Math.min(p, 15.5 - Math.log10(Math.max(1, Math.abs(r.l10)))));
+  // smaller than the smallest number the calculator holds (10^−100000): a tiny value, ≈0 but not a real 0
+  return fromL10(sign, r.l10, p);
 }
-const UNDERFLOW_L10 = -MAX_BITS * Math.log10(2);
+/** log10 of the smallest number kept, the mirror of the largest (MAX_BITS) */
+const UNDERFLOW_L10 = -MAX_BITS * Math.log10(2) + 20; // (with room for the 15 digits of a number just above it)
+/** A power with a tiny base or exponent, by logarithms */
+function powTiny(a: Value, b: Value): Value {
+  if (isTiny(b)) {
+    // x^tiny is 1 to every digit there is; 0^tiny is 0 (or 1 ÷ 0 for a negative tiny)
+    if (sgn(a) === 0) { if (b.m < 0) throw new CalcError("Division by zero"); return fl(0); }
+    if (sgn(a) < 0) throw new CalcError("Not a real number");
+    return fl(1);
+  }
+  const t = a as Tiny, y = num(b);
+  if (sgn(b) === 0) return exact(b) ? { q: ONE } : fl(1);
+  let sign = 1;
+  if (t.m < 0) {
+    if (exact(b) ? !isInt(b.q) : !Number.isInteger(y)) throw new CalcError("Not a real number");
+    if (exact(b) ? b.q.n % 2n !== 0n : y % 2 !== 0) sign = -1;
+  }
+  const l = log10Of(t);
+  return fromL10(sign, l * y, precision(b), l);
+}
 const tooLarge = (e: unknown) => e instanceof CalcError && e.message === "Number is too large";
 
 function root(a: Value, n: number): Value {
   if (!Number.isInteger(n) || n === 0) throw new CalcError("Malformed expression");
   const sa = sgn(a);
   if (sa < 0 && n % 2 === 0) throw new CalcError("Root of a negative number");
+  if (isTiny(a)) { const l = log10Of(a); return fromL10(sa, l / n, 15, l); }
   if (exact(a)) {
     const r = rootExact(a.q, Math.abs(n));
     if (r) return n < 0 ? { q: div(ONE, r) } : { q: r };
@@ -151,6 +248,7 @@ function gamma(z: number): number {
   return Math.sqrt(2 * Math.PI) * t ** (z + 0.5) * Math.exp(-t) * x;
 }
 function factorial(v: Value): Value {
+  if (isTiny(v)) return fl(1); // Γ(1 + tiny)
   const n = intOf(v);
   if (n === null) return fl(gamma(num(v) + 1));
   if (n < 0n) throw new CalcError("Factorial of a negative number");
@@ -163,6 +261,8 @@ function factorial(v: Value): Value {
 /** floor, round and the like: on the value's trustworthy digits. Of an approximate number with more whole digits than
  *  it is sure of (3.1×10^20 as a double, √(2×10^1000)) the result is approximate too, not made-up exact digits. */
 function discrete(v: Value, f: (x: Q) => Q): Value {
+  // a tiny value as a stand-in small number: floor and ceil come out whole, frac keeps the value itself
+  if (isTiny(v)) { const t = q(BigInt(Math.sign(v.m)), 10n ** 20n), r = f(t); return cmp(r, t) === 0 ? v : { q: r }; }
   const x = asQ(v), r = f(x);
   if (exact(v) || x.n === 0n || exponent10(x) < precision(v)) return { q: r };
   return approx(r, precision(v));
@@ -231,6 +331,7 @@ function finExactPow(x: Value, n: Value): Value | null {
 /** ln(1 + v) without forming 1 + v as a double (which loses a small rate's digits) */
 function ln1p(v: Value): Value {
   const x = num(v);
+  if (isTiny(v)) return v;
   if (x !== 0 && Number.isFinite(x)) return fl(Math.log1p(x));
   if (sgn(v) === 0) return Z;
   // a rate beyond a double: ln(1 + v) is v itself when that small (10^−400), to far more digits than a double has
@@ -246,6 +347,7 @@ const FIN: FinOps<Value> = {
   // exact when the power comes out at a sensible size, else expm1 / log1p on doubles (accurate for any small rate), and
   // only past a double's range the power itself, approximated
   grow: (i, n) => {
+    if (isTiny(i)) return arith("*", n, i); // ≈ n·i
     const base = arith("+", ONE_V, i), r = finExactPow(base, n);
     if (r) return arith("-", r, ONE_V);
     const x = num(i);
@@ -318,7 +420,7 @@ function call(name: string, args: Value[], o: EvalOptions): Value {
     case "round": return discrete(a, (v) => { const h = q(1n, 2n); return q(v.n < 0n ? -floor(add(neg(v), h)) : floor(add(v, h))); });
     case "int": return discrete(a, (v) => q(trunc(v)));
     case "frac": return discrete(a, (v) => sub(v, q(trunc(v))));
-    case "sgn": { const v = asQ(a); return { q: q(BigInt(v.n > 0n ? 1 : v.n < 0n ? -1 : 0)) }; }
+    case "sgn": return { q: q(BigInt(sgn(a))) };
     case "gamma": { const n = intOf(a); if (n !== null && n <= 0n) throw new CalcError("Gamma is undefined here"); return n !== null ? factorial({ q: q(n - 1n) }) : fl(gamma(x())); }
     case "!": return factorial(a);
   }
@@ -352,8 +454,11 @@ function ev(n: Node, o: EvalOptions): Value {
       const a = ev(n.a, o), b = ev(n.b, o);
       if (n.op === "^") return pow(a, b);
       if (n.op === "mod") {
+        if (isTiny(b)) throw new CalcError("Not precise enough for mod");
         const x = asQ(a), y = asQ(b);
         if (y.n === 0n) throw new CalcError("Division by zero");
+        // the sign follows the divisor: tiny mod 7 is tiny, −tiny mod 7 is 7 − tiny ≈ 7
+        if (isTiny(a)) return sgn(a) === sgn(b) ? a : arith("+", a, b);
         const r = sub(x, mul(y, q(floor(div(x, y))))); // the sign follows the divisor, like GNOME's
         if (exact(a) && exact(b)) return { q: r };
         // of an approximate number, only the digits it is sure of count: (10^20·π) mod 7 can't be known

@@ -429,4 +429,37 @@ describe("powers past the smallest number kept", () => {
   it("1.05^(−10^7) is approximately 0", () => expect(exactOf("1.05^(−10^7)")).toBe("≈0"));
   it("2^(−10^6) too", () => expect(exactOf("2^(−10^6)")).toBe("≈0"));
   it("1.05^(10^7) is too large", () => expect(evaluate("1.05^(10^7)")).toEqual({ error: "Number is too large" }));
+  // a power below the smallest number kept is ≈0, but not a real 0: dividing by it is too large, its log is worked out
+  it("1 ÷ 1.05^(−10^7) is too large", () => expect(err("1/(1.05^(−10^7))")).toBe("Number is too large"));
+  it("1 ÷ 2^(−10^6) is too large", () => expect(err("1/(2^(−10^6))")).toBe("Number is too large"));
+  it("1 ÷ 1.05^(−10^400) too", () => expect(err("1/1.05^(−10^400)")).toBe("Number is too large"));
+  it("2^(−10^6) ÷ 2^(−10^6) = 1", () => expect(v("2^(−10^6)/2^(−10^6)")).toBe("1"));
+  it("2^(−10^6) ÷ 1.05^(−10^7)", () => expect(v("2^(−10^6)/1.05^(−10^7)")).toMatch(/^9\.88633675\d*×10⁻⁸⁹¹³⁸$/));
+  it("ln 2^(−10^6)", () => expect(v("ln(2^(−10^6))")).toBe("-693147.180559945"));
+  it("log 1.05^(−10^7)", () => expect(v("log(1.05^(−10^7))")).toMatch(/^-211892\.99069938/));
+  it("log₂ 2^(−10^6)", () => expect(v("log₂(2^(−10^6))")).toBe("-1000000"));
+  it("ln of a negative one", () => expect(err("ln(−2^(−10^6))")).toBe("Logarithm of zero or less"));
+  it("√2^(−10^6) is ≈0 too", () => expect(exactOf("√(2^(−10^6))")).toBe("≈0"));
+  it("∛ of a negative one", () => expect(exactOf("∛(−2^(−10^6))")).toBe("≈0"));
+  it("√ of a negative one", () => expect(err("√(−2^(−10^6))")).toBe("Root of a negative number"));
+  it("a power of it that comes back in range", () => expect(v("(2^(−10^6))^(−0.1)")).toMatch(/^9\.990020\d*×10³⁰¹⁰²$/));
+  it("1 + 2^(−10^6) ≈ 1", () => expect(exactOf("1 + 2^(−10^6)")).toBe("≈1"));
+  it("2^(−10^6) − 2^(−10^6) ≈ 0", () => expect(exactOf("2^(−10^6) − 2^(−10^6)")).toBe("≈0"));
+  it("2^(−10^6) × 2^300000 is still ≈0", () => expect(exactOf("2^(−10^6) × 2^300000")).toBe("≈0"));
+  it("10^−60000 × 10^−60000 is ≈0, not too large", () => expect(exactOf("10^-60000 × 10^-60000")).toBe("≈0"));
+  it("…and 1 ÷ it is too large", () => expect(err("1/(10^-60000 × 10^-60000)")).toBe("Number is too large"));
+  it("(√2×10^−400)^1000 is ≈0", () => expect(exactOf("(√2×10^-400)^1000")).toBe("≈0"));
+  it("0 × 2^(−10^6) = 0", () => expect(v("0 × 2^(−10^6)")).toBe("0"));
+  it("2^(−10^6) ÷ 0", () => expect(err("2^(−10^6)/0")).toBe("Division by zero"));
+  it("ceil and floor of it", () => { expect(v("ceil(2^(−10^6))")).toBe("1"); expect(v("floor(−2^(−10^6))")).toBe("-1"); expect(v("floor(2^(−10^6))")).toBe("0"); });
+  it("sgn of it", () => expect(v("sgn(−2^(−10^6))")).toBe("-1"));
+  it("−2^(−10^6) mod 7 ≈ 7", () => expect(v("(−2^(−10^6)) mod 7")).toBe("7"));
+  it("Γ of it is too large", () => expect(err("gamma(2^(−10^6))")).toBe("Number is too large"));
+  // a real 0 is still a division by zero
+  it("1 ÷ (√2 − √2)", () => expect(err("1/(√2−√2)")).toBe("Division by zero"));
+  it("1 ÷ 0", () => expect(err("1/0")).toBe("Division by zero"));
+  it("1 ÷ (1 − 1)", () => expect(err("1/(1−1)")).toBe("Division by zero"));
+  it("ln 0", () => expect(err("ln(0)")).toBe("Logarithm of zero or less"));
+  it("log(√2 − √2)", () => expect(err("log(√2−√2)")).toBe("Logarithm of zero or less"));
+  it("√(√2 − √2) is 0", () => expect(v("√(√2−√2)")).toBe("0"));
 });
