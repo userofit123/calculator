@@ -31,7 +31,11 @@ if (!/^\d{4}-\d\d-\d\d$/.test(date) || Object.keys(rates).length < 20) throw new
 
 // the central banks: each its own currency's rate of the euro and its day (same checks as parseNbuJson / parseBcraJson)
 const dec = (n) => (typeof n === "number" && Number.isFinite(n) && n > 0 && /^\d+(\.\d+)?$/.test(String(n)) ? String(n) : null);
-const isDay = (d) => /^\d{4}-\d\d-\d\d$/.test(d);
+const isDay = (d) => {
+  if (!/^\d{4}-\d\d-\d\d$/.test(d)) return false;
+  const [y, m, day] = d.split("-").map(Number), t = new Date(Date.UTC(y, m - 1, day));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === day;
+};
 const json = async (u) => { const r = await fetch(u, { headers: { Accept: "application/json" } }); if (!r.ok) throw new Error(`${u} answered ${r.status}`); return r.json(); };
 const sources = {};
 const nbuEur = (await json("https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json")).find((x) => x?.cc === "EUR");

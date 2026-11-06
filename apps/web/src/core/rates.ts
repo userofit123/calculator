@@ -15,7 +15,7 @@ const okSet = (s: unknown): s is Kept => {
   return !!k && typeof k.date === "string" && /^\d{4}-\d\d-\d\d$/.test(k.date) && !!k.rates && typeof k.rates === "object" &&
     Object.values(k.rates).every((v) => typeof v === "string" && /^\d+(\.\d+)?$/.test(v)) &&
     (k.dates === undefined || (typeof k.dates === "object" && Object.values(k.dates).every((d) => typeof d === "string" && /^\d{4}-\d\d-\d\d$/.test(d)))) &&
-    (k.sources === undefined || (typeof k.sources === "object" && Object.values(k.sources).every((v) => typeof v === "string" && v in RATE_SOURCES)));
+    (k.sources === undefined || (typeof k.sources === "object" && Object.values(k.sources).every((v) => typeof v === "string" && Object.hasOwn(RATE_SOURCES, v))));
 };
 const saved = readJson<unknown>("ecbRates", null);
 const bundled: Kept = { ...BUNDLED_RATES, fetchedAt: 0 };
@@ -28,6 +28,8 @@ export const rates = reactive({
   loading: false,
   /** the last attempt's outcome, "" when it worked or none was made */
   error: "",
+  /** central banks (RATE_SOURCES ids) that didn't answer while the ECB did: a calm note, not an error */
+  unreached: [] as string[],
   /** when the ECB was last asked (ms), to ask at most a few times a day on its own */
   checkedAt: readJson<number>("ratesCheckedAt", 0),
   /** failed attempts in a row and when the last one was: the background refresh backs off (30 min, doubling, 4 h at most) */
@@ -52,7 +54,7 @@ async function ask(url: string, parse: (t: string) => RateSet, signal: AbortSign
  *  done; never throws. Whatever arrives is merged in; a source that fails keeps its saved rates. */
 export async function refreshRates(): Promise<void> {
   if (!rates.online || rates.loading) return;
-  rates.loading = true; rates.error = "";
+  rates.loading = true; rates.error = ""; rates.unreached = [];
   const stop = new AbortController(), timer = setTimeout(() => stop.abort(), 20_000);
   try {
     const all = [{ id: "ecb", url: ECB_RATES_URL, parse: parseEcbCsv }, ...CENTRAL_BANK_SOURCES];
@@ -67,8 +69,11 @@ export async function refreshRates(): Promise<void> {
     const failed = all.filter((_, i) => !got[i]).map((s) => s.id === "ecb" ? "the ECB" : `the ${RATE_SOURCES[s.id]?.name ?? s.id}`);
     // only a full answer counts as checked: after a partial one the back-off decides when to ask again (30 min, ...)
     if (!failed.length) { rates.checkedAt = Date.now(); writeJson("ratesCheckedAt", rates.checkedAt); rates.failures = 0; writeJson("ratesFailures", 0); return; }
+    // only the central banks missing (the ECB answered): the rates held stay in use, shown as a note instead of an error
+    const ecbOk = !!got[0], offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    if (ecbOk && !offline) rates.unreached = all.filter((s, i) => s.id !== "ecb" && !got[i]).map((s) => s.id);
     rates.failures++; rates.failedAt = Date.now(); writeJson("ratesFailures", rates.failures); writeJson("ratesFailedAt", rates.failedAt);
-    rates.error = typeof navigator !== "undefined" && navigator.onLine === false ? "No internet connection" : `Couldn't reach ${failed.join(" or ")}`;
+    if (!rates.unreached.length) rates.error = offline ? "No internet connection" : `Couldn't reach ${failed.join(" or ")}`;
   } finally {
     clearTimeout(timer); rates.loading = false;
   }

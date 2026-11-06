@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  parseNbuJson, parseBcraJson, rateSourceLine, sourceDayOf, CENTRAL_BANK_SOURCES, USD_PEGS,
+  parseNbuJson, parseBcraJson, rateSourceLine, sourceDayOf, CENTRAL_BANK_SOURCES, USD_PEGS, RATE_SOURCES,
   UNIT_CATEGORIES, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions,
 } from "../src";
 
@@ -246,8 +246,13 @@ describe("currencies from central banks (not quoted by the ECB)", () => {
     for (const bad of ["<html>busy</html>", "{}", "[]", without((x) => { x.rate = 0; }), without((x) => { x.rate = "51"; }), without((x) => { x.exchangedate = "2026-11-06"; }), without((x) => { x.cc = "XXX"; })]) {
       expect(() => parseNbuJson(bad)).toThrow();
     }
+    // impossible calendar days are refused, real ones (leap day) pass
+    for (const d of ["31.02.2026", "29.02.2026", "31.04.2026", "00.11.2026"]) expect(() => parseNbuJson(without((x) => { x.exchangedate = d; }))).toThrow();
+    expect(parseNbuJson(without((x) => { x.exchangedate = "29.02.2028"; })).date).toBe("2028-02-29");
     const bcra = JSON.parse(fixture("bcra.json")) as { results: { fecha: string; detalle: { codigoMoneda: string; tipoCotizacion: unknown }[] } };
     const alter = (f: (b: typeof bcra) => void) => { const b = structuredClone(bcra); f(b); return JSON.stringify(b); };
+    for (const d of ["2026-02-31", "2026-13-01", "2026-04-31"]) expect(() => parseBcraJson(alter((b) => { b.results.fecha = d; }))).toThrow();
+    expect(parseBcraJson(alter((b) => { b.results.fecha = "2028-02-29"; })).date).toBe("2028-02-29");
     for (const bad of ["not json", "{\"status\":400,\"errorMessages\":[\"x\"]}", alter((b) => { b.results.fecha = "5/11/2026"; }),
       alter((b) => { b.results.detalle = b.results.detalle.filter((x) => x.codigoMoneda !== "EUR"); }),
       alter((b) => { b.results.detalle.find((x) => x.codigoMoneda === "EUR")!.tipoCotizacion = -1; })]) {
@@ -297,5 +302,12 @@ describe("currencies from central banks (not quoted by the ECB)", () => {
       expect(BUNDLED_RATES.rates[s.currency]).toMatch(/^\d+(\.\d+)?$/);
       expect(BUNDLED_RATES.sources?.[s.currency]).toBe(s.id);
     }
+  });
+});
+
+describe("rate source ids are own keys", () => {
+  it("RATE_SOURCES has no inherited ids", () => {
+    expect(Object.hasOwn(RATE_SOURCES, "nbu")).toBe(true);
+    for (const k of ["toString", "constructor", "__proto__"]) expect(Object.hasOwn(RATE_SOURCES, k)).toBe(false);
   });
 });

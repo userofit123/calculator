@@ -22,7 +22,12 @@ function decimal(n: unknown): string | null {
   const s = String(n);
   return /^\d+(\.\d+)?$/.test(s) ? s : null;
 }
-const isDay = (d: string) => /^\d{4}-\d\d-\d\d$/.test(d) && !Number.isNaN(Date.parse(d + "T12:00:00Z"));
+/** a real calendar day "2026-11-06" (31 Feb doesn't pass: the date is rebuilt from its parts and compared back) */
+const isDay = (d: string) => {
+  if (!/^\d{4}-\d\d-\d\d$/.test(d)) return false;
+  const [y, m, day] = d.split("-").map(Number), t = new Date(Date.UTC(y!, m! - 1, day!));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m! - 1 && t.getUTCDate() === day;
+};
 
 /** Reads the National Bank of Ukraine's answer: the hryvnia rate of the euro (r030 978) and its day ("06.11.2026") */
 export function parseNbuJson(text: string): RateSet {

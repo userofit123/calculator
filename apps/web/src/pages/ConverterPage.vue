@@ -6,7 +6,7 @@
 // @calc/core; this page is loaded only when opened, so none of it holds up the calculator's first screen. The last
 // category, units and amount are remembered on this device.
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, rateSourceLine, sourceDayOf, ECB_SOURCE, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
+import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, rateSourceLine, sourceDayOf, shortDay, RATE_SOURCES, ECB_SOURCE, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
 import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
 import { readJson, writeJson } from "../core/prefs";
@@ -83,6 +83,13 @@ const olderLine = computed(() => !isCurrency.value ? "" : [from.value, to.value]
 const ratesState = computed(() => rates.loading ? "Checking for newer rates..." : rates.error ? `${rates.error} - using the rates above`
   : rates.set.fetchedAt ? `Downloaded ${new Date(rates.set.fetchedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : "Rates that came with the app");
 
+/** a central bank that didn't answer: a calm note with the day of the rate still in use (not an error) */
+const unreachedNotes = computed(() => rates.unreached.map((id) => {
+  const code = Object.keys(rates.set.rates).find((c) => rateSourceOf(rates.set, c) === id);
+  const name = `the ${RATE_SOURCES[id]?.name ?? id}`;
+  return code ? `Couldn't reach ${name} - using its rate of ${shortDay(rateDayOf(rates.set, code))}` : `Couldn't reach ${name}`;
+}));
+
 const amountEl = ref<HTMLInputElement | null>(null);
 onMounted(() => {
   if (!isPhone.value) amountEl.value?.focus({ preventScroll: true });
@@ -126,6 +133,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
           <div v-if="isCurrency" class="cvrates">
             <div class="t">{{ ratesLine }}</div>
             <div v-if="olderLine" class="s">{{ olderLine }}</div>
+            <div v-for="n in unreachedNotes" :key="n" class="s">{{ n }}</div>
             <div class="s">
               <span>{{ ratesState }}</span>
               <button v-if="rates.online" type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">Refresh</button>
