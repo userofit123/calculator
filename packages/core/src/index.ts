@@ -11,5 +11,5 @@ export {
 // The converter (units and ECB currency rates); only the Converter page and Settings use these, so they stay out of the first screen's bundle
 export { UNIT_CATEGORIES, type Category, type Unit } from "./units";
 export { convert, convertAll, formatDms, parseDms } from "./convert";
-export { parseEcbCsv, currencyCategory, currencyFlag, CURRENCY_NAMES, FIXED_EURO_RATES, ECB_RATES_URL, ECB_SOURCE, type RateSet } from "./currency";
+export { parseEcbCsv, mergeRates, rateDayOf, shortDay, retryDelayMs, refreshDue, RETRY_MIN_MS, AUTO_EVERY_MS, MAX_RATE_AGE_DAYS, currencyCategory, currencyFlag, CURRENCY_NAMES, FIXED_EURO_RATES, ECB_RATES_URL, ECB_SOURCE, type RateSet } from "./currency";
 export { BUNDLED_RATES } from "./currency-rates";

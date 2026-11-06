@@ -4,21 +4,22 @@
 // no identifiers, and only while "Update currency rates online" is on. It never holds anything up: the converter shows
 // the rates it has and swaps in newer ones when they arrive. Loaded only with the Converter and Settings pages.
 import { reactive, watch } from "vue";
-import { BUNDLED_RATES, ECB_RATES_URL, parseEcbCsv, type RateSet } from "@calc/core";
+import { BUNDLED_RATES, ECB_RATES_URL, parseEcbCsv, mergeRates, refreshDue, type RateSet } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
 
 interface Kept extends RateSet { /** when it was downloaded (ms), 0 for the rates that ship with the app */ fetchedAt: number }
 const okSet = (s: unknown): s is Kept => {
   const k = s as Kept | null;
   return !!k && typeof k.date === "string" && /^\d{4}-\d\d-\d\d$/.test(k.date) && !!k.rates && typeof k.rates === "object" &&
-    Object.values(k.rates).every((v) => typeof v === "string" && /^\d+(\.\d+)?$/.test(v));
+    Object.values(k.rates).every((v) => typeof v === "string" && /^\d+(\.\d+)?$/.test(v)) &&
+    (k.dates === undefined || (typeof k.dates === "object" && Object.values(k.dates).every((d) => typeof d === "string" && /^\d{4}-\d\d-\d\d$/.test(d))));
 };
 const saved = readJson<unknown>("ecbRates", null);
 const bundled: Kept = { ...BUNDLED_RATES, fetchedAt: 0 };
 
 export const rates = reactive({
   /** the rates in use: the downloaded ones when they are newer than the ones that ship with the app */
-  set: okSet(saved) && saved.date >= bundled.date ? saved : bundled,
+  set: (okSet(saved) ? { ...mergeRates(bundled, saved), fetchedAt: saved.fetchedAt } : bundled) as Kept,
   /** "Update currency rates online" (Settings) */
   online: readJson<boolean>("ratesOnline", true) !== false,
   loading: false,
@@ -26,6 +27,9 @@ export const rates = reactive({
   error: "",
   /** when the ECB was last asked (ms), to ask at most a few times a day on its own */
   checkedAt: readJson<number>("ratesCheckedAt", 0),
+  /** failed attempts in a row and when the last one was: the background refresh backs off (30 min, doubling, 4 h at most) */
+  failures: readJson<number>("ratesFailures", 0),
+  failedAt: readJson<number>("ratesFailedAt", 0),
 });
 watch(() => rates.online, (v) => { writeJson("ratesOnline", v); if (v) autoRefresh(); });
 
@@ -43,19 +47,24 @@ export async function refreshRates(): Promise<void> {
     if (!res.ok) throw new Error(`The ECB answered ${res.status}`);
     const got = parseEcbCsv(await res.text());
     rates.checkedAt = Date.now(); writeJson("ratesCheckedAt", rates.checkedAt);
-    if (got.date >= rates.set.date) { rates.set = { ...got, fetchedAt: Date.now() }; writeJson("ecbRates", rates.set); }
+    // per currency the newest row wins: a currency the ECB's newest day lacks keeps its saved rate and its own date
+    rates.set = { ...mergeRates(rates.set, got), fetchedAt: Date.now() }; writeJson("ecbRates", rates.set);
+    rates.failures = 0; writeJson("ratesFailures", 0);
   } catch {
+    // an answer that isn't usable counts as a failure too; the rates already held stay untouched
+    rates.failures++; rates.failedAt = Date.now(); writeJson("ratesFailures", rates.failures); writeJson("ratesFailedAt", rates.failedAt);
     rates.error = typeof navigator !== "undefined" && navigator.onLine === false ? "No internet connection" : "Couldn't reach the ECB";
   } finally {
     clearTimeout(timer); rates.loading = false;
   }
 }
 
-// The ECB publishes once a working day (around 16:00 CET), so asking on its own every few hours is plenty
-const EVERY = 4 * 3600_000;
-/** Refreshes in the background when the setting is on, there is a connection and the last check is a while ago */
+// The ECB publishes once a working day (around 16:00 CET), so on its own the app asks at most every 4 hours, and after a
+// failure not before 30 minutes (then 1 h, 2 h, 4 h). It asks when the Currency category opens, when the device comes
+// back online and when the setting is switched on; "Refresh now" always asks.
+/** Refreshes in the background when the setting is on, there is a connection and it is due */
 export function autoRefresh() {
-  if (!rates.online || rates.loading || navigator.onLine === false || Date.now() - rates.checkedAt < EVERY) return;
+  if (!rates.online || rates.loading || navigator.onLine === false || !refreshDue(Date.now(), rates.checkedAt, rates.failedAt, rates.failures)) return;
   void refreshRates();
 }
 addEventListener("online", autoRefresh);

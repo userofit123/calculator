@@ -66,8 +66,10 @@ const LAYOUTS: [typeof layoutChoice.value, string][] = [["auto", "Auto"], ["phon
         <div class="card flush">
           <label class="li tg">
             <Icon name="convert" /><div class="grow"><div class="t">Update currency rates online</div><div class="s">Downloads the latest
-              rates straight from the European Central Bank, a few times a day at most, while the converter is open. No account,
-              no cookies, nothing about you is sent. Off: no network requests at all; the converter keeps using the rates it has.</div></div>
+              rates straight from the European Central Bank: when the converter's Currency category is opened, when the device comes
+              back online, when you switch this on, and on Refresh now. On its own at most every 4 hours; after a failed try it waits
+              at least 30 minutes (then longer). No account, no cookies, nothing about you is sent. Off: no network requests at all;
+              the converter keeps using the rates it has.</div></div>
             <input v-model="rates.online" type="checkbox" />
           </label>
           <div class="li">

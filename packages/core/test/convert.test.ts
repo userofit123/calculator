@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  UNIT_CATEGORIES, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, type Category, type EvalOptions,
+  UNIT_CATEGORIES, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions,
 } from "../src";
 
 const cat = (id: string) => UNIT_CATEGORIES.find((c) => c.id === id)!;
@@ -182,6 +182,40 @@ ${["AUD", "CAD", "CHF", "CNY", "CZK", "DKK", "HKD", "HUF", "PLN"].map((c) => `EX
   it("fixed euro rates (lev)", () => expect(cv(cur, "BGN", "EUR", "1.95583")).toBe("1"));
   it("euro is first", () => expect(cur.units[0]!.id).toBe("EUR"));
   it("flags are emoji", () => { expect(currencyFlag("USD")).toBe("🇺🇸"); expect(currencyFlag("EUR")).toBe("🇪🇺"); });
+  it("legacy euro currencies: only the lev stays", () => { expect(cur.units.some((u) => u.id === "BGN")).toBe(true); expect(cur.units.some((u) => u.id === "HRK" || u.id === "EEK")).toBe(false); });
+  const row = (c: string, d: string, v = "2.5") => `EXR.D.${c}.EUR.SP00.A,D,${c},EUR,SP00,A,${d},${v}`;
+  const head = "KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE";
+  const ten = ["AUD", "CAD", "CHF", "CNY", "CZK", "DKK", "HKD", "HUF", "PLN", "SEK"];
+  it("a currency missing on the newest day keeps its own newest row and date", () => {
+    const r = parseEcbCsv([head, ...ten.map((c) => row(c, "2026-11-05")), row("ISK", "2026-11-04", "137.1"), row("RUB", "2022-03-01")].join("\n"));
+    expect(r.date).toBe("2026-11-05"); expect(r.rates.ISK).toBe("137.1"); expect(r.dates).toEqual({ ISK: "2026-11-04" }); expect(r.rates.RUB).toBeUndefined();
+    const u = currencyCategory(r).units.find((x) => x.id === "ISK")!;
+    expect(u.hint).toBe("Rate of 4 Nov 2026");
+    expect(currencyCategory(r).units.find((x) => x.id === "AUD")!.hint).toBeUndefined();
+  });
+  it("merging keeps a saved currency the new answer lacks, and takes the newest per currency", () => {
+    const saved = { date: "2026-11-04", rates: { USD: "1.1", ISK: "137.1", JPY: "170" } };
+    const m = mergeRates(saved, { date: "2026-11-05", rates: { USD: "1.2", JPY: "160" } });
+    expect(m.date).toBe("2026-11-05"); expect(m.rates).toEqual({ ISK: "137.1", JPY: "160", USD: "1.2" }); expect(m.dates).toEqual({ ISK: "2026-11-04" });
+    // an older answer never overwrites a newer saved rate
+    expect(mergeRates(m, { date: "2026-11-03", rates: { USD: "9" } }).rates.USD).toBe("1.2");
+    // rates far older than the newest day are dropped
+    expect(mergeRates({ date: "2026-01-01", rates: { RUB: "100" } }, { date: "2026-11-05", rates: { USD: "1.2" } }).rates.RUB).toBeUndefined();
+  });
+  it("invalid responses throw, so the saved set is kept", () => {
+    expect(() => parseEcbCsv("<html>nope</html>")).toThrow();
+    expect(() => parseEcbCsv([head, row("USD", "2026-11-05"), row("JPY", "not-a-date")].join("\n"))).toThrow();
+    expect(() => parseEcbCsv([head, ...ten.map((c) => row(c, "2026-11-05", "0"))].join("\n"))).toThrow();
+  });
+  it("back-off: 30 minutes, doubling, 4 hours at most", () => {
+    expect([0, 1, 2, 3, 4, 9].map(retryDelayMs)).toEqual([0, 1_800_000, 3_600_000, 7_200_000, 14_400_000, 14_400_000]);
+    const H = 3600_000, now = 100 * H;
+    expect(refreshDue(now, now - 5 * H, 0, 0)).toBe(true);
+    expect(refreshDue(now, now - 3 * H, 0, 0)).toBe(false);
+    expect(refreshDue(now, now - 9 * H, now - 10 * 60_000, 1)).toBe(false);
+    expect(refreshDue(now, now - 9 * H, now - 40 * 60_000, 1)).toBe(true);
+    expect(refreshDue(now, now - 9 * H, now - 40 * 60_000, 2)).toBe(false);
+  });
   it("the bundled snapshot is a full ECB day", () => {
     expect(BUNDLED_RATES.date).toMatch(/^\d{4}-\d\d-\d\d$/);
     expect(Object.keys(BUNDLED_RATES.rates).length).toBeGreaterThanOrEqual(25);

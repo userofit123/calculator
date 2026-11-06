@@ -5,7 +5,7 @@
 // @calc/core; this page is loaded only when opened, so none of it holds up the calculator's first screen. The last
 // category, units and amount are remembered on this device.
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, currencyFlag, ECB_SOURCE, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
+import { UNIT_CATEGORIES, convert, convertAll, currencyCategory, rateDayOf, shortDay, ECB_SOURCE, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
 import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
 import { readJson, writeJson } from "../core/prefs";
@@ -32,20 +32,22 @@ watch(st, (v) => writeJson("converter", v), { deep: true });
 
 const cat = computed(() => categories.value.find((c) => c.id === st.cat) ?? categories.value[0]!);
 const has = (c: Category, id: string | undefined) => !!id && c.units.some((u) => u.id === id);
-/** the chosen pair, falling back to the defaults (a currency the ECB stopped quoting, an old saved unit) */
+/** the chosen pair, falling back to the defaults for an old saved unit; a saved currency with no rate (the ECB stopped
+ *  quoting it) is never swapped for another: it stays chosen and shows "No rate for X" */
 const pair = computed<[string, string]>(() => {
   const c = cat.value, saved = st.units[c.id], d = DEFAULTS[c.id] ?? [c.units[0]!.id, c.units[1]!.id];
-  return [has(c, saved?.[0]) ? saved![0] : d[0], has(c, saved?.[1]) ? saved![1] : d[1]];
+  const keep = (s: string | undefined) => has(c, s) || (c.id === "currency" && /^[A-Z]{3}$/.test(s ?? ""));
+  return [keep(saved?.[0]) ? saved![0] : d[0], keep(saved?.[1]) ? saved![1] : d[1]];
 });
+const noRate = computed(() => cat.value.id === "currency" ? pair.value.filter((id) => !has(cat.value, id)) : []);
 const from = computed({ get: () => pair.value[0], set: (v) => { st.units[cat.value.id] = [v, pair.value[1]]; } });
 const to = computed({ get: () => pair.value[1], set: (v) => { st.units[cat.value.id] = [pair.value[0], v]; } });
-const unit = (id: string) => cat.value.units.find((u) => u.id === id)!;
+const unit = (id: string): Unit => cat.value.units.find((u) => u.id === id) ?? { id, name: id, symbol: id, factor: "1", hint: `No rate for ${id}` };
 function swap() { st.units[cat.value.id] = [pair.value[1], pair.value[0]]; }
 
 const isCurrency = computed(() => cat.value.id === "currency");
-const options = computed<PickOption[]>(() => cat.value.units.map((u) => isCurrency.value
-  ? { value: u.id, label: u.name, lead: `${currencyFlag(u.id)} ${u.id}`, hint: u.hint, keys: u.alias }
-  : { value: u.id, label: u.name, lead: u.symbol, hint: u.hint, keys: u.alias }));
+// currencies show their code as the badge, never a flag emoji: Windows draws those as two letters
+const options = computed<PickOption[]>(() => [...cat.value.units, ...noRate.value.map(unit)].map((u) => ({ value: u.id, label: u.name, lead: u.symbol, hint: u.hint, keys: u.alias })));
 
 // the same engine and options as the calculator (its variables and ans too); money to at most 4 decimals
 const evalOptions = computed<EvalOptions>(() => ({
@@ -53,14 +55,14 @@ const evalOptions = computed<EvalOptions>(() => ({
   variables: calc.vars, ans: calc.ans, maxBits: 110_000,
 }));
 const typed = computed(() => sanitizeInput(st.amount, settings.decimalMark));
-const result = computed(() => (typed.value ? convert(cat.value, from.value, to.value, typed.value, evalOptions.value) : null));
+const result = computed(() => (noRate.value.length ? { error: `No rate for ${noRate.value.join(" and ")}` } : typed.value ? convert(cat.value, from.value, to.value, typed.value, evalOptions.value) : null));
 const all = computed(() => {
-  if (!typed.value) return [];
+  if (!typed.value || noRate.value.includes(from.value)) return [];
   const r = convertAll(cat.value, from.value, typed.value, evalOptions.value);
   return Array.isArray(r) ? r : [];
 });
 const text = (r: { value: string } | { error: string } | null) => (r && "value" in r ? show(r.value) : "");
-const label = (u: Unit) => (isCurrency.value ? `${currencyFlag(u.id)} ${u.id}` : u.symbol);
+const label = (u: Unit) => u.symbol;
 
 async function copy(t: string) {
   if (!t) return;
@@ -69,6 +71,9 @@ async function copy(t: string) {
 function pickTo(u: Unit) { if (u.id !== from.value) to.value = u.id; }
 
 const ratesLine = computed(() => `Rates of ${rateDate(rates.set.date)} · ${ECB_SOURCE}`);
+/** the chosen currencies whose rate is from another day than the set's newest, "USD: 3 Nov 2026" */
+const olderLine = computed(() => !isCurrency.value ? "" : [from.value, to.value].filter((id, i, a) => a.indexOf(id) === i && !noRate.value.includes(id) && rateDayOf(rates.set, id) !== rates.set.date)
+  .map((id) => `${id} rate of ${shortDay(rateDayOf(rates.set, id))}`).join(" · "));
 const ratesState = computed(() => rates.loading ? "Checking for newer rates..." : rates.error ? `${rates.error} - using the rates above`
   : rates.set.fetchedAt ? `Downloaded ${new Date(rates.set.fetchedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : "Rates that came with the app");
 
@@ -114,6 +119,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
           </div>
           <div v-if="isCurrency" class="cvrates">
             <div class="t">{{ ratesLine }}</div>
+            <div v-if="olderLine" class="s">{{ olderLine }}</div>
             <div class="s">
               <span>{{ ratesState }}</span>
               <button v-if="rates.online" type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">Refresh</button>
