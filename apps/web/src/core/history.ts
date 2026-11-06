@@ -71,10 +71,12 @@ export function progInfo(h: HistItem): string {
 /** One line: "expression = answer" (with the base info after it for a programming entry) */
 export const lineOf = (h: HistItem) => `${h.e} = ${h.r}` + (h.b ? ` [${progInfo(h)}]` : "");
 export const toText = (items: HistItem[]) => items.map(lineOf).join("\n");
+// Plain numbers (e.g. "-5", "+3", "-0.25", "1e-7") are not formulas, so they skip the guard.
+const PLAIN_NUMBER = /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
 /** One CSV cell: quoted when it holds a comma, quote or line break; a cell that starts with = + - @ (or a tab or CR) gets an
  *  apostrophe first so a spreadsheet doesn't run it as a formula */
 export function csvCell(v: string): string {
-  const s = /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
+  const s = /^[=+\-@\t\r]/.test(v) && !PLAIN_NUMBER.test(v) ? "'" + v : v;
   return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 export const CSV_HEAD = ["date_time", "mode", "base", "word_size", "signed", "expression", "result"];

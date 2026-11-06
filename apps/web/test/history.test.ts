@@ -65,7 +65,10 @@ describe("export", () => {
     expect(csvCell("plain")).toBe("plain");
   });
   it("guards against formulas", () => {
-    for (const c of ["=1+1", "+1", "-5", "@x"]) expect(csvCell(c)).toBe("'" + c);
+    for (const c of ["@x", "-FF"]) expect(csvCell(c)).toBe("'" + c);
+    for (const c of ["-5", "-0.25", "+3", "1e-7"]) expect(csvCell(c)).toBe(c);
+    expect(csvCell("-5+3")).toBe("'-5+3");
+    expect(csvCell("=1+1")).toBe("'=1+1");
     expect(csvCell("=A,B")).toBe("\"'=A,B\"");
   });
   it("writes a header and one row per entry with the programming info", () => {
