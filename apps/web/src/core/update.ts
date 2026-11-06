@@ -5,13 +5,37 @@ import { calc } from "./calc";
 import { sheetIsOpen } from "./sheets";
 import { toast } from "./toast";
 
-/** Idle = nothing being typed and no sheet open. An answer showing after = counts as idle too (calc.expr still holds the
- *  sum, but History keeps the result), so a phone app left on an answer can update. The Converter's amount is saved to
- *  prefs as it is typed (ConverterPage watch), so a reload loses nothing there. */
-export function isIdle(s: { expr: string; answer: string; sheet: boolean }): boolean {
-  return !s.sheet && (!s.expr || !!s.answer);
+/** The minimal shape of document.activeElement that matters here (kept structural so isIdle stays pure and testable). */
+export interface ActiveLike { tagName?: string; type?: string; isContentEditable?: boolean }
+const NON_TEXT_INPUTS = new Set(["checkbox", "radio", "range", "button", "submit", "reset", "image", "file", "color"]);
+/** Whether the focused element is somewhere text is typed: a text-like input, textarea, select or contenteditable. */
+export function isEditing(el: ActiveLike | null | undefined): boolean {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = (el.tagName ?? "").toUpperCase();
+  if (tag === "TEXTAREA" || tag === "SELECT") return true;
+  return tag === "INPUT" && !NON_TEXT_INPUTS.has((el.type ?? "text").toLowerCase());
 }
-const idle = () => isIdle({ expr: calc.expr, answer: calc.answer, sheet: sheetIsOpen() });
+const RECENT_INPUT_MS = 5000;
+
+/** Idle = nothing being typed and no sheet open. An answer showing after = counts as idle too (calc.expr still holds the
+ *  sum, but History keeps the result), so a phone app left on an answer can update. Also busy: a text field, search box
+ *  or select has focus (Converter amount, unit search, Settings, ...), or a key/input happened in the last 5 s. */
+export function isIdle(s: { expr: string; answer: string; sheet: boolean; active?: ActiveLike | null; lastInput?: number; now?: number }): boolean {
+  if (s.sheet || isEditing(s.active)) return false;
+  if (s.lastInput && s.now !== undefined && s.now - s.lastInput < RECENT_INPUT_MS) return false;
+  return !s.expr || !!s.answer;
+}
+let lastInput = 0;
+let stamping = false;
+function stampInput() {
+  if (stamping || typeof document === "undefined") return;
+  stamping = true;
+  const f = () => { lastInput = Date.now(); };
+  document.addEventListener("keydown", f, { passive: true, capture: true });
+  document.addEventListener("input", f, { passive: true, capture: true });
+}
+const idle = () => isIdle({ expr: calc.expr, answer: calc.answer, sheet: sheetIsOpen(), active: document.activeElement as ActiveLike | null, lastInput, now: Date.now() });
 
 type Store = Pick<Storage, "getItem" | "setItem">;
 /** Whether a reload for a missing file may go ahead: at most once a minute, and only when the stamp could really be
@@ -41,6 +65,7 @@ export function startReloadOnMissingFiles() {
 /** Registers the worker and moves to a waiting new version when the app is (re)opened or comes back to the screen idle. */
 export function startUpdates(url: string) {
   const sw = navigator.serviceWorker;
+  stampInput();
   let asked = false;
   // the worker only takes over early when this is the app's only window, and then this page reloads onto it right away
   sw.addEventListener("controllerchange", () => { if (asked) location.reload(); });
@@ -61,7 +86,7 @@ export function startUpdates(url: string) {
       };
       const track = (w: ServiceWorker | null) => {
         if (!w) return;
-        w.addEventListener("statechange", () => { if (w.state === "installed") { apply(); watchWaiting(); } });
+        w.addEventListener("statechange", () => { if (w.state === "installed") watchWaiting(); });
       };
       if (reg.waiting) watchWaiting();
       track(reg.installing);
