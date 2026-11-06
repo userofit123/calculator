@@ -19,15 +19,16 @@
   },
   "devDependencies": {
     "@types/node": "22.10.2",
-    "electron": "33.2.1",
-    "electron-builder": "25.1.8",
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0",
+    "electron-builder-squirrel-windows": "26.18.0",
     "esbuild": "0.24.2",
     "typescript": "5.7.2"
   },
   "build": {
     "appId": "io.github.userofit123.calculator",
     "productName": "Calculator",
-    "executableName": "calculator",
+    "executableName": "userofit123-calculator",
     "artifactName": "calculator-${version}-${arch}.${ext}",
     "copyright": "userofit123",
     "directories": {
@@ -53,22 +54,24 @@
         "deb",
         "rpm"
       ],
-      "category": "Utility",
+      "category": "Utility;Calculator",
       "synopsis": "A private, offline calculator",
       "maintainer": "userofit123 <45289144+userofit123@users.noreply.github.com>",
       "vendor": "userofit123",
       "icon": "../web/public/icon-1024.png",
       "desktop": {
-        "Name": "Calculator",
-        "Comment": "Basic, advanced, financial and programming calculator and unit converter",
-        "Keywords": "calculator;calc;converter;currency;units;"
-      }
+        "entry": {
+          "Name": "Calculator",
+          "Keywords": "calculator;calc;converter;currency;units;"
+        }
+      },
+      "description": "Basic, scientific, financial and programming calculator with a unit and currency converter"
     },
     "deb": {
-      "packageName": "calculator"
+      "packageName": "userofit123-calculator"
     },
     "rpm": {
-      "packageName": "calculator"
+      "packageName": "userofit123-calculator"
     },
     "win": {
       "target": "nsis",

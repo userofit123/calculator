@@ -13,10 +13,17 @@ const ORIGIN = `${SCHEME}://${HOST}`;
 // the one outside address the page may reach (packages/core/src/currency.ts, ECB_RATES_URL)
 const ECB = "https://data-api.ecb.europa.eu";
 const WEB = app.isPackaged ? path.join(process.resourcesPath, "web") : path.resolve(__dirname, "../../web/dist");
+// its own data folder, named like the app id, so it can never share settings with another calculator app
+app.setPath("userData", path.join(app.getPath("appData"), "io.github.userofit123.calculator"));
 const USER = app.getPath("userData");
 const STATE = path.join(USER, "window.json");
 // the background of the last look, so the window opens in its colour instead of white (written when the look changes)
 const BOOT = path.join(USER, "boot.json");
+// the only outside pages a link may open in the system browser
+const LINKS = ["https://github.com/userofit123/calculator", "https://www.ecb.europa.eu/", "https://data.ecb.europa.eu/"];
+const openLink = (url: string) => {
+  try { const u = new URL(url); if (u.protocol === "https:" && LINKS.some((l) => { const a = new URL(l); return u.host === a.host && (a.pathname === "/" || u.pathname === a.pathname || u.pathname.startsWith(a.pathname + "/")); })) void shell.openExternal(u.href); } catch { /* not a link */ }
+};
 const DEFAULT_BG = "#17100d"; // the same first-open colour as index.html
 
 // a standard, secure scheme: its own origin (localStorage keeps the look, history and rates), absolute paths like
@@ -27,7 +34,7 @@ app.commandLine.appendSwitch("disable-features", "SpellcheckService,MediaRouter,
 
 const readJson = <T>(f: string, d: T): T => { try { return JSON.parse(fs.readFileSync(f, "utf8")) as T; } catch { return d; } };
 const writeJson = (f: string, v: unknown) => { try { fs.mkdirSync(USER, { recursive: true }); fs.writeFileSync(f + ".tmp", JSON.stringify(v)); fs.renameSync(f + ".tmp", f); } catch { /* next time it opens in the default size or colour */ } };
-const isColour = (s: unknown): s is string => typeof s === "string" && /^#[0-9a-f]{3,8}$/i.test(s);
+const isColour = (s: unknown): s is string => typeof s === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(s);
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml",
@@ -48,7 +55,8 @@ function policy(html: string) {
 async function serve(req: Request): Promise<Response> {
   const u = new URL(req.url);
   if (u.host !== HOST) return new Response(null, { status: 404 });
-  let rel = decodeURIComponent(u.pathname).replace(/^\/+/, "");
+  let rel: string;
+  try { rel = decodeURIComponent(u.pathname).replace(/^\/+/, ""); } catch { return new Response(null, { status: 404 }); }
   let file = path.join(WEB, path.normalize(rel));
   if (!file.startsWith(WEB + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     // a file that should be there but isn't (a missing chunk) is a 404; any other address is one of the app's pages
@@ -84,8 +92,8 @@ function createWindow() {
     icon: path.join(__dirname, "icon.png"),
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true, nodeIntegration: false, webviewTag: false, spellcheck: false, devTools: !app.isPackaged },
   });
-  if (st.maximized) w.maximize();
-  w.once("ready-to-show", () => w.show());
+  // maximize only when ready: on a hidden window it would show it early
+  w.once("ready-to-show", () => { if (st.maximized) w.maximize(); w.show(); });
 
   // remember the size and place (not while maximized: then the size to come back to is kept)
   let t: NodeJS.Timeout | undefined;
@@ -94,8 +102,8 @@ function createWindow() {
   w.on("close", () => { clearTimeout(t); const max = w.isMaximized(); writeJson(STATE, { ...(max ? readJson(STATE, {}) : w.getNormalBounds()), maximized: max }); });
 
   // links leave the app for the system browser (https only); the window itself never goes anywhere but the app
-  w.webContents.setWindowOpenHandler(({ url }) => { if (/^https:\/\//i.test(url)) void shell.openExternal(url); return { action: "deny" }; });
-  w.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(ORIGIN + "/")) { e.preventDefault(); if (/^https:\/\//i.test(url)) void shell.openExternal(url); } });
+  w.webContents.setWindowOpenHandler(({ url }) => { openLink(url); return { action: "deny" }; });
+  w.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(ORIGIN + "/")) { e.preventDefault(); openLink(url); } });
   w.webContents.on("will-redirect", (e, url) => { if (!url.startsWith(ORIGIN + "/")) e.preventDefault(); });
   w.webContents.on("will-attach-webview", (e) => e.preventDefault());
   w.on("closed", () => { if (win === w) win = null; });
@@ -117,7 +125,7 @@ app.setAppUserModelId("io.github.userofit123.calculator");
 // one window: opening the app again brings the open one to the front
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  app.on("second-instance", () => { if (!win) { win = createWindow(); return; } if (win.isMinimized()) win.restore(); win.show(); win.focus(); });
+  app.on("second-instance", () => { if (!app.isReady()) return; if (!win) { win = createWindow(); return; } if (win.isMinimized()) win.restore(); win.show(); win.focus(); });
   app.whenReady().then(() => {
     // no menu bar, like Motus; copy, paste and cut still work (Chromium handles them on Linux and Windows) and the
     // page handles every other key itself
@@ -138,5 +146,5 @@ else {
   });
   app.on("window-all-closed", () => app.quit());
   // no other page, window or web view can be made by anything inside the app
-  app.on("web-contents-created", (_e, wc) => { wc.setWindowOpenHandler(({ url }) => { if (/^https:\/\//i.test(url)) void shell.openExternal(url); return { action: "deny" }; }); });
+  app.on("web-contents-created", (_e, wc) => { wc.setWindowOpenHandler(({ url }) => { openLink(url); return { action: "deny" }; }); });
 }

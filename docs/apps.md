@@ -29,7 +29,7 @@ make it wider for the desktop layout.
 ### Works offline
 
 Every mode and conversion works with no connection. Links (for example to the source code) open in your web browser,
-never inside the app.
+never inside the app, and only a few addresses are allowed (this project's page and the ECB).
 
 ### Build it yourself
 
@@ -40,6 +40,10 @@ pnpm run dist:linux   # builds the web app, then release/calculator-*.AppImage, 
 pnpm run dist:win     # release/calculator-*-setup.exe (on Windows, or Linux with Wine)
 pnpm start            # runs it from the source (after `pnpm run web`)
 ```
+
+The app's own names are unique (`userofit123-calculator` for the program, package and icon, and
+`io.github.userofit123.calculator` for the data folder under the user's config directory) so it never clashes with another
+calculator; the name people see is "Calculator". Built on Electron 45 (keep it on a supported major).
 
 Building the Linux packages in a container (needs no tools on the computer):
 
