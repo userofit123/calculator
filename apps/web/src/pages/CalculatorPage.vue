@@ -2,8 +2,9 @@
 // The first screen: the mode switch, the display (what is typed above, the answer or a live preview below), memory keys
 // and the keypad; Advanced adds a function pad (with a 2nd layer for inverse functions, so it fits a phone). Full
 // keyboard support on a computer, including typing a free expression (sin(30)+2^10, x = 5), copy and paste.
+// Programming has its own keys, bases and bit view (ProgPad, loaded only when that mode is chosen).
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, press, preview, keyFor, paste, show, current, settings, MODES, ANGLES } from "../core/calc";
+import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES } from "../core/calc";
 import { isPhone } from "../core/device";
 import { toast } from "../core/toast";
 import Menu from "../components/Menu.vue";
@@ -11,10 +12,14 @@ import Icon from "../components/Icon.vue";
 
 const VariablesSheet = defineAsyncComponent(() => import("../components/VariablesSheet.vue"));
 const varsOpen = ref(false);
+const ProgPad = defineAsyncComponent(() => import("../components/ProgPad.vue"));
 
 // kind: n = number, op = operator (accent tint), fn = function (quiet), eq = the one filled key
 type Kind = "n" | "op" | "fn" | "eq";
-const clearKey = computed(() => (!calc.answer && !calc.error && /[\d.]$/.test(calc.expr) && /[^\d.]/.test(calc.expr) ? "C" : "AC"));
+const clearKey = computed(() => {
+  const n = progMode.value ? /[\dA-F]$/ : /[\d.]$/, other = progMode.value ? /[^\dA-F]/ : /[^\d.]/;
+  return !calc.answer && !calc.error && n.test(calc.expr) && other.test(calc.expr) ? "C" : "AC";
+});
 const KEYS = computed<{ k: string; label?: string; kind: Kind; aria?: string }[]>(() => [
   { k: clearKey.value, kind: "fn", aria: clearKey.value === "C" ? "Clear number" : "Clear all" }, { k: "()", label: "( )", kind: "fn", aria: "Brackets" }, { k: "%", kind: "fn", aria: "Percent" }, { k: "÷", kind: "op", aria: "Divide" },
   { k: "7", kind: "n" }, { k: "8", kind: "n" }, { k: "9", kind: "n" }, { k: "×", kind: "op", aria: "Multiply" },
@@ -56,6 +61,7 @@ function fkey(k: string) {
 const modeItems = computed(() => MODES.map((m) => ({ label: m.label, hint: m.hint, checked: calc.mode === m.id, run: () => { calc.mode = m.id; } })));
 const modeLabel = computed(() => MODES.find((m) => m.id === calc.mode)?.label ?? "Basic");
 const adv = computed(() => calc.mode === "advanced");
+const progMode = computed(() => calc.mode === "programming");
 
 const pv = computed(preview);
 const big = computed(() => calc.error || show(calc.answer || pv.value) || (calc.expr ? "" : "0"));
@@ -76,7 +82,7 @@ function tap(k: string) {
 const busy = (e: Event) => !!(e.target as HTMLElement).closest?.("input, textarea, select, [contenteditable]") || !!document.querySelector(".scr, #pop.on");
 // Space would press the calculator key last clicked again (it keeps the focus), so on the keys it does nothing; browsers
 // press a button on keydown (Chromium) or keyup (Firefox), so both are stopped
-const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".cpad, .memk");
+const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".cpad, .memk, .ppanel, .pbar");
 const onKeyUp = (e: KeyboardEvent) => { if (e.key === " " && onPadKey(e)) e.preventDefault(); };
 function onKey(e: KeyboardEvent) {
   if (busy(e)) return;
@@ -113,7 +119,7 @@ async function copyAnswer() {
 </script>
 
 <template>
-  <div class="page calc" :class="{ phone: isPhone, adv }">
+  <div class="page calc" :class="{ phone: isPhone, adv, prog: progMode }">
     <div class="calc-top">
       <Menu :items="modeItems" :text="modeLabel" label="Calculator mode" align="start" />
       <button v-if="adv" type="button" class="cvars" @click="varsOpen = true">Variables</button>
@@ -128,8 +134,9 @@ async function copyAnswer() {
       <div ref="exprEl" class="cexp num" :title="show(calc.expr)">{{ show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></div>
       <button type="button" class="cres num" :class="[size, { pre: !calc.answer && !calc.error && !!pv, err: !!calc.error }]" title="Copy" @click="copyAnswer">{{ big }}</button>
     </div>
-    <div v-if="calc.mode === 'financial' || calc.mode === 'programming'" class="cnote sm"><Icon name="info" :size="16" />{{ modeLabel }} keys are coming next. The basic keys work meanwhile.</div>
-    <div class="cpad">
+    <div v-if="calc.mode === 'financial'" class="cnote sm"><Icon name="info" :size="16" />{{ modeLabel }} keys are coming next. The basic keys work meanwhile.</div>
+    <ProgPad v-if="progMode" :hit="hit" :clear="clearKey" @tap="tap" />
+    <div v-else class="cpad">
       <div v-if="adv" class="fkeys" role="group" aria-label="Functions">
         <button v-for="f in FKEYS" :key="f.aria" type="button" class="key k-fn" :class="{ on: f.on, hit: hit === f.k }" :aria-label="f.aria" :aria-pressed="f.on ?? undefined" @click="fkey(f.k)">{{ f.label }}</button>
       </div>

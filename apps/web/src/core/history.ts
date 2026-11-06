@@ -4,8 +4,9 @@ import { reactive } from "vue";
 import { storable } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
 
-/** e: the expression as typed, r: the answer as shown then (decimal "."), x: the answer in full (for reuse) */
-interface HistItem { e: string; r: string; x: string; t: number }
+/** e: the expression as typed, r: the answer as shown then (decimal "."), x: the answer in full (for reuse),
+ *  b: the base of a programming-mode sum (its digits mean nothing without it; x is decimal) */
+interface HistItem { e: string; r: string; x: string; t: number; b?: number }
 const MAX = 200;
 
 export const history = reactive<HistItem[]>(readJson<HistItem[]>("calcHistory", []).slice(0, MAX));
@@ -14,12 +15,12 @@ const save = () => writeJson("calcHistory", history);
 /** A sum short enough to keep on the device: 200 sums of 100,000 digits would fill its storage */
 const keepable = (s: string) => s.length <= 2000;
 
-export function addHistory(e: string, r: string, x: string) {
+export function addHistory(e: string, r: string, x: string, b?: number) {
   // the same sum again only moves up
-  if (history[0]?.e === e && history[0].r === r) return;
+  if (history[0]?.e === e && history[0].r === r && history[0].b === b) return;
   if (!keepable(e)) return; // a sum too long to keep isn't listed
   // an answer too long to keep in full is kept to 30 digits, marked approximate
-  history.unshift({ e, r, x: storable(x), t: Date.now() });
+  history.unshift({ e, r, x: storable(x), t: Date.now(), ...(b ? { b } : {}) });
   if (history.length > MAX) history.length = MAX;
   save();
 }

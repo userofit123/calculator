@@ -3,7 +3,8 @@
 // expression to bring the whole sum back; ⋮ clears the list.
 import { computed } from "vue";
 import { history, clearHistory, restoreHistory } from "../core/history";
-import { calc, press, show, typedValue } from "../core/calc";
+import { calc, press, show, typedValue, prog } from "../core/calc";
+import { BASES, type Base } from "@calc/core";
 import { go } from "../shell/nav";
 import { toast } from "../core/toast";
 import Menu from "../components/Menu.vue";
@@ -23,7 +24,14 @@ function useResult(x: string, r: string) {
   press("fn:" + typedValue(x || r));
   go("calc");
 }
-function useExpr(e: string) { press("AC"); calc.expr = e; go("calc"); }
+// a programming-mode sum comes back in programming mode, in its base (its digits mean nothing in another)
+function useExpr(e: string, b?: number) {
+  if (b) { calc.mode = "programming"; prog.base = b as Base; }
+  press("AC"); calc.expr = e; go("calc");
+}
+/** A programming-mode entry is shown as typed, marked with its base (HEX), the answer with it as a subscript (FF₁₆) */
+const base = (b?: number) => BASES.find((x) => x.base === b);
+const text = (s: string, b?: number, isAnswer = false) => (b ? s.replace(/-/g, "−") + (isAnswer && b !== 10 ? base(b)?.sub ?? "" : "") : show(s));
 </script>
 
 <template>
@@ -32,8 +40,8 @@ function useExpr(e: string) { press("AC"); calc.expr = e; go("calc"); }
     <div v-if="!history.length" class="card soon"><Icon name="history" :size="32" /><b>No calculations yet</b><span>Your past sums will be listed here, kept only on this device.</span></div>
     <div v-else class="card flush hlist">
       <div v-for="(h, i) in history" :key="h.t + ':' + i" class="li hrow">
-        <button type="button" class="hexp num" title="Use this expression" @click="useExpr(h.e)">{{ show(h.e) }}</button>
-        <button type="button" class="hres num" :class="{ long: h.r.length > 18 }" title="Use this answer" @click="useResult(h.x, h.r)">=&nbsp;{{ show(h.r) }}</button>
+        <button type="button" class="hexp num" title="Use this expression" @click="useExpr(h.e, h.b)"><span v-if="h.b" class="hbase">{{ base(h.b)?.label }}</span>{{ text(h.e, h.b) }}</button>
+        <button type="button" class="hres num" :class="{ long: h.r.length > 18 }" title="Use this answer" @click="useResult(h.x, h.r)">=&nbsp;{{ text(h.r, h.b, true) }}</button>
       </div>
     </div>
   </div>

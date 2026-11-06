@@ -104,6 +104,7 @@ html:not(.phone) .calc.adv .fkeys { grid-auto-rows: minmax(var(--kh), auto); }
 .hexp { color: var(--tx2); font-size: 15px; }
 .hres { color: var(--tx); font-size: 22px; font-weight: 500; }
 .hrow button:hover { color: var(--acc); }
+.hbase { font-size: 11px; font-weight: 700; letter-spacing: .4px; color: var(--tx2); background: var(--s2); border-radius: var(--pill); padding: 1px 7px; margin-inline-end: 8px; vertical-align: 2px; }
 
 /* Variables */
 .vname { font-weight: 600; color: var(--acc); }

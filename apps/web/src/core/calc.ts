@@ -2,7 +2,10 @@
 // @calc/core; here only the typed text is edited (append, delete, brackets, sign) and handed over to be worked out.
 // Memory, variables, the last answer and the calculator settings are kept on this device.
 import { reactive, watch } from "vue";
-import { evaluate, formatDisplay, sanitizeInput, storable, RESERVED, type AngleUnit, type EvalOptions, type NumberFormat } from "@calc/core";
+import {
+  evaluate, formatDisplay, sanitizeInput, storable, RESERVED, type AngleUnit, type EvalOptions, type NumberFormat,
+  evaluateProgramming, formatInt, fitsWord, literal, rebase, type Base, type WordSize, type ProgOptions,
+} from "@calc/core";
 import { readJson, writeJson } from "./prefs";
 import { addHistory } from "./history";
 
@@ -45,11 +48,48 @@ const evalOptions = (): EvalOptions => ({ angle: settings.angle, decimals: setti
 /** Text as shown: the chosen decimal mark and thousands grouping */
 export const show = (s: string) => formatDisplay(s, settings);
 
+// Programming mode: the base digits are typed and shown in, the word size and signed numbers (see core/programming.ts).
+// The answer is kept in decimal (calc.ans), so changing base or word size shows the same number differently.
+export interface ProgSettings { base: Base; wordSize: WordSize; signed: boolean }
+export const prog = reactive<ProgSettings>({ base: 10, wordSize: 64, signed: false, ...readJson<Partial<ProgSettings>>("calcProg", {}) });
+watch(prog, (s) => writeJson("calcProg", s), { deep: true });
+const isProg = () => calc.mode === "programming";
+const progOptions = (): ProgOptions => ({ ...prog, ans: calc.ans });
+/** Works out the expression in the current mode */
+const run = (expr: string, maxBits?: number) => (isProg() ? evaluateProgramming(expr, progOptions()) : evaluate(expr, { ...evalOptions(), maxBits }));
+/** Text of the display as shown: programming mode has no decimal mark or grouping (hex digits aren't decimal ones) */
+export const showCalc = (s: string) => (isProg() ? s.replace(/-/g, "−") : show(s));
+/** The value on the display in programming mode (the answer, or what = would give now), for the bases and the bits */
+export function progValue(): bigint | null {
+  if (calc.error) return null;
+  if (calc.answer) return /^-?\d+$/.test(calc.ans) ? BigInt(calc.ans) : null;
+  if (!calc.expr) return 0n;
+  const r = evaluateProgramming(calc.expr, progOptions());
+  return "exact" in r ? BigInt(r.exact) : null;
+}
+/** Shows another number (a bit flipped in the bit view): typed in as a new sum in the current base */
+export function setProgValue(v: bigint) { calc.expr = literal(v, prog); calc.answer = ""; calc.error = ""; }
+/** Changes base; a sum being typed has its numbers rewritten, so it keeps its meaning */
+export function setBase(b: Base) {
+  if (!calc.answer && !calc.error && calc.expr) calc.expr = rebase(calc.expr, progOptions(), b);
+  prog.base = b;
+}
+// the answer on the display follows the base, word size and sign; one that no longer fits is an overflow
+watch(prog, () => {
+  if (!isProg() || !calc.answer || !/^-?\d+$/.test(calc.ans)) return;
+  const v = BigInt(calc.ans);
+  if (fitsWord(v, prog)) calc.answer = formatInt(v, prog.base, prog);
+  else { calc.answer = ""; calc.error = "Overflow. Try a bigger word size"; }
+}, { deep: true });
+const HEX = "0123456789ABCDEF";
+/** Is the key a digit of the current base (0-1, 0-7, 0-9, 0-F)? */
+const progDigit = (k: string) => k.length === 1 && HEX.indexOf(k) >= 0 && HEX.indexOf(k) < prog.base;
+
 const OPS = ["+", "−", "×", "÷"];
 const last = () => calc.expr.slice(-1);
 const isOp = (c: string) => OPS.includes(c);
 /** The number being typed at the end of the expression ("" if none) */
-const tailNumber = () => /(\d*\.?\d*)$/.exec(calc.expr)?.[1] ?? "";
+const tailNumber = () => (isProg() ? /([\dA-F]*)$/ : /(\d*\.?\d*)$/).exec(calc.expr)?.[1] ?? "";
 const open = () => (calc.expr.match(/\(/g)?.length ?? 0) - (calc.expr.match(/\)/g)?.length ?? 0);
 // ends with something an operator can follow: a number, ")", a postfix (! % ²), a constant or a variable
 const endsOperand = () => /[\d.)!%²³¹⁰-⁹|\p{L}_₀-₉]$/u.test(calc.expr);
@@ -60,7 +100,7 @@ const PREVIEW_BITS = 110_000;
 /** What = would give now, shown faintly under the expression while typing ("" when it isn't complete yet) */
 export function preview(): string {
   if (!calc.expr || calc.answer || calc.error) return "";
-  const r = evaluate(calc.expr, { ...evalOptions(), maxBits: PREVIEW_BITS });
+  const r = run(calc.expr, PREVIEW_BITS);
   if (!("value" in r)) return r.error === "Number is too large" ? r.error : ""; // 2^1000000: no point pressing =
   return r.value !== calc.expr ? r.value : "";
 }
@@ -68,7 +108,7 @@ export function preview(): string {
 export function current(): { value: string; exact: string } | null {
   if (calc.answer) return { value: calc.answer, exact: calc.ans };
   if (!calc.expr) return null;
-  const r = evaluate(calc.expr, evalOptions());
+  const r = run(calc.expr);
   return "value" in r ? r : null;
 }
 
@@ -78,7 +118,8 @@ export function current(): { value: string; exact: string } | null {
 function fromAnswer(keepAnswer: boolean) {
   if (calc.error) { calc.error = ""; return; }
   if (!calc.answer) return;
-  if (keepAnswer) {
+  if (keepAnswer && isProg()) calc.expr = /^-?\d+$/.test(calc.ans) ? literal(BigInt(calc.ans), prog) : "ans";
+  else if (keepAnswer) {
     const r = evaluate(calc.answer);
     calc.expr = "value" in r && r.exact === calc.ans ? calc.answer.replace(/^-/, "−") : "ans";
   } else calc.expr = "";
@@ -90,6 +131,8 @@ function operand(s: string) {
   fromAnswer(false);
   // 2 then the e key is 2×e: "2e−3" would read as 2×10⁻³ (a letter e typed on the keyboard is scientific entry, see press)
   if (/[\d.]$/.test(calc.expr) && (/^[\d.≈]/.test(s) || /^e(?![\p{L}])/u.test(s))) calc.expr += "×";
+  // 5 then NOT or ans: 5×NOT …, never one word "5NOT"
+  else if (isProg() && /[\dA-Za-z)]$/.test(calc.expr) && /^[\p{L}\d(]/u.test(s)) calc.expr += "×";
   calc.expr += s;
 }
 /** Adds something that works on what comes before (x², n!, ^, mod): after an answer it carries on from it */
@@ -110,6 +153,7 @@ function memAdd(sign: "+" | "−") {
 }
 /** A stored value (an answer in full, memory) typed into the sum without losing anything: 1/3 is (1÷3) */
 export function typedValue(exact: string): string {
+  if (isProg() && /^-?\d+$/.test(exact)) return literal(BigInt(exact), prog);
   const m = /^(-?)(\d+)\/(\d+)$/.exec(exact);
   return m ? `(${m[1] ? "−" : ""}${m[2]}÷${m[3]})` : exact.replace(/-/g, "−");
 }
@@ -120,6 +164,7 @@ export function valueText(exact: string): string {
 }
 
 export function press(k: string) {
+  if (isProg() && progPress(k)) return;
   if (k === "AC") { calc.expr = ""; calc.answer = ""; calc.error = ""; return; }
   if (k === "C") { // clears the number being typed; with nothing to clear, everything
     if (calc.answer || calc.error || !tailNumber() || calc.expr === tailNumber()) return press("AC");
@@ -134,13 +179,13 @@ export function press(k: string) {
   if (k === "=") {
     if (!calc.expr || calc.answer) return;
     // "x" then = starts an assignment (x = …) instead of working out x
-    if (/^[\p{L}_][\p{L}_₀-₉]*$/u.test(calc.expr) && !Object.prototype.hasOwnProperty.call(calc.vars, calc.expr) && !RESERVED.has(calc.expr)) { calc.expr += " = "; return; }
-    const r = evaluate(calc.expr, evalOptions());
+    if (!isProg() && /^[\p{L}_][\p{L}_₀-₉]*$/u.test(calc.expr) && !Object.prototype.hasOwnProperty.call(calc.vars, calc.expr) && !RESERVED.has(calc.expr)) { calc.expr += " = "; return; }
+    const r = run(calc.expr);
     if (!("value" in r)) { calc.error = r.error; return; }
     if (open() > 0) calc.expr += ")".repeat(open()); // the brackets closed for you show in the sum and its history
     calc.answer = r.value; calc.error = ""; calc.ans = r.exact;
-    if (r.assigned) calc.vars[r.assigned] = r.exact;
-    addHistory(calc.expr, r.value, r.exact);
+    if ("assigned" in r && typeof r.assigned === "string") calc.vars[r.assigned] = r.exact;
+    addHistory(calc.expr, r.value, r.exact, isProg() ? prog.base : undefined);
     return;
   }
   if (k === "MC") { calc.mem = ""; return; }
@@ -198,8 +243,30 @@ export function press(k: string) {
   if (/^[\p{L}_]$/u.test(k)) { fromAnswer(false); calc.expr += k; }
 }
 
+/** Keys that work differently in programming mode; true when handled */
+function progPress(k: string): boolean {
+  if (k === ".") return true; // whole numbers only
+  if (k === "⌫" && !calc.answer && !calc.error) { // an operator word goes as a whole
+    const m = /(?:\s?(?:AND|NAND|OR|NOR|XOR|XNOR|mod|rol|ror|<<|>>)\s?|NOT\s?|(?:ones|twos)\(|ans)$/.exec(calc.expr);
+    calc.expr = calc.expr.slice(0, -(m?.[0].length || 1)); return true;
+  }
+  if (/^[\dA-F]$/.test(k)) {
+    if (!progDigit(k)) return true; // 2 in binary, A in decimal: not a digit here
+    fromAnswer(false);
+    if (/(?:\)|ans)$/.test(calc.expr)) calc.expr += "×";
+    if (tailNumber() === "0") calc.expr = calc.expr.slice(0, -1);
+    calc.expr += k; return true;
+  }
+  return /^[\p{L}_]$/u.test(k); // other letters are not typed (they aren't digits here)
+}
+
 /** Pasted text, cleaned into an expression: it carries on from an answer when it starts with an operator */
 export function paste(text: string) {
+  if (isProg()) {
+    const s = text.replace(/[^\w\s+\-−×÷*/()&|^~<>%₀-₉]/g, "").replace(/\s+/g, " ").trim();
+    if (s) { if (/^[+×÷*/&|^<>%]/.test(s)) after(s); else operand(s); }
+    return;
+  }
   const s = sanitizeInput(text, settings.decimalMark);
   if (!s) return;
   if (/^[+×÷^%!]/.test(s)) after(s); else operand(s);
@@ -209,7 +276,14 @@ export function paste(text: string) {
  *  only the on-screen e key gives the constant (2×e). Ctrl+E is the ×10ʸ key, as in GNOME's calculator. */
 export function keyFor(e: KeyboardEvent): string {
   const k = e.key;
-  if (e.ctrlKey || e.metaKey || e.altKey) return e.ctrlKey && !e.metaKey && !e.altKey && k.toLowerCase() === "e" ? "op:×10^" : "";
+  if (e.ctrlKey || e.metaKey || e.altKey) return e.ctrlKey && !e.metaKey && !e.altKey && k.toLowerCase() === "e" && !isProg() ? "op:×10^" : "";
+  if (isProg()) {
+    // programming mode: hex digits as letters, C's bit operators (so ^ is XOR here, not a power), % is mod, < and > shift
+    const pk: Record<string, string> = { "&": "op: AND ", "|": "op: OR ", "^": "op: XOR ", "~": "fn:NOT ", "<": "op: << ", ">": "op: >> ", "%": "op: mod ", ".": "", ",": "", "!": "" };
+    if (k in pk) return pk[k]!;
+    if (/^[\da-f]$/i.test(k)) return progDigit(k.toUpperCase()) ? k.toUpperCase() : "";
+    if (/^[\p{L}_]$/u.test(k)) return "";
+  }
   if (/^\d$/.test(k)) return k;
   const map: Record<string, string> = { "+": "+", "-": "−", "*": "×", "/": "÷", ".": ".", ",": ".", "(": "(", ")": ")",
     "^": "op:^", "%": "%", "!": "!", "|": "fn:|", ";": "fn:;", " ": "", Enter: "=", "=": "=", Backspace: "⌫", Escape: "AC", Delete: "C" };
