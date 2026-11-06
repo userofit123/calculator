@@ -23,13 +23,15 @@ async function toggle() {
   const b = btn.value!.getBoundingClientRect();
   pos.value = { top: b.bottom + 6, left: b.right };
   await nextTick();
-  const m = { width: el.value!.offsetWidth, height: el.value!.offsetHeight }; // its size without the opening animation's scale
+  const menu = el.value;
+  if (!open.value || !menu) return; // closed again (or unmounted) within the same tick
+  const m = { width: menu.offsetWidth, height: menu.offsetHeight }; // its size without the opening animation's scale
   // the Android app draws under its bars, so the screen's edges are the bars' inner edges, not the window's
   const sa = safeArea(), lo = innerHeight - sa.bottom - 8, hi = sa.top + 8;
   pos.value = { top: b.bottom + 6 + m.height > lo ? Math.max(hi, b.top - m.height - 6) : b.bottom + 6, left: Math.max(sa.left + 8, Math.min((props.align === "start") !== (document.documentElement.dir === "rtl") ? b.left : b.right - m.width, innerWidth - sa.right - m.width - 8)) };
   setTimeout(() => addEventListener("click", away, true));
   // the keyboard starts on the chosen item (a mode switch) or the first one
-  (el.value!.querySelector<HTMLElement>('[aria-checked="true"]') ?? items()[0])?.focus();
+  (menu.querySelector<HTMLElement>('[aria-checked="true"]') ?? items()[0])?.focus();
 }
 const items = () => Array.from(el.value?.querySelectorAll<HTMLElement>("button") ?? []);
 const away = (e: Event) => { if (!el.value?.contains(e.target as Node)) { e.stopPropagation(); close(false); } };

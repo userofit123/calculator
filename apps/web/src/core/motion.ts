@@ -20,6 +20,8 @@ function tokens() {
   T = { d1: ms("--dur-1", 120), d2: ms("--dur-2", 180), d3: ms("--dur-3", 240), ease: cs.getPropertyValue("--ease").trim() || "ease-out", easeIn: cs.getPropertyValue("--ease-in").trim() || "ease-in" };
   return T;
 }
+/** a motion duration token in ms (1 small, 2 popover, 3 page/sheet) */
+export const dur = (n: 1 | 2 | 3) => tokens()[("d" + n) as "d1" | "d2" | "d3"];
 /** the reading direction as a sign (1 left to right, -1 right to left) */
 export const dirSign = () => (root().dir === "rtl" ? -1 : 1);
 

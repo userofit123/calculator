@@ -154,7 +154,7 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
 .pfn { display: flex; flex-direction: column; gap: calc(var(--kg) * .8); }
 .hexk { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: minmax(calc(var(--kh) * .78), auto); gap: calc(var(--kg) * .8); }
 .hexk .key { font-size: calc(var(--kfs) - 4px); }
-.ppad .key { transition: background .15s, color .15s, transform .12s var(--ease), box-shadow .15s, opacity var(--dur-2); }
+.ppad .key { transition: background var(--dur-2), color var(--dur-2), transform var(--dur-1) var(--ease), box-shadow var(--dur-2), opacity var(--dur-2); }
 .ppad .key:disabled { opacity: .3; cursor: default; pointer-events: none; }
 .ppad .keys .ico { color: var(--tx2); }
 

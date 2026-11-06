@@ -2,7 +2,7 @@
 // The phone layout (Motus's): the page under the status bar, and the tabs in a blurred dock above the navigation bar.
 // Moving between tabs slides towards the tab chosen; a sideways swipe on a page's empty space goes to the next tab.
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { canMove } from "../core/motion";
+import { canMove, dur } from "../core/motion";
 import { NAV, PAGES, page, go } from "./nav";
 import { sheetIsOpen } from "../core/sheets";
 import Icon from "../components/Icon.vue";
@@ -28,7 +28,7 @@ function place(animate: boolean) {
   p.style.transform = set(to);
   if (!animate || !from || from.x === to.x || !canMove()) return;
   const mid = { ...to, x: (from.x + to.x) / 2 - to.w * 0.15 };
-  anim = p.animate([{ transform: set(from) }, { transform: set(mid, 1.3), offset: 0.45 }, { transform: set(to) }], { duration: 300, easing: "cubic-bezier(.4,0,.2,1)" });
+  anim = p.animate([{ transform: set(from) }, { transform: set(mid, 1.3), offset: 0.45 }, { transform: set(to) }], { duration: dur(3), easing: "cubic-bezier(.4,0,.2,1)" });
 }
 watch(page, () => nextTick(() => place(true)));
 const onResize = () => place(false);

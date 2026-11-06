@@ -50,7 +50,7 @@ function closeCopy() {
   const m = el.value;
   if (!m || !shown.value || !canMove()) return;
   const g = m.cloneNode(true) as HTMLElement;
-  g.classList.add("leaving"); g.setAttribute("aria-hidden", "true"); g.removeAttribute("id"); g.querySelectorAll("[id]").forEach((x) => x.removeAttribute("id"));
+  g.classList.add("leaving"); g.setAttribute("aria-hidden", "true"); g.inert = true; g.removeAttribute("id"); g.querySelectorAll("[id]").forEach((x) => x.removeAttribute("id"));
   document.body.appendChild(g); void g.offsetWidth; g.classList.remove("in");
   setTimeout(() => g.remove(), 200);
 }
