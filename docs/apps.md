@@ -50,9 +50,14 @@ pnpm run dist:win     # release/calculator-*-setup.exe (on Windows, or Linux wit
 pnpm start            # runs it from the source (after `pnpm run web`)
 ```
 
-The app's own names are unique (`userofit123-calculator` for the program, package and icon, and
-`io.github.userofit123.calculator` for the data folder under the user's config directory) so it never clashes with another
-calculator; the name people see is "Calculator". Built on Electron 45 (keep it on a supported major).
+The app's own names are specific to it so it does not clash with another calculator: `userofit123-calculator` for the
+program, the package, the icon and the install folder (`/opt/userofit123-calculator` for the .deb and .rpm), and
+`io.github.userofit123.calculator` for the data folder under the user's config directory. The name people see is
+"Calculator". electron-builder takes the `/opt` folder from `build.productName` (there is no separate option), so that
+is set to `userofit123-calculator`, while the packaged `package.json` keeps `productName: "Calculator"` (the app's
+runtime name, so the X11 WM_CLASS and Wayland app_id stay "Calculator"); the menu entry pins `Name` and
+`StartupWMClass` to "Calculator" and the Windows installer pins its shortcut and uninstall names to "Calculator".
+Built on Electron 45 (keep it on a supported major).
 
 Building the Linux packages in a container (needs no tools on the computer):
 

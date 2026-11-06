@@ -30,7 +30,7 @@
   },
   "build": {
     "appId": "io.github.userofit123.calculator",
-    "productName": "Calculator",
+    "productName": "userofit123-calculator",
     "executableName": "userofit123-calculator",
     "artifactName": "calculator-${version}-${arch}.${ext}",
     "copyright": "userofit123",
@@ -71,6 +71,7 @@
       "desktop": {
         "entry": {
           "Name": "Calculator",
+          "StartupWMClass": "Calculator",
           "Keywords": "calculator;calc;converter;currency;units;"
         }
       },
@@ -88,6 +89,8 @@
     },
     "nsis": {
       "oneClick": false,
+      "shortcutName": "Calculator",
+      "uninstallDisplayName": "Calculator",
       "allowToChangeInstallationDirectory": true,
       "artifactName": "calculator-${version}-setup.${ext}"
     }
