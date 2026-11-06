@@ -28,7 +28,7 @@ export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "date", label: "Date", hint: "Days between dates, adding to a date, age, times" },
   // forms like Date (TipCalc): always listed, as people look for a tip calculator by name
   { id: "tip", label: "Tip", hint: "Tip on a bill, and splitting it" },
-  // forms like Date (EverydayCalc); listed only when switched on in Settings (settings.everyday)
+  // forms like Date (EverydayCalc): always listed (C-59: not a setting)
   { id: "everyday", label: "Everyday", hint: "Percent, discount, tip and split, VAT" },
 ];
 export const modeLabel = (m: Mode) => tr(("mode." + m) as Key);
@@ -36,11 +36,13 @@ export const modeHint = (m: Mode) => tr(("modeHint." + m) as Key);
 /** modes with their own forms in place of the display and keys */
 export const formMode = (m: Mode) => m === "date" || m === "tip" || m === "everyday";
 
-export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | ","; everyday: boolean }
+export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | "," }
 const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;
 // On a first run (no settings saved yet) the decimal mark follows the language: a comma in German, French, Russian, …
 const firstMark = (): "." | "," => (!hadSettings && LANG_INFO[resolveLang(langChoice.value)].comma ? "," : ".");
-export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: firstMark(), everyday: false, ...readJson<Partial<CalcSettings>>("calcSettings", {}) });
+// "everyday" was a switch before C-59 (Everyday mode is always there now): an old saved one is dropped
+const { everyday: _oldEveryday, ...savedSettings } = readJson<Partial<CalcSettings> & { everyday?: unknown }>("calcSettings", {});
+export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: firstMark(), ...savedSettings });
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
 /** The number formats: label for Settings and the display's menu, short label for the display's chip */
 export const FORMATS: { id: NumberFormat; label: string; short: string; hint: string }[] = [
@@ -89,9 +91,6 @@ export const withUnit = (value: string, unit?: string) => (unit ? `${value} ${un
 const unitOf = (r: object) => ("unit" in r && typeof r.unit === "string" ? r.unit : "");
 /** the mode a first-ever open started in by itself: not saved, so it is decided again until the user picks one */
 let autoMode: Mode | null = null, started = false;
-// Everyday mode is there only while switched on: switched off (or saved from before), the calculator goes back to Basic
-if (calc.mode === "everyday" && !settings.everyday) calc.mode = "basic";
-watch(() => settings.everyday, (on) => { if (!on && calc.mode === "everyday") calc.mode = "basic"; });
 watch(() => calc.mode, (m) => { if (m !== autoMode) { autoMode = null; writeJson("calcMode", m); } });
 /** A first-ever open (no saved mode) on a computer with no touch screen starts in Keyboard mode, else Basic. Run once,
  *  by the calculator page before its first paint (the layout is known there). */

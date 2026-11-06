@@ -4,7 +4,22 @@ vi.hoisted(() => {
   const m = new Map<string, string>();
   (globalThis as { localStorage?: unknown }).localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, String(v)), removeItem: (k: string) => void m.delete(k) };
 });
-import { isEditing, isIdle, reloadDecision } from "../src/core/update";
+import { isEditing, isIdle, reloadDecision, webCheckDue } from "../src/core/update";
+import { GAP } from "../src/core/appUpdate";
+
+describe("webCheckDue (Settings → How often, web app / PWA)", () => {
+  const now = 10 * GAP.week;
+  it("every open: each time the app opens or comes back, not in between", () => {
+    expect(webCheckDue("open", now, now, true)).toBe(true);
+    expect(webCheckDue("open", 0, now, false)).toBe(false);
+  });
+  it("6 hours, a day, a week: once that long has passed since the last check", () => {
+    for (const e of ["6h", "day", "week"] as const) {
+      expect(webCheckDue(e, now - GAP[e] + 1, now, true)).toBe(false);
+      expect(webCheckDue(e, now - GAP[e], now, false)).toBe(true);
+    }
+  });
+});
 
 describe("isIdle", () => {
   it("empty is idle", () => expect(isIdle({ expr: "", answer: "", sheet: false })).toBe(true));

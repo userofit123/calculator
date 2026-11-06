@@ -1,26 +1,21 @@
-// Everyday mode is optional (Settings → Calculator → Everyday helpers). Run with the core's runner:
+// Everyday mode is always there (C-59: no longer a switch in Settings). Run with the core's runner:
 //   ./scripts/pnpm.sh --filter @calc/core exec vitest run --dir ../../apps/web/test
 import { describe, it, expect, vi } from "vitest";
-// a saved Everyday mode from when it was switched on, the switch now off
+// a saved Everyday mode, with the old "everyday: false" switch still in the saved settings
 vi.hoisted(() => {
-  const m = new Map<string, string>([["calcMode", JSON.stringify("everyday")], ["calcSettings", JSON.stringify({ everyday: false })]]);
+  const m = new Map<string, string>([["calcMode", JSON.stringify("everyday")], ["calcSettings", JSON.stringify({ everyday: false, decimals: 4 })]]);
   (globalThis as { localStorage?: unknown }).localStorage = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, String(v)), removeItem: (k: string) => void m.delete(k) };
 });
 import { nextTick } from "vue";
 import { calc, settings, formMode, MODES } from "../src/core/calc";
 
 describe("Everyday mode", () => {
-  it("is off by default and a saved Everyday mode falls back to Basic", () => {
-    expect(settings.everyday).toBe(false);
-    expect(calc.mode).toBe("basic");
-  });
-  it("switching it off while in it goes back to Basic", async () => {
-    settings.everyday = true; await nextTick();
-    calc.mode = "everyday"; await nextTick();
+  it("a saved Everyday mode opens in Everyday, and the old switch is ignored", () => {
     expect(calc.mode).toBe("everyday");
-    settings.everyday = false; await nextTick();
-    expect(calc.mode).toBe("basic");
+    expect(settings.decimals).toBe(4);
+    expect("everyday" in settings).toBe(false);
   });
+  it("is always in the mode list", () => { expect(MODES.map((m) => m.id)).toContain("everyday"); });
   it("has forms, not keys, like Date", () => { expect(formMode("everyday")).toBe(true); expect(formMode("date")).toBe(true); expect(formMode("basic")).toBe(false); });
 });
 
@@ -31,8 +26,8 @@ describe("Tip mode", () => {
     expect(ids.indexOf("everyday")).toBe(ids.indexOf("tip") + 1);
     expect(formMode("tip")).toBe(true);
   });
-  it("stays chosen with the Everyday helpers switched off", async () => {
-    settings.everyday = false; calc.mode = "tip"; await nextTick();
+  it("stays chosen", async () => {
+    calc.mode = "tip"; await nextTick();
     expect(calc.mode).toBe("tip");
     calc.mode = "basic"; await nextTick();
   });

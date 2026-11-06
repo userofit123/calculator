@@ -1,6 +1,7 @@
 // In-app updates for the desktop and Android apps (task C-27, after Motus's updater; C-52 added Motus's App & updates
 // settings: how often to check, automatic downloads, Only on Wi-Fi, the progress bar and the Android notification). The
-// web app / PWA updates itself through its service worker (core/update.ts) and has none of this.
+// web app / PWA updates itself through its service worker (core/update.ts), which uses only How often (`upd.every`) and
+// the last check from here.
 // The check is one request to GitHub's public API (releases/latest; the Android app also reads the release's
 // android-latest.json): no account, no identifiers, nothing about the person. It is made by the app itself (the desktop
 // app's main process, the Android plugin), never by the page, so the page's own rules stay "the ECB only".
@@ -87,6 +88,8 @@ export const upd = reactive({
 /** The message to show: the desktop app's IPC wraps errors as "Error invoking remote method 'x': Error: ...". */
 const said = (e: unknown, fallback: string) => String((e as Error)?.message || "").replace(/^Error invoking remote method '[^']*':\s*(?:Error:\s*)?/, "") || fallback;
 const save = () => writeJson(KEY, { auto: upd.auto, every: upd.every, autoDownload: upd.autoDownload, wifiOnly: upd.wifiOnly, lastCheck: upd.lastCheck } satisfies Prefs);
+/** A check that got an answer, also the web app's service-worker check (core/update.ts): for "Checked ..." and How often. */
+export function noteCheck() { upd.lastCheck = Date.now(); save(); }
 let manifest: AndroidManifest | null = null;
 
 /** Answers that mean "nothing to update to" rather than "the check failed": the check counts as made. */

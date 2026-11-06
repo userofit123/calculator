@@ -84,7 +84,7 @@ function fkey(k: string) {
   tap(k);
 }
 
-const modeItems = computed(() => MODES.filter((m) => m.id !== "everyday" || settings.everyday).map((m) => ({ label: modeName(m.id), hint: modeHint(m.id), checked: calc.mode === m.id, run: () => { calc.mode = m.id; } })));
+const modeItems = computed(() => MODES.map((m) => ({ label: modeName(m.id), hint: modeHint(m.id), checked: calc.mode === m.id, run: () => { calc.mode = m.id; } })));
 const modeLabel = computed(() => modeName(calc.mode));
 const adv = computed(() => calc.mode === "advanced");
 const progMode = computed(() => calc.mode === "programming");

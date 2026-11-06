@@ -5,6 +5,8 @@ import { calc } from "./calc";
 import { sheetIsOpen } from "./sheets";
 import { toast } from "./toast";
 import { t } from "./i18n";
+import { reactive } from "vue";
+import { upd, GAP, noteCheck, type Every } from "./appUpdate";
 
 /** The minimal shape of document.activeElement that matters here (kept structural so isIdle stays pure and testable). */
 export interface ActiveLike { tagName?: string; type?: string; isContentEditable?: boolean }
@@ -63,16 +65,68 @@ export function startReloadOnMissingFiles() {
   });
 }
 
+/** Settings → App & updates in the web app / PWA (C-52): what Check now found. "": not checked by hand yet; "latest": no
+ *  newer version; "ready": a new version is installed and waits (Restart applies it, else the next open does); "error":
+ *  the check failed (offline, server not answering); "none": no service worker here (the development server, or a
+ *  browser without one), so there is nothing to update. */
+export const webUpd = reactive({ checking: false, state: "" as "" | "latest" | "ready" | "error" | "none" });
+let reg: ServiceWorkerRegistration | null = null;
+let asked = false;
+/** Whether a scheduled check of the web app is due (Settings → How often): "open" each time the app is opened or
+ *  brought back to the screen, else once the chosen time has passed since the last check that got an answer. */
+export function webCheckDue(every: Every, lastCheck: number, now: number, opening: boolean): boolean {
+  return every === "open" ? opening : now - lastCheck >= GAP[every];
+}
+/** Waits until a worker the check found has finished installing, at most `ms`: its last state ("" when none was found;
+ *  "redundant" when it failed, such as a file that couldn't be downloaded). */
+function settled(r: ServiceWorkerRegistration, ms = 60_000): Promise<string> {
+  const w = r.installing;
+  if (!w) return Promise.resolve("");
+  return new Promise((done) => {
+    const t0 = setTimeout(() => done(w.state), ms);
+    w.addEventListener("statechange", () => { if (w.state !== "installing") { clearTimeout(t0); done(w.state); } });
+  });
+}
+/** Asks the server for the app's worker again (registration.update()): a changed one installs the new version in the
+ *  background. Only from Check now and the schedule; it never reloads the page by itself (the idle rules below do). */
+export async function checkWebNow(): Promise<void> {
+  if (webUpd.checking) return;
+  webUpd.checking = true;
+  try {
+    reg ??= (await navigator.serviceWorker?.getRegistration().catch(() => undefined)) ?? null;
+    if (!reg) { webUpd.state = "none"; return; }
+    await reg.update();
+    if ((await settled(reg)) === "redundant") throw new Error("the new version didn't install");
+    noteCheck();
+    webUpd.state = reg.waiting ? "ready" : "latest";
+  } catch { webUpd.state = "error"; } finally { webUpd.checking = false; }
+}
+/** Restart in Settings: the waiting version takes over now and the page reloads onto it (the worker agrees only when
+ *  this is the app's only window; else it applies the next time the app is opened, as the hint says). */
+export function restartWeb() {
+  if (!reg?.waiting) return;
+  asked = true;
+  reg.waiting.postMessage("skip");
+}
+/** A scheduled check, quietly: its answer shows in Settings only as "Checked ..." and a ready version. */
+async function scheduledCheck(opening: boolean) {
+  if (!reg || webUpd.checking || document.visibilityState !== "visible") return;
+  if (!webCheckDue(upd.every, upd.lastCheck, Date.now(), opening)) return;
+  try { await reg.update(); noteCheck(); if (reg.waiting) webUpd.state = "ready"; } catch { /* offline: the next one tries again */ }
+}
+
 /** Registers the worker and moves to a waiting new version when the app is (re)opened or comes back to the screen idle. */
 export function startUpdates(url: string) {
   const sw = navigator.serviceWorker;
   stampInput();
-  let asked = false;
   // the worker only takes over early when this is the app's only window, and then this page reloads onto it right away
   sw.addEventListener("controllerchange", () => { if (asked) location.reload(); });
   addEventListener("load", () => {
-    sw.register(url, { updateViaCache: "none" }).then((reg) => {
-      const apply = () => { if (reg.waiting && sw.controller && idle()) { asked = true; reg.waiting.postMessage("skip"); } };
+    sw.register(url, { updateViaCache: "none" }).then((r) => {
+      reg = r;
+      // registering checks the server for a new worker by itself, so this open counts as a check
+      noteCheck();
+      const apply = () => { if (r.waiting && sw.controller && idle()) { asked = true; r.waiting.postMessage("skip"); } };
       apply();
       // a new version usually finishes installing during a visit: look again once it waits, and at idle moments after
       // (never mid-typing: apply() checks idle each time; two idle looks in a row so a pause between keys isn't taken)
@@ -80,24 +134,27 @@ export function startUpdates(url: string) {
       const watchWaiting = () => {
         if (poll || asked) return;
         poll = window.setInterval(() => {
-          if (asked || !reg.waiting) { clearInterval(poll); poll = 0; return; }
+          if (asked || !r.waiting) { clearInterval(poll); poll = 0; return; }
           if (document.visibilityState !== "visible") { calm = false; return; }
           if (idle()) { if (calm) apply(); calm = true; } else calm = false;
         }, 15_000);
       };
       const track = (w: ServiceWorker | null) => {
         if (!w) return;
-        w.addEventListener("statechange", () => { if (w.state === "installed") watchWaiting(); });
+        w.addEventListener("statechange", () => { if (w.state === "installed") { if (r.waiting) webUpd.state = "ready"; watchWaiting(); } });
       };
-      if (reg.waiting) watchWaiting();
-      track(reg.installing);
-      reg.addEventListener("updatefound", () => track(reg.installing));
+      if (r.waiting) { webUpd.state = "ready"; watchWaiting(); }
+      track(r.installing);
+      r.addEventListener("updatefound", () => track(r.installing));
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState !== "visible") return;
         apply();
-        // a long-open installed app also looks for a new version when it comes back; with no connection nothing happens
-        reg.update().catch(() => {});
+        // a long-open installed app also looks for a new version when it comes back, as often as Settings says
+        // (How often); with no connection nothing happens
+        void scheduledCheck(true);
       });
+      // and while it stays open: every 15 minutes, whether the chosen time has passed
+      setInterval(() => void scheduledCheck(false), 15 * 60_000);
     }).catch(() => { /* not installable here, nothing else changes */ });
   });
 }

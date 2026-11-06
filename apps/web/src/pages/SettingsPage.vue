@@ -37,6 +37,7 @@ const rateDate = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString(lo
 // --- App & updates (C-27, C-52: Motus's App & Versions) ---
 import { appUpdates, onAndroid, upd, checkNow, download, install, setAuto, setEvery, setAutoDownload, setWifiOnly, askNotify, refreshNotify, EVERY_CHOICES, type Every } from "../core/appUpdate";
 import { pctOf, REPO_URL } from "../core/releases";
+import { webUpd, checkWebNow, restartWeb } from "../core/update";
 const inApp = appUpdates();
 const isAndroid = onAndroid();
 const onDesktop = !!(globalThis as { calcUpdate?: unknown }).calcUpdate;
@@ -58,6 +59,12 @@ const updHint = computed(() => {
   if (upd.latest) return t("set.downloadHint");
   return upd.lastCheck ? t("set.checkedAtCap", { when: when(upd.lastCheck) }) : "";
 });
+/** The web app / PWA (C-52): Check now asks its service worker's server; the answer in the same row as the apps' */
+const webTitle = computed(() => (webUpd.checking ? t("set.checking") : webUpd.state === "ready" ? t("set.webReady") : webUpd.state === "latest" ? t("set.upToDate")
+  : webUpd.state === "error" ? t("set.checkFailed") : webUpd.state === "none" ? t("set.webNone") : t("set.webSelf")));
+const webHint = computed(() => (webUpd.checking ? "" : webUpd.state === "ready" ? t("set.webReadyHint") : webUpd.state === "error" ? t("set.checkFailedHint")
+  : webUpd.state === "none" ? t("set.webNoneHint") : upd.lastCheck ? t("set.checkedAtCap", { when: when(upd.lastCheck) }) : t("set.webUpdates")));
+const checkAny = () => (inApp ? checkNow() : checkWebNow());
 // --- end App & updates ---
 
 const version = import.meta.env.VITE_VERSION || "dev";
@@ -122,10 +129,6 @@ const LANG_OPTIONS = computed(() => [
             <Icon name="calc" /><div class="grow"><div class="t">{{ t("set.thousands") }}</div><div class="s num">{{ settings.decimalMark === "," ? "1.000.000" : "1,000,000" }}</div></div>
             <input v-model="settings.thousands" type="checkbox" />
           </label>
-          <label class="li tg">
-            <Icon name="calc" /><div class="grow"><div class="t">{{ t("set.everyday") }}</div><div class="s">{{ t("set.everydayHint") }}</div></div>
-            <input v-model="settings.everyday" type="checkbox" />
-          </label>
         </div>
       </section>
       <!-- History (C-26) -->
@@ -167,7 +170,7 @@ const LANG_OPTIONS = computed(() => [
           <div class="li">
             <Icon name="info" /><div class="grow"><div class="t">{{ t("set.installed") }}</div>
               <div class="s"><bdi>{{ upd.current || version }}</bdi> · {{ kindLabel }}<template v-if="upd.build"> · {{ t("set.build", { b: upd.build }) }}</template></div></div>
-            <button v-if="inApp" type="button" class="btn o s" :disabled="upd.checking || upd.downloading" @click="checkNow()">{{ t("set.checkNow") }}</button>
+            <button type="button" class="btn o s" :disabled="upd.checking || upd.downloading || webUpd.checking" @click="checkAny()">{{ t("set.checkNow") }}</button>
           </div>
           <div v-if="inApp" class="li" aria-live="polite">
             <Icon name="download" /><div class="grow"><div class="t">{{ updTitle }}</div>
@@ -179,7 +182,18 @@ const LANG_OPTIONS = computed(() => [
               <button v-else type="button" class="btn s" @click="install()">{{ onDesktop ? t("set.restartUpdate") : t("set.install") }}</button>
             </template>
           </div>
-          <div v-else class="li"><Icon name="download" /><div class="grow"><div class="t">{{ t("set.webSelf") }}</div><div class="s">{{ t("set.webUpdates") }}</div></div></div>
+          <div v-else class="li" aria-live="polite">
+            <Icon name="download" /><div class="grow"><div class="t">{{ webTitle }}</div><div v-if="webHint" class="s">{{ webHint }}</div></div>
+            <button v-if="webUpd.state === 'ready' && !webUpd.checking" type="button" class="btn s" @click="restartWeb()">{{ t("set.restart") }}</button>
+          </div>
+        </div>
+        <!-- the web app / PWA: the browser looks for a new version whenever the app opens (that can't be switched off), and
+             then as often as chosen here -->
+        <div v-if="!inApp" class="card flush">
+          <div class="li">
+            <Icon name="history" /><div class="grow"><div class="t">{{ t("set.howOften") }}</div><div class="s">{{ t("set.howOftenWebHint") }}</div></div>
+            <AppSelect :model-value="upd.every" :options="EVERY_OPTIONS" :title="t('set.howOften')" @update:model-value="(v: Every) => setEvery(v)" />
+          </div>
         </div>
         <div v-if="inApp" class="card flush">
           <label class="li tg">
@@ -202,6 +216,13 @@ const LANG_OPTIONS = computed(() => [
           <div v-if="isAndroid && upd.mode === 'install' && upd.notify && upd.notify !== 'granted'" class="li">
             <Icon name="info" /><div class="grow"><div class="t">{{ t("set.notify") }}</div><div class="s">{{ upd.notify === "denied" ? t("set.notifyBlocked") : t("set.notifyAsk") }}</div></div>
             <button v-if="upd.notify === 'prompt'" type="button" class="btn o s" @click="askNotify()">{{ t("set.allow") }}</button>
+          </div>
+        </div>
+        <!-- in a browser, the apps are offered as in Motus ("Get the app"), as a link: the web app asks GitHub nothing -->
+        <div v-if="!inApp" class="card flush">
+          <div class="li">
+            <Icon name="download" /><div class="grow"><div class="t">{{ t("set.getApp") }}</div><div class="s">{{ t("set.getAppHint") }}</div></div>
+            <button type="button" class="btn s" @click="openUrl(REPO_URL + '/releases/latest')">{{ t("set.open") }}</button>
           </div>
         </div>
         <div class="card flush">
