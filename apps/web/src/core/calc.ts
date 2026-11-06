@@ -9,13 +9,16 @@ import {
 import { readJson, writeJson } from "./prefs";
 import { addHistory, type HistItem } from "./history";
 import { toast } from "./toast";
+import { startMode, deviceHints } from "./keyboard";
 
-export type Mode = "basic" | "advanced" | "financial" | "programming" | "date";
+export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "basic", label: "Basic", hint: "Everyday sums" },
   { id: "advanced", label: "Advanced", hint: "Powers, roots, trigonometry, logarithms" },
   { id: "financial", label: "Financial", hint: "Loans, interest, depreciation" },
   { id: "programming", label: "Programming", hint: "Binary, octal, hex, bit operations" },
+  // no keypad: earlier lines above one line to type whole sums in (KeyboardCalc), like GNOME's Keyboard mode
+  { id: "keyboard", label: "Keyboard", hint: "Type whole sums, no keypad" },
   // not a keypad: its own forms in place of the display and keys (DateCalc, loaded when chosen)
   { id: "date", label: "Date", hint: "Days between dates, adding to a date, age, times" },
 ];
@@ -25,8 +28,9 @@ export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, for
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
 export const ANGLES: { id: AngleUnit; label: string }[] = [{ id: "deg", label: "DEG" }, { id: "rad", label: "RAD" }, { id: "grad", label: "GRAD" }];
 
+const savedMode = readJson<Mode | null>("calcMode", null);
 export const calc = reactive({
-  mode: readJson<Mode>("calcMode", "basic"),
+  mode: savedMode ?? "basic",
   expr: "",
   /** the answer after = as shown (decimal "."), or "" while typing */
   answer: "",
@@ -40,7 +44,18 @@ export const calc = reactive({
   second: false,
   hyp: false,
 });
-watch(() => calc.mode, (m) => writeJson("calcMode", m));
+/** the mode a first-ever open started in by itself: not saved, so it is decided again until the user picks one */
+let autoMode: Mode | null = null, started = false;
+watch(() => calc.mode, (m) => { if (m !== autoMode) { autoMode = null; writeJson("calcMode", m); } });
+/** A first-ever open (no saved mode) on a computer with no touch screen starts in Keyboard mode, else Basic. Run once,
+ *  by the calculator page before its first paint (the layout is known there). */
+export function chooseStartMode(phone: boolean) {
+  if (started) return;
+  started = true;
+  if (savedMode) return;
+  const m = startMode<Mode>(null, deviceHints(phone));
+  if (m !== "basic") { autoMode = m; calc.mode = m; }
+}
 // answers of thousands of digits are kept in full only until the app closes, so they can't fill the device's storage:
 // on the device they are kept to 30 digits, marked approximate (never left out, so ans + 1 still means something)
 watch(() => calc.ans, (v) => writeJson("calcAns", storable(v)));
@@ -380,4 +395,30 @@ export function keyFor(e: KeyboardEvent): string {
     "^": "op:^", "%": "%", "!": "!", "|": "fn:|", ";": "fn:;", " ": "", Enter: "=", "=": "=", Backspace: "⌫", Escape: "AC", Delete: "C" };
   if (k in map) return map[k]!;
   return /^[\p{L}_]$/u.test(k) ? k : "";
+}
+
+// --- Keyboard mode: a whole line typed at once (KeyboardCalc) ---
+/** A typed line cleaned into an expression: the user's decimal mark and grouping, * / - for × ÷ − */
+export const lineExpr = (text: string) => sanitizeInput(text, settings.decimalMark);
+/** What Enter would give for the line now ("" while it isn't complete yet), as shown */
+export function linePreview(text: string): string {
+  const s = lineExpr(text);
+  if (!s) return "";
+  const r = evaluate(s, { ...evalOptions(), maxBits: PREVIEW_BITS });
+  if (!("value" in r)) return r.error === "Number is too large" ? r.error : "";
+  return r.value !== s ? r.value : "";
+}
+/** Enter: works the line out like =, so it is the answer (ans), sets a variable (x = 5) and goes into history.
+ *  "" when done, else the error. */
+export function enterLine(text: string): string {
+  let s = lineExpr(text);
+  if (!s) return "";
+  const r = evaluate(s, evalOptions());
+  if (!("value" in r)) return r.error;
+  const o = (s.match(/\(/g)?.length ?? 0) - (s.match(/\)/g)?.length ?? 0);
+  if (o > 0) s += ")".repeat(o); // the brackets closed for you show in the line and its history
+  calc.expr = s; calc.answer = r.value; calc.error = ""; calc.ans = r.exact;
+  if ("assigned" in r && typeof r.assigned === "string") calc.vars[r.assigned] = r.exact;
+  addHistory(s, r.value, r.exact, undefined, "keyboard");
+  return "";
 }

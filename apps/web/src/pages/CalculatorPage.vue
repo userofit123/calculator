@@ -5,14 +5,20 @@
 // Financial adds GNOME's ten financial functions above the basic keys, each with a form (FinPad, loaded when chosen).
 // Programming has its own keys, bases and bit view (ProgPad: small, so in the main bundle, and a calculator last left in
 // programming mode opens on its own keys at once instead of waiting for a chunk to load).
+// Keyboard has no keys: earlier lines above one line to type whole sums in (KeyboardCalc: small, in the main bundle, as
+// a computer's first open starts in it).
 // Date has no display or keys: its forms (DateCalc, loaded when chosen) take their place, under the same mode switch.
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES } from "../core/calc";
+import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode } from "../core/calc";
 import { isPhone } from "../core/device";
 import { toast } from "../core/toast";
 import Menu from "../components/Menu.vue";
 import Icon from "../components/Icon.vue";
 import ProgPad from "../components/ProgPad.vue";
+import KeyboardCalc from "../components/KeyboardCalc.vue";
+
+// a first-ever open picks its mode before the first paint: Keyboard on a computer with no touch screen, else Basic
+chooseStartMode(isPhone.value);
 
 const VariablesSheet = defineAsyncComponent(() => import("../components/VariablesSheet.vue"));
 const varsOpen = ref(false);
@@ -69,6 +75,7 @@ const adv = computed(() => calc.mode === "advanced");
 const progMode = computed(() => calc.mode === "programming");
 const fin = computed(() => calc.mode === "financial");
 const dateMode = computed(() => calc.mode === "date");
+const kbd = computed(() => calc.mode === "keyboard");
 
 const pv = computed(preview);
 const big = computed(() => calc.error || show(calc.answer || pv.value) || (calc.expr ? "" : "0"));
@@ -92,7 +99,7 @@ const busy = (e: Event) => !!(e.target as HTMLElement).closest?.("input, textare
 const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".cpad, .memk, .ppanel, .pbar");
 const onKeyUp = (e: KeyboardEvent) => { if (e.key === " " && onPadKey(e)) e.preventDefault(); };
 function onKey(e: KeyboardEvent) {
-  if (busy(e) || dateMode.value) return;
+  if (busy(e) || dateMode.value || kbd.value) return; // Keyboard mode's line takes the keys (KeyboardCalc)
   if (e.key === " " && !e.ctrlKey) { if (onPadKey(e)) e.preventDefault(); return; }
   let k = keyFor(e); // with Ctrl only Ctrl+E (×10ʸ): Ctrl+C, Ctrl+V and the browser's own shortcuts are left alone
   if (!k) return;
@@ -110,7 +117,7 @@ function onCopy(e: ClipboardEvent) {
   e.preventDefault(); e.clipboardData?.setData("text/plain", t); toast("Copied");
 }
 function onPaste(e: ClipboardEvent) {
-  if (busy(e) || dateMode.value) return;
+  if (busy(e) || dateMode.value || kbd.value) return;
   const t = e.clipboardData?.getData("text/plain");
   if (!t) return;
   e.preventDefault(); paste(t);
@@ -126,12 +133,13 @@ async function copyAnswer() {
 </script>
 
 <template>
-  <div class="page calc" :class="{ phone: isPhone, adv, prog: progMode, fin, dmode: dateMode }">
+  <div class="page calc" :class="{ phone: isPhone, adv, prog: progMode, fin, dmode: dateMode, kbd }">
     <div class="calc-top">
       <Menu :items="modeItems" :text="modeLabel" label="Calculator mode" align="start" />
-      <button v-if="adv" type="button" class="cvars" @click="varsOpen = true">Variables</button>
+      <button v-if="adv || kbd" type="button" class="cvars" @click="varsOpen = true">Variables</button>
     </div>
     <DateCalc v-if="dateMode" />
+    <KeyboardCalc v-else-if="kbd" />
     <div v-else class="cdisp" aria-live="polite">
       <div class="cbar">
         <button v-if="adv" type="button" class="cflag" title="Angle unit" @click="fkey('angle')">{{ angleLabel }}</button>
@@ -142,7 +150,7 @@ async function copyAnswer() {
       <div ref="exprEl" class="cexp num" :title="show(calc.expr)">{{ show(calc.expr) }}<span v-if="calc.answer" class="ceq"> =</span></div>
       <button type="button" class="cres num" :class="[size, { pre: !calc.answer && !calc.error && !!pv, err: !!calc.error }]" title="Copy" @click="copyAnswer">{{ big }}</button>
     </div>
-    <template v-if="dateMode" />
+    <template v-if="dateMode || kbd" />
     <ProgPad v-else-if="progMode" :hit="hit" :clear="clearKey" @tap="tap" />
     <div v-else class="cpad">
       <FinPad v-if="fin" />

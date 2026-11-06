@@ -128,3 +128,29 @@ html.phone .card .li:has(> .seg, > .fpick) > :is(.seg, .fpick) { margin-inline-s
 .about p { line-height: 1.55; color: var(--tx2); }
 .about p + p { margin-top: var(--hg); }
 .about b { color: var(--tx); }
+
+/* Keyboard mode: earlier lines (newest at the bottom, like a terminal) above one line to type in, no keypad */
+.kcalc { display: flex; flex-direction: column; gap: var(--hg); flex: 1 1 auto; min-height: 0; }
+.klist { list-style: none; margin: 0; display: flex; flex-direction: column; gap: calc(var(--lpy) / 2); height: min(52vh, 520px); overflow-y: auto; padding: var(--cpy) var(--cpx); border-radius: var(--r); background: var(--s1); border: 1px solid var(--ol); overscroll-behavior: contain; }
+.klist > :first-child { margin-top: auto; } /* few lines sit at the bottom, next to the line being typed */
+.krow { display: flex; flex-direction: column; align-items: flex-end; }
+.krow button { border: 0; background: none; font-family: inherit; text-align: end; overflow-wrap: anywhere; cursor: pointer; border-radius: var(--r-sm); padding: calc(var(--lpy) / 6) calc(var(--cpx) / 4); }
+.kexp { color: var(--tx2); font-size: 17px; }
+.kres { color: var(--tx); font-size: 26px; font-weight: 500; }
+.krow button:hover { color: var(--acc); }
+.krow button:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+.kempty { color: var(--tx2); text-align: center; margin-bottom: auto; }
+.kline { display: flex; flex-direction: column; gap: 4px; padding: var(--cpy) var(--cpx); border-radius: var(--r); background: var(--s1); border: 1px solid var(--ol); transition: border-color .15s; }
+.kline:focus-within { border-color: var(--acc); }
+.kline .cbar { margin-bottom: 0; min-height: 24px; }
+.kans { font-size: var(--fs-sm); color: var(--tx2); margin-inline-start: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+.kline .kin, .kline .kin:focus { width: 100%; min-width: 0; border: 0; outline: none; background: none; padding: 0; font-family: inherit; font-size: 30px; font-weight: 500; color: var(--tx); caret-color: var(--acc); box-shadow: none; } /* the box around it shows the focus */
+.kin::placeholder { color: var(--tx2); opacity: .5; }
+.kpre { min-height: 1.4em; font-size: 20px; color: var(--tx2); text-align: end; overflow-wrap: anywhere; }
+.kpre.err { color: var(--neg); font-size: 16px; }
+body.outline .klist, body.outline .kline { background: none; }
+body.glass .klist, body.glass .kline { background: color-mix(in srgb, var(--s2) calc(var(--gop) * 100%), transparent); backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); -webkit-backdrop-filter: blur(var(--gbl)) saturate(var(--gsat)); }
+html:not(.phone) .calc.kbd { max-width: 720px; }
+html.phone .calc.kbd { min-height: 320px; }
+html.phone .klist { flex: 1 1 auto; height: auto; min-height: 0; }
+html.phone .kline .kin, html.phone .kline .kin:focus { font-size: 24px; }
