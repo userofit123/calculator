@@ -74,8 +74,13 @@ function tap(k: string) {
   hit.value = k; clearTimeout(hitT); hitT = setTimeout(() => (hit.value = ""), 140);
 }
 const busy = (e: Event) => !!(e.target as HTMLElement).closest?.("input, textarea, select, [contenteditable]") || !!document.querySelector(".scr, #pop.on");
+// Space would press the calculator key last clicked again (it keeps the focus), so on the keys it does nothing; browsers
+// press a button on keydown (Chromium) or keyup (Firefox), so both are stopped
+const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".cpad, .memk");
+const onKeyUp = (e: KeyboardEvent) => { if (e.key === " " && onPadKey(e)) e.preventDefault(); };
 function onKey(e: KeyboardEvent) {
   if (e.ctrlKey || e.metaKey || e.altKey || busy(e)) return;
+  if (e.key === " ") { if (onPadKey(e)) e.preventDefault(); return; }
   let k = keyFor(e);
   if (!k) return;
   if (k === "C") k = clearKey.value; // Delete clears the number being typed, or everything when that is all there is
@@ -97,8 +102,8 @@ function onPaste(e: ClipboardEvent) {
   if (!t) return;
   e.preventDefault(); paste(t);
 }
-onMounted(() => { addEventListener("keydown", onKey); document.addEventListener("copy", onCopy); document.addEventListener("paste", onPaste); });
-onBeforeUnmount(() => { removeEventListener("keydown", onKey); document.removeEventListener("copy", onCopy); document.removeEventListener("paste", onPaste); });
+onMounted(() => { addEventListener("keydown", onKey); addEventListener("keyup", onKeyUp); document.addEventListener("copy", onCopy); document.addEventListener("paste", onPaste); });
+onBeforeUnmount(() => { removeEventListener("keydown", onKey); removeEventListener("keyup", onKeyUp); document.removeEventListener("copy", onCopy); document.removeEventListener("paste", onPaste); });
 
 async function copyAnswer() {
   const t = copyText();

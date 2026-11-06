@@ -10,10 +10,15 @@ const MAX = 200;
 export const history = reactive<HistItem[]>(readJson<HistItem[]>("calcHistory", []).slice(0, MAX));
 const save = () => writeJson("calcHistory", history);
 
+/** Text short enough to keep on the device ("" if not): 200 sums of 100,000 digits would fill its storage */
+export const keepable = (s: string) => (s.length <= 2000 ? s : "");
+
 export function addHistory(e: string, r: string, x: string) {
   // the same sum again only moves up
   if (history[0]?.e === e && history[0].r === r) return;
-  history.unshift({ e, r, x, t: Date.now() });
+  if (!keepable(e)) return; // a sum too long to keep isn't listed
+  // an answer too long to keep in full is used as shown
+  history.unshift({ e, r, x: keepable(x), t: Date.now() });
   if (history.length > MAX) history.length = MAX;
   save();
 }

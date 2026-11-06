@@ -2,7 +2,7 @@
 // full, √16 = 4, 8^(1/3) = 2, sin 30° = 0.5, log 1000 = 3); a double only for what is irrational, rounded to its
 // trustworthy digits before anything discrete (floor, factorial, mod) and before it is shown.
 import {
-  type Q, CalcError, q, ZERO, ONE, add, sub, mul, div, neg, isInt, cmp, floor, trunc, powInt, rootExact, toNumber, parseDecimal,
+  type Q, CalcError, q, ZERO, ONE, add, sub, mul, div, neg, isInt, cmp, floor, trunc, powInt, rootExact, rootApprox, lnQ, toNumber, parseDecimal, withBudget, OverBudget,
 } from "./rational";
 import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored } from "./format";
 import { parse, type Node } from "./parse";
@@ -15,13 +15,18 @@ export interface EvalOptions extends FormatOptions {
   variables?: Record<string, string>;
   /** The previous answer (its `exact`), reachable as "ans" */
   ans?: string;
+  /** A lower size limit in bits, for a preview worked out on every key press: anything bigger is not worked out
+   *  (an error), so the preview of 3^200000 ÷ 2^330000 can't hold up typing. The = key leaves it out. */
+  maxBits?: number;
 }
 /** value: the answer as shown (decimal "."); exact: the answer in full, to keep as ans, memory or a variable;
  *  assigned: the variable the expression stored ("x = 5") */
 export type EvalResult = { value: string; exact: string; assigned?: string } | { error: string };
 
 const CONSTANTS: Record<string, Value> = { "π": { f: Math.PI }, pi: { f: Math.PI }, e: { f: Math.E } };
-const RESERVED = new Set(["ans", "mod", ...Object.keys(CONSTANTS)]);
+/** Names that can't be variables (functions can't either, see FUNCTIONS) */
+export const RESERVED = new Set(["ans", "mod", ...Object.keys(CONSTANTS)]);
+const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 
 const exact = (v: Value): v is { q: Q } => "q" in v;
 const num = (v: Value) => (exact(v) ? toNumber(v.q) : v.f);
@@ -31,6 +36,10 @@ const fl = (x: number): Value => {
   return { f: x };
 };
 const Z: Value = { q: ZERO };
+/** An exact value a double can't hold (beyond 1.8×10^308, or so small that it would be 0) */
+const outOfDouble = (a: Q) => { const x = Math.abs(toNumber(a)); return a.n !== 0n && (!Number.isFinite(x) || x < 1e-300); };
+/** ln of a value; exact values beyond a double still work (ln(10^400)) */
+const lnOf = (v: Value) => (exact(v) ? lnQ(v.q) : Math.log(v.f));
 const intOf = (v: Value) => { const a = asQ(v); return isInt(a) ? a.n : null; };
 
 function arith(op: "+" | "-" | "*" | "/", a: Value, b: Value): Value {
@@ -48,6 +57,8 @@ function pow(a: Value, b: Value): Value {
       const r = rootExact(a.q, Number(b.q.d));
       if (r) return { q: powInt(r, b.q.n) };
       if (a.q.n < 0n && b.q.d % 2n === 1n) return fl(-(Math.abs(toNumber(a.q)) ** toNumber(b.q))); // odd root of a negative
+      // past a double's range ((2×10^1000)^0.5): the root to 30 digits, then the whole power
+      if (a.q.n > 0n && outOfDouble(a.q)) return { q: powInt(rootApprox(a.q, Number(b.q.d)), b.q.n) };
     }
   }
   const x = num(a), y = num(b);
@@ -61,6 +72,10 @@ function root(a: Value, n: number): Value {
     if (a.q.n < 0n && n % 2 === 0) throw new CalcError("Root of a negative number");
     const r = rootExact(a.q, Math.abs(n));
     if (r) return n < 0 ? { q: div(ONE, r) } : { q: r };
+    if (outOfDouble(a.q)) { // √(2×10^1000): the root to 30 digits
+      const m = rootApprox(a.q.n < 0n ? neg(a.q) : a.q, Math.abs(n)), s = a.q.n < 0n ? neg(m) : m;
+      return { q: n < 0 ? div(ONE, s) : s };
+    }
   }
   const x = num(a);
   if (x < 0 && n % 2 === 0) throw new CalcError("Root of a negative number");
@@ -127,12 +142,14 @@ function trig(f: "sin" | "cos" | "tan", v: Value, unit: AngleUnit): Value {
 
 /** log of x in a base, exact when x is a whole power of the base (log 1000 = 3, log₂ 8 = 3) */
 function logBase(v: Value, base: Value): Value {
-  const x = num(v), b = num(base);
-  if ((exact(v) ? v.q.n <= 0n : x <= 0)) throw new CalcError("Logarithm of zero or less");
-  if (b <= 0 || b === 1) throw new CalcError("Invalid logarithm base");
-  const r = Math.log(x) / Math.log(b);
+  if (exact(v) ? v.q.n <= 0n : v.f <= 0) throw new CalcError("Logarithm of zero or less");
+  if ((exact(base) ? base.q.n <= 0n || cmp(base.q, ONE) === 0 : base.f <= 0 || base.f === 1)) throw new CalcError("Invalid logarithm base");
+  const r = lnOf(v) / lnOf(base);
   const k = Math.round(r);
-  if (exact(v) && exact(base) && Math.abs(r - k) < 1e-9 && cmp(powInt(base.q, BigInt(k)), v.q) === 0) return { q: q(BigInt(k)) };
+  if (exact(v) && exact(base) && Math.abs(r - k) < 1e-9 * Math.max(1, Math.abs(k))) {
+    // a power too large to check is not the value either
+    try { if (cmp(powInt(base.q, BigInt(k)), v.q) === 0) return { q: q(BigInt(k)) }; } catch (e) { if (!(e instanceof CalcError)) throw e; }
+  }
   return fl(r);
 }
 
@@ -171,7 +188,7 @@ function call(name: string, args: Value[], o: EvalOptions): Value {
     case "atanh": if (Math.abs(x()) >= 1) throw new CalcError("Out of range for atanh"); return fl(Math.atanh(x()));
     case "ln": {
       if (exact(a) ? a.q.n <= 0n : x() <= 0) throw new CalcError("Logarithm of zero or less");
-      return exact(a) && cmp(a.q, ONE) === 0 ? Z : fl(Math.log(x()));
+      return exact(a) && cmp(a.q, ONE) === 0 ? Z : fl(lnOf(a));
     }
     case "exp": return exact(a) && a.q.n === 0n ? { q: ONE } : fl(Math.exp(x()));
     case "√": return root(a, 2);
@@ -191,9 +208,9 @@ function call(name: string, args: Value[], o: EvalOptions): Value {
 
 function lookup(name: string, o: EvalOptions): Value | null {
   if (name === "ans") return o.ans ? parseStored(o.ans) : Z;
-  const v = o.variables?.[name];
-  if (v !== undefined) return parseStored(v);
-  return CONSTANTS[name] ?? null;
+  // own names only: "constructor" or "toString" are not stored variables
+  if (own(o.variables, name)) return parseStored(o.variables![name]!);
+  return own(CONSTANTS, name) ? CONSTANTS[name]! : null;
 }
 
 function ev(n: Node, o: EvalOptions): Value {
@@ -235,11 +252,14 @@ export function evaluate(expression: string, options: EvalOptions = {}): EvalRes
   try {
     const st = parse(expression);
     if (st.assign && RESERVED.has(st.assign)) throw new CalcError(`Can't change ${st.assign}`);
-    const v = ev(st.expr, options);
-    const value = formatValue(v, options);
-    return { value, exact: exactText(v), ...(st.assign ? { assigned: st.assign } : {}) };
+    return withBudget(options.maxBits, () => {
+      const v = ev(st.expr, options);
+      const value = formatValue(v, options);
+      return { value, exact: exactText(v), ...(st.assign ? { assigned: st.assign } : {}) };
+    });
   } catch (e) {
     if (e instanceof CalcError) return { error: unknownFunction(expression, e.message) };
+    if (e instanceof OverBudget) return { error: "Too large to work out while typing" };
     if (e instanceof RangeError) return { error: "Number is too large" }; // a BigInt past the engine's limits
     return { error: "Malformed expression" };
   }

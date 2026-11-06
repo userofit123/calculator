@@ -2,9 +2,9 @@
 // @calc/core; here only the typed text is edited (append, delete, brackets, sign) and handed over to be worked out.
 // Memory, variables, the last answer and the calculator settings are kept on this device.
 import { reactive, watch } from "vue";
-import { evaluate, formatDisplay, sanitizeInput, type AngleUnit, type EvalOptions, type NumberFormat } from "@calc/core";
+import { evaluate, formatDisplay, sanitizeInput, RESERVED, type AngleUnit, type EvalOptions, type NumberFormat } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
-import { addHistory } from "./history";
+import { addHistory, keepable } from "./history";
 
 export type Mode = "basic" | "advanced" | "financial" | "programming";
 export const MODES: { id: Mode; label: string; hint: string }[] = [
@@ -35,9 +35,10 @@ export const calc = reactive({
   hyp: false,
 });
 watch(() => calc.mode, (m) => writeJson("calcMode", m));
-watch(() => calc.ans, (v) => writeJson("calcAns", v));
-watch(() => calc.mem, (v) => writeJson("calcMem", v));
-watch(() => calc.vars, (v) => writeJson("calcVars", v), { deep: true });
+// answers of thousands of digits are kept only until the app closes, so they can't fill the device's storage
+watch(() => calc.ans, (v) => writeJson("calcAns", keepable(v)));
+watch(() => calc.mem, (v) => writeJson("calcMem", keepable(v)));
+watch(() => calc.vars, (v) => writeJson("calcVars", Object.fromEntries(Object.entries(v).filter(([, x]) => keepable(x)))), { deep: true });
 
 export const evalOptions = (): EvalOptions => ({ angle: settings.angle, decimals: settings.decimals, format: settings.format, variables: calc.vars, ans: calc.ans });
 /** Text as shown: the chosen decimal mark and thousands grouping */
@@ -52,11 +53,15 @@ const open = () => (calc.expr.match(/\(/g)?.length ?? 0) - (calc.expr.match(/\)/
 // ends with something an operator can follow: a number, ")", a postfix (! % ²), a constant or a variable
 const endsOperand = () => /[\d.)!%²³¹⁰-⁹|\p{L}_₀-₉]$/u.test(calc.expr);
 
+// The preview is worked out on every key press, so it only takes numbers up to about 33,000 digits: anything bigger
+// waits for = (which may take a moment), and typing never stalls
+const PREVIEW_BITS = 110_000;
 /** What = would give now, shown faintly under the expression while typing ("" when it isn't complete yet) */
 export function preview(): string {
   if (!calc.expr || calc.answer || calc.error) return "";
-  const r = evaluate(calc.expr, evalOptions());
-  return "value" in r && r.value !== calc.expr ? r.value : "";
+  const r = evaluate(calc.expr, { ...evalOptions(), maxBits: PREVIEW_BITS });
+  if (!("value" in r)) return r.error === "Number is too large" ? r.error : ""; // 2^1000000: no point pressing =
+  return r.value !== calc.expr ? r.value : "";
 }
 /** The answer, or what = would give now, in full (for copying, M+, saving as a variable) */
 export function current(): { value: string; exact: string } | null {
@@ -67,10 +72,12 @@ export function current(): { value: string; exact: string } | null {
 }
 
 // After =, a number or function starts afresh and an operator carries on from the answer: written out when the
-// shown answer is the whole answer, else as "ans" (so 1 ÷ 3 = then × 3 gives exactly 1)
+// shown answer is the whole answer, else as "ans" (so 1 ÷ 3 = then × 3 gives exactly 1). After an error the sum stays
+// as it was, to be put right (like GNOME's calculator).
 function fromAnswer(keepAnswer: boolean) {
-  if (!calc.answer && !calc.error) return;
-  if (keepAnswer && calc.answer) {
+  if (calc.error) { calc.error = ""; return; }
+  if (!calc.answer) return;
+  if (keepAnswer) {
     const r = evaluate(calc.answer);
     calc.expr = "value" in r && r.exact === calc.ans ? calc.answer.replace(/^-/, "−") : "ans";
   } else calc.expr = "";
@@ -80,7 +87,8 @@ function fromAnswer(keepAnswer: boolean) {
 /** Adds an operand (a number, a function, a constant): after an answer it starts afresh */
 function operand(s: string) {
   fromAnswer(false);
-  if (/[\d.]$/.test(calc.expr) && /^[\d.]/.test(s)) calc.expr += "×";
+  // 2 then the e key is 2×e: "2e−3" would read as 2×10⁻³
+  if (/[\d.]$/.test(calc.expr) && (/^[\d.]/.test(s) || /^e(?![\p{L}])/u.test(s))) calc.expr += "×";
   calc.expr += s;
 }
 /** Adds something that works on what comes before (x², n!, ^, mod): after an answer it carries on from it */
@@ -99,7 +107,12 @@ function memAdd(sign: "+" | "−") {
   const r = evaluate(`(${calc.mem || "0"})${sign}(${c.exact})`);
   if ("value" in r) calc.mem = r.exact === "0" ? "" : r.exact;
 }
-/** A stored value as it would be typed: the shown answer when that is all of it, else rounded as shown */
+/** A stored value (an answer in full, memory) typed into the sum without losing anything: 1/3 is (1÷3) */
+export function typedValue(exact: string): string {
+  const m = /^(-?)(\d+)\/(\d+)$/.exec(exact);
+  return m ? `(${m[1] ? "−" : ""}${m[2]}÷${m[3]})` : exact.replace(/-/g, "−");
+}
+/** A stored value as it is shown: rounded like an answer */
 export function valueText(exact: string): string {
   const r = evaluate(exact, { decimals: settings.decimals, format: settings.format });
   return "value" in r ? r.value : exact;
@@ -120,7 +133,7 @@ export function press(k: string) {
   if (k === "=") {
     if (!calc.expr || calc.answer) return;
     // "x" then = starts an assignment (x = …) instead of working out x
-    if (/^[\p{L}_][\p{L}_₀-₉]*$/u.test(calc.expr) && !(calc.expr in calc.vars) && !["ans", "e", "π", "pi"].includes(calc.expr)) { calc.expr += " = "; return; }
+    if (/^[\p{L}_][\p{L}_₀-₉]*$/u.test(calc.expr) && !Object.prototype.hasOwnProperty.call(calc.vars, calc.expr) && !RESERVED.has(calc.expr)) { calc.expr += " = "; return; }
     const r = evaluate(calc.expr, evalOptions());
     if (!("value" in r)) { calc.error = r.error; return; }
     if (open() > 0) calc.expr += ")".repeat(open()); // the brackets closed for you show in the sum and its history
@@ -130,7 +143,7 @@ export function press(k: string) {
     return;
   }
   if (k === "MC") { calc.mem = ""; return; }
-  if (k === "MR") { if (calc.mem) operand(valueText(calc.mem).replace(/^-/, "−")); return; }
+  if (k === "MR") { if (calc.mem) operand(typedValue(calc.mem)); return; }
   if (k === "M+") return memAdd("+");
   if (k === "M−") return memAdd("−");
   if (k.startsWith("fn:")) return operand(k.slice(3));

@@ -99,8 +99,8 @@ html:not(.phone) .calc.adv .fkeys { grid-auto-rows: minmax(var(--kh), auto); }
 @media (max-width: 760px) { html:not(.phone) .calc.adv .cpad { display: flex; } }
 
 /* History: the expression (tap: bring it back) above its answer (tap: type it in) */
-.hrow { flex-direction: column; align-items: stretch; gap: 2px; }
-.hrow button { border: 0; background: none; padding: 2px 0; font-family: inherit; text-align: end; cursor: pointer; overflow-wrap: anywhere; border-radius: var(--r-sm); }
+.hrow { flex-direction: column; align-items: stretch; gap: calc(var(--lpy) / 4); }
+.hrow button { border: 0; background: none; padding: calc(var(--lpy) / 4) 0; font-family: inherit; text-align: end; cursor: pointer; overflow-wrap: anywhere; border-radius: var(--r-sm); }
 .hexp { color: var(--tx2); font-size: 15px; }
 .hres { color: var(--tx); font-size: 22px; font-weight: 500; }
 .hrow button:hover { color: var(--acc); }
@@ -119,7 +119,7 @@ html.phone .card .li:has(> .seg, > .fpick) > :is(.seg, .fpick) { margin-inline-s
 .hres.long { font-size: 17px; }
 
 /* a switch inside a settings row */
-.li.tg { padding: var(--lpy) 4px; border-top: 0; justify-content: flex-start; cursor: pointer; }
+.li.tg { padding: var(--lpy) calc(var(--cpx) / 4); border-top: 0; justify-content: flex-start; cursor: pointer; }
 
 /* the placeholder page (Converter), the empty History and Settings */
 .soon { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: calc(var(--cpy) * 3) var(--cpx); color: var(--tx2); }

@@ -1,7 +1,7 @@
 // Numbers as the user sees them. A value is an exact fraction or, after an irrational step, a double; doubles are
 // rounded to 15 significant digits first, which hides float noise (0.30000000000000004, sin 30° = 0.49999999999999994)
 // while keeping every digit a double can be trusted with.
-import { type Q, CalcError, exponent10, parseDecimal, toFixed, isInt, mul, powInt, q } from "./rational";
+import { type Q, CalcError, exponent10, parseDecimal, toFixed, isInt, q } from "./rational";
 
 export type Value = { q: Q } | { f: number };
 export type NumberFormat = "auto" | "fixed" | "sci" | "eng";
@@ -24,12 +24,15 @@ export function cleanFloat(x: number): Q {
 }
 export const asQ = (v: Value): Q => ("q" in v ? v.q : cleanFloat(v.f));
 
+/** a ÷ 10^e, left unreduced: only rounded for showing, so a gcd of numbers with thousands of digits isn't worth it */
+const by10 = (a: Q, e: number): Q => (e >= 0 ? { n: a.n, d: a.d * 10n ** BigInt(e) } : { n: a.n * 10n ** BigInt(-e), d: a.d });
+
 function sci(a: Q, places: number, eng: boolean): string {
   let e = exponent10(a);
   if (eng) e = Math.floor(e / 3) * 3;
-  let m = toFixed(mul(a, powInt(q(10n), BigInt(-e))), places);
+  let m = toFixed(by10(a, e), places);
   // rounding can carry over: 9.9999 → 10 (or 1000 in engineering steps)
-  if (Math.abs(Number(m)) >= (eng ? 1000 : 10)) { e += eng ? 3 : 1; m = toFixed(mul(a, powInt(q(10n), BigInt(-e))), places); }
+  if (Math.abs(Number(m)) >= (eng ? 1000 : 10)) { e += eng ? 3 : 1; m = toFixed(by10(a, e), places); }
   return e === 0 ? m : `${m}×10${toSuperscript(String(e))}`;
 }
 
@@ -72,7 +75,8 @@ export interface DisplayOptions {
 export function formatDisplay(s: string, o: DisplayOptions = {}): string {
   const mark = o.decimalMark ?? ".", group = mark === "," ? "." : ",";
   if (!o.thousands && mark === ".") return s;
-  return s.replace(/(\d+)(\.\d*)?/g, (_m, i: string, f?: string) => {
+  // exponents (2^10000, 1e12345) are left ungrouped
+  return s.replace(/(?<![\d.]|\^|\d[eE][+\-−]?)(\d+)(\.\d*)?/g, (_m, i: string, f?: string) => {
     const ip = o.thousands ? i.replace(/\B(?=(\d{3})+$)/g, group) : i;
     return ip + (f ? mark + f.slice(1) : "");
   });

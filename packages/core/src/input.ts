@@ -9,7 +9,7 @@ export function sanitizeInput(text: string, decimalMark: "." | "," = "."): strin
   } else {
     s = s.replace(/(\d),(?=\d{3}(?!\d))/g, "$1").replace(/(\d) (?=\d{3}(?!\d))/g, "$1"); // 1,234,567.5 → 1234567.5
   }
-  s = s.replace(/[-–—]/g, "−").replace(/\*/g, "×").replace(/\//g, "÷").replace(/,/g, ";");
-  s = s.replace(/[^\p{L}\d.+−×÷^()|!%=;√∛⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀₁₂₃₄₅₆₇₈₉π ]/gu, "");
+  s = s.replace(/[-–—]/g, "−").replace(/[*·⋅]/g, "×").replace(/[/∕]/g, "÷").replace(/,/g, ";");
+  s = s.replace(/[^\p{L}\d.+−×÷^()|!%=;√∛∜⁰¹²³⁴⁵⁶⁷⁸⁹⁻₀₁₂₃₄₅₆₇₈₉π ]/gu, "");
   return s.replace(/\s+/g, " ").replace(/\s*=\s*$/, "").trim();
 }

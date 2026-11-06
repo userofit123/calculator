@@ -3,7 +3,7 @@
 // expression to bring the whole sum back; ⋮ clears the list.
 import { computed } from "vue";
 import { history, clearHistory, restoreHistory } from "../core/history";
-import { calc, press, show } from "../core/calc";
+import { calc, press, show, typedValue } from "../core/calc";
 import { go } from "../shell/nav";
 import { toast } from "../core/toast";
 import Menu from "../components/Menu.vue";
@@ -16,10 +16,11 @@ function clear() {
   toast("History cleared", { action: { label: "Undo", run: () => restoreHistory(old) } });
 }
 
-function useResult(r: string) {
+/** x: the answer in full (exact, so 1/3 used again is still 1/3), r: as shown, for answers too long to have been kept */
+function useResult(x: string, r: string) {
   // after an operator or "(" the answer joins the sum being typed, otherwise it starts a new one
   if (calc.answer || calc.error || !/[+−×÷^(]$/.test(calc.expr)) { press("AC"); }
-  press("fn:" + r.replace(/^-/, "−"));
+  press("fn:" + typedValue(x || r));
   go("calc");
 }
 function useExpr(e: string) { press("AC"); calc.expr = e; go("calc"); }
@@ -32,7 +33,7 @@ function useExpr(e: string) { press("AC"); calc.expr = e; go("calc"); }
     <div v-else class="card flush hlist">
       <div v-for="(h, i) in history" :key="h.t + ':' + i" class="li hrow">
         <button type="button" class="hexp num" title="Use this expression" @click="useExpr(h.e)">{{ show(h.e) }}</button>
-        <button type="button" class="hres num" :class="{ long: h.r.length > 18 }" title="Use this answer" @click="useResult(h.r)">=&nbsp;{{ show(h.r) }}</button>
+        <button type="button" class="hres num" :class="{ long: h.r.length > 18 }" title="Use this answer" @click="useResult(h.x, h.r)">=&nbsp;{{ show(h.r) }}</button>
       </div>
     </div>
   </div>

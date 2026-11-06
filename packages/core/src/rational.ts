@@ -6,18 +6,88 @@ export interface Q { n: bigint; d: bigint } // n / d, d > 0, always reduced
 export class CalcError extends Error {}
 
 const abs = (a: bigint) => (a < 0n ? -a : a);
-export const gcd = (a: bigint, b: bigint): bigint => { a = abs(a); b = abs(b); while (b) [a, b] = [b, a % b]; return a; };
+export const bitLength = (a: bigint) => { const h = abs(a).toString(16); return (h.length - 1) * 4 + 32 - Math.clz32(parseInt(h[0]!, 16)); };
+
+/** The biggest exact number kept: about 100,000 digits. Past that a sum takes seconds and nobody reads the digits. */
+export const MAX_BITS = 332_200;
+const LIMIT = 1n << BigInt(MAX_BITS);
+const tooLarge = () => new CalcError("Number is too large");
+
+/** Thrown when a number grows past a smaller limit asked for (a preview while typing must answer at once) */
+export class OverBudget extends Error {}
+let budget = MAX_BITS, budgetBig = LIMIT;
+/** Runs f with numbers limited to `bits` (at most MAX_BITS) */
+export function withBudget<T>(bits: number | undefined, f: () => T): T {
+  const old = budget;
+  budget = Math.min(bits ?? MAX_BITS, MAX_BITS); budgetBig = 1n << BigInt(budget);
+  try { return f(); } finally { budget = old; budgetBig = 1n << BigInt(old); }
+}
+const overLimit = (bits: number) => { if (bits > MAX_BITS) throw tooLarge(); if (bits > budget) throw new OverBudget(); };
+
+const trailingZeros = (a: bigint) => bitLength(a & -a) - 1;
+
+// Lehmer's gcd: the Euclidean steps are worked out on the leading 48 bits as ordinary numbers and applied to the big
+// numbers in one go, many bits per pass instead of one big division per 1.7 bits (the textbook loop took seconds on
+// numbers with tens of thousands of digits). Factors of 2 are taken out first: powers of 2 (and of 10) are common
+// denominators and then cost nothing.
+const DIGIT = 48;
+export function gcd(a: bigint, b: bigint): bigint {
+  a = abs(a); b = abs(b);
+  if (a === 0n || b === 0n) return a || b;
+  const za = trailingZeros(a), zb = trailingZeros(b), z = BigInt(Math.min(za, zb));
+  a >>= BigInt(za); b >>= BigInt(zb);
+  if (a < b) [a, b] = [b, a];
+  let la = bitLength(a);
+  while (b > 0xffffffffffffn) {
+    while ((a >> BigInt(la - 1)) === 0n) la--; // cheaper than bitLength(a) on every pass
+    const k = BigInt(la - DIGIT);
+    let x = Number(a >> k), y = Number(b >> k), A = 1, B = 0, C = 0, D = 1;
+    for (;;) {
+      if (y + C <= 0 || y + D <= 0) break;
+      const q1 = Math.floor((x + A) / (y + C)), q2 = Math.floor((x + B) / (y + D));
+      if (q1 !== q2) break;
+      let t = A - q1 * C; A = C; C = t;
+      t = B - q1 * D; B = D; D = t;
+      t = x - q1 * y; x = y; y = t;
+    }
+    if (B === 0) [a, b] = [b, a % b];
+    else [a, b] = [BigInt(A) * a + BigInt(B) * b, BigInt(C) * a + BigInt(D) * b];
+  }
+  while (b) [a, b] = [b, a % b];
+  return a << z;
+}
 export const q = (n: bigint, d: bigint = 1n): Q => {
   if (d === 0n) throw new CalcError("Division by zero");
   if (d < 0n) { n = -n; d = -d; }
   const g = gcd(n, d) || 1n;
-  return { n: n / g, d: d / g };
+  return checked(n / g, d / g);
+};
+/** n / d as it is (already reduced), refused when past the limit */
+const checked = (n: bigint, d: bigint): Q => {
+  if (n >= budgetBig || -n >= budgetBig || d >= budgetBig) overLimit(Math.max(bitLength(n), bitLength(d)));
+  return { n, d };
 };
 export const ZERO = q(0n), ONE = q(1n);
-export const add = (a: Q, b: Q) => q(a.n * b.d + b.n * a.d, a.d * b.d);
-export const sub = (a: Q, b: Q) => q(a.n * b.d - b.n * a.d, a.d * b.d);
-export const mul = (a: Q, b: Q) => q(a.n * b.n, a.d * b.d);
-export const div = (a: Q, b: Q) => { if (b.n === 0n) throw new CalcError("Division by zero"); return q(a.n * b.d, a.d * b.n); };
+// The sum and product of reduced fractions with the gcds taken on the parts (Knuth 4.5.1): smaller numbers than the
+// whole result, and none at all for whole numbers
+export const add = (a: Q, b: Q): Q => {
+  if (a.d === 1n && b.d === 1n) return checked(a.n + b.n, 1n);
+  const g = gcd(a.d, b.d);
+  if (g === 1n) return checked(a.n * b.d + b.n * a.d, a.d * b.d);
+  const t = a.n * (b.d / g) + b.n * (a.d / g);
+  if (t === 0n) return { n: 0n, d: 1n };
+  const g2 = gcd(t, g);
+  return checked(t / g2, (a.d / g) * (b.d / g2));
+};
+export const sub = (a: Q, b: Q) => add(a, { n: -b.n, d: b.d });
+export const mul = (a: Q, b: Q): Q => {
+  const g1 = gcd(a.n, b.d), g2 = gcd(b.n, a.d);
+  return checked((a.n / (g1 || 1n)) * (b.n / (g2 || 1n)), (a.d / (g2 || 1n)) * (b.d / (g1 || 1n)));
+};
+export const div = (a: Q, b: Q) => {
+  if (b.n === 0n) throw new CalcError("Division by zero");
+  return mul(a, b.n < 0n ? { n: -b.d, d: -b.n } : { n: b.d, d: b.n });
+};
 export const neg = (a: Q): Q => ({ n: -a.n, d: a.d });
 export const isInt = (a: Q) => a.d === 1n;
 export const cmp = (a: Q, b: Q) => { const x = a.n * b.d - b.n * a.d; return x < 0n ? -1 : x > 0n ? 1 : 0; };
@@ -26,33 +96,46 @@ export const floor = (a: Q): bigint => { const t = a.n / a.d; return a.n < 0n &&
 /** Rounded towards zero */
 export const trunc = (a: Q): bigint => a.n / a.d;
 
-export const bitLength = (a: bigint) => abs(a).toString(2).length;
-
 /** Exact a^k for a whole k; refuses results too big to be worth writing out (millions of digits) */
 export function powInt(a: Q, k: bigint): Q {
   if (k === 0n) return ONE;
   if (a.n === 0n) { if (k < 0n) throw new CalcError("Division by zero"); return ZERO; }
-  const bits = BigInt(Math.max(bitLength(a.n), bitLength(a.d)));
-  if (bits > 1n && abs(k) * bits > 4_000_000n) throw new CalcError("Number is too large");
-  const e = abs(k);
-  let n = 1n, d = 1n, bn = a.n, bd = a.d, x = e;
-  while (x > 0n) { if (x & 1n) { n *= bn; d *= bd; } bn *= bn; bd *= bd; x >>= 1n; }
-  return k < 0n ? q(d, n) : q(n, d);
+  // the size of the answer is known before working it out, so 2^1000000 is refused at once instead of after seconds
+  const l = Math.max(log2Big(abs(a.n)), log2Big(a.d));
+  if (l > 0) overLimit(Number(abs(k)) * l);
+  let n = 1n, d = 1n, bn = a.n, bd = a.d, x = abs(k);
+  while (x > 0n) { if (x & 1n) { n *= bn; d *= bd; } x >>= 1n; if (x) { bn *= bn; bd *= bd; } }
+  // a power of a reduced fraction is reduced: no gcd needed
+  if (k > 0n) return checked(n, d);
+  return n < 0n ? checked(-d, -n) : checked(d, n);
 }
 
 /** The whole k-th root of a ≥ 0 if a is a perfect k-th power, else null */
 export function irootExact(a: bigint, k: number): bigint | null {
   if (a < 0n) return null;
+  const x = iroot(a, k);
+  return x ** BigInt(k) === a ? x : null;
+}
+/** The whole part of the k-th root of a ≥ 0 */
+function iroot(a: bigint, k: number): bigint {
   if (a < 2n) return a;
   const K = BigInt(k);
   // Newton's method from an estimate above the root
   let x = 1n << BigInt(Math.ceil(bitLength(a) / k) + 1);
   for (;;) {
     const y = ((K - 1n) * x + a / x ** (K - 1n)) / K;
-    if (y >= x) break;
+    if (y >= x) return x;
     x = y;
   }
-  return x ** K === a ? x : null;
+}
+/** The k-th root of a > 0 to 30 significant digits, as a fraction: for roots too big or too small for a double
+ *  (√(2×10^1000) = 1.41421356237×10^500) */
+export function rootApprox(a: Q, k: number): Q {
+  // s: decimals of the root to keep, so that it has at least 30 digits
+  const s = 30 - Math.floor(exponent10(a) / k);
+  const n = BigInt(Math.abs(s) * k), p = 10n ** BigInt(Math.abs(s));
+  const r = iroot(s >= 0 ? (a.n * 10n ** n) / a.d : a.n / (a.d * 10n ** n), k);
+  return s >= 0 ? q(r, p) : q(r * p);
 }
 
 /** The exact k-th root of a rational (k ≥ 2), or null when it isn't rational */
@@ -71,6 +154,18 @@ function log10Big(a: bigint): number {
   const s = a.toString();
   if (s.length <= 300) return Math.log10(Number(a));
   return s.length - 17 + Math.log10(Number(s.slice(0, 17)));
+}
+/** log2 of a positive big integer, from its leading bits (cheap: no decimal digits) */
+function log2Big(a: bigint): number {
+  const b = bitLength(a);
+  if (b <= 1000) return Math.log2(Number(a));
+  return b - 60 + Math.log2(Number(a >> BigInt(b - 60)));
+}
+/** The natural logarithm of a > 0, also when a is far beyond a double (ln(10^400) = 921.03…) */
+export function lnQ(a: Q): number {
+  const x = toNumber(a);
+  if (Number.isFinite(x) && Math.abs(x) > 1e-300) return Math.log(x);
+  return (log10Big(a.n) - log10Big(a.d)) * Math.LN10;
 }
 
 /** The nearest double (Infinity when out of range) */

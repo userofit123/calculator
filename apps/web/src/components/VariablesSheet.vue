@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Stored variables (from "x = 5" or "Save answer as"): tap one to type its name, the bin forgets it. Loaded on first open.
 import { computed, ref } from "vue";
-import { FUNCTIONS } from "@calc/core";
+import { FUNCTIONS, RESERVED } from "@calc/core";
 import { calc, current, press, show, valueText } from "../core/calc";
 import { toast } from "../core/toast";
 import Sheet from "./Sheet.vue";
@@ -11,12 +11,12 @@ const emit = defineEmits<{ close: [] }>();
 const list = computed(() => Object.entries(calc.vars).sort(([a], [b]) => a.localeCompare(b)));
 const name = ref("");
 const answer = computed(current);
-const RESERVED = new Set(["ans", "e", "pi", "π", "mod"]);
 const nameError = computed(() => {
   const n = name.value.trim();
   if (!n) return "";
   if (!/^[\p{L}_]+$/u.test(n)) return "Letters only";
   if (FUNCTIONS.has(n) || RESERVED.has(n)) return `${n} is taken`;
+  if (n.includes("π")) return "π can't be part of a name"; // aπ reads as a × π
   return "";
 });
 

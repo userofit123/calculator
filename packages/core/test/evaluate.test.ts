@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { evaluate, formatDisplay, sanitizeInput, type EvalOptions } from "../src";
+import { gcd } from "../src/rational";
 
 const v = (e: string, o: EvalOptions = {}) => { const r = evaluate(e, o); return "value" in r ? r.value : "error: " + r.error; };
 const err = (e: string, o: EvalOptions = {}) => { const r = evaluate(e, o); return "error" in r ? r.error : "value: " + r.value; };
@@ -244,3 +245,100 @@ describe("numbers written with a leading or trailing point", () => cases([
   ["-.5", "-0.5"],
 ]));
 
+
+describe("big numbers stay fast", () => {
+  const timed = (e: string) => { const t = performance.now(); const r = evaluate(e); return { r, ms: performance.now() - t }; };
+  it("2^100000 is worked out and shown in under 200 ms", () => {
+    const { r, ms } = timed("2^100000");
+    expect("value" in r && r.value).toBe("9.990020930144×10³⁰¹⁰²");
+    expect(ms).toBeLessThan(200);
+  });
+  it("1.5^60000 is worked out and shown in under 200 ms", () => {
+    const { r, ms } = timed("1.5^60000");
+    expect("value" in r && r.value).toMatch(/×10¹⁰⁵⁶⁵$/);
+    expect(ms).toBeLessThan(200);
+  });
+  it("2^1000000 is refused at once", () => {
+    const { r, ms } = timed("2^1000000");
+    expect(r).toEqual({ error: "Number is too large" });
+    expect(ms).toBeLessThan(50);
+  });
+  it("powers of powers are refused at once too", () => {
+    const { r, ms } = timed("9^9^9^9");
+    expect(r).toEqual({ error: "Number is too large" });
+    expect(ms).toBeLessThan(50);
+  });
+  it("products past the limit are refused", () => expect(err("2^300000 × 2^300000")).toBe("Number is too large"));
+  it("sums of big fractions (a fast gcd) stay exact and quick", () => {
+    const { r, ms } = timed("1.5^60000 − 1.5^60000 + 1/3 × 3");
+    expect("value" in r && r.value).toBe("1");
+    expect(ms).toBeLessThan(500);
+  });
+  it("a big gcd is right", () => expect(v("(3^5000 × 7) ÷ (3^4999 × 14)")).toBe("1.5"));
+});
+
+describe("logarithms and roots of numbers beyond a double", () => cases([
+  ["log(10^1000)", "1000"],
+  ["log₂(2^2000)", "2000"],
+  ["log(10^-500)", "-500"],
+  ["ln(10^400)", "921.034037197618"],
+  ["√(2×10^1000)", "1.414213562373×10⁵⁰⁰"],
+  ["∛(10^999)", "1×10³³³"],
+  ["√(10^1001)", "3.162277660168×10⁵⁰⁰"],
+  ["(2×10^1000)^0.5", "1.414213562373×10⁵⁰⁰"],
+  ["log(2^1000; 4)", "500"],
+]));
+
+describe("scientific entry with the calculator's minus sign", () => cases([
+  ["1.5e−3", "0.0015"],
+  ["2E−2 + 1", "1.02"],
+  ["1e+3", "1000"],
+  ["2×e−3", "2.436563656918"],
+]));
+
+describe("pasted text", () => {
+  it("keeps · ⋅ ∕ as multiply and divide", () => {
+    expect(sanitizeInput("2·3")).toBe("2×3");
+    expect(sanitizeInput("2⋅3")).toBe("2×3");
+    expect(sanitizeInput("6∕3")).toBe("6÷3");
+    expect(v(sanitizeInput("2·3 + 6∕3"))).toBe("8");
+  });
+  it("keeps e-notation working after the minus sign is changed", () => expect(v(sanitizeInput("1.5e-3"))).toBe("0.0015"));
+});
+
+describe("variables never match built-in object names", () => {
+  it("constructor is unknown", () => expect(err("constructor")).toBe("Unknown variable constructor"));
+  it("toString is unknown even with variables", () => expect(err("toString", { variables: { x: "1" } })).toBe("Unknown variable toString"));
+});
+
+describe("grouping leaves exponents alone", () => {
+  it("2^12345", () => expect(formatDisplay("2^12345", { thousands: true })).toBe("2^12345"));
+  it("1e12345 + 1234", () => expect(formatDisplay("1e12345+1234", { thousands: true })).toBe("1e12345+1,234"));
+  it("12345×10^12345", () => expect(formatDisplay("12345×10^12345", { thousands: true })).toBe("12,345×10^12345"));
+  it("the decimal mark still changes", () => expect(formatDisplay("1234.5", { thousands: true, decimalMark: "," })).toBe("1.234,5"));
+});
+
+describe("the fast gcd agrees with the textbook one", () => {
+  const slow = (a: bigint, b: bigint): bigint => { while (b) [a, b] = [b, a % b]; return a; };
+  let seed = 12345n;
+  const rnd = (bits: number) => { let x = 0n; for (let i = 0; i < bits; i += 31) { seed = (seed * 1103515245n + 12345n) % 2147483648n; x = (x << 31n) | seed; } return x; };
+  it("on 200 pairs of random sizes with shared factors", () => {
+    for (let i = 0; i < 200; i++) {
+      const g = rnd(1 + (i % 7) * 40), a = rnd(10 + i * 13) * g, b = rnd(5 + ((i * 37) % 2000)) * g;
+      expect(gcd(a, b)).toBe(slow(a, b));
+      expect(gcd(-a, b)).toBe(slow(a, b));
+    }
+  });
+});
+
+describe("a preview's lower size limit", () => {
+  it("refuses big numbers at once instead of working them out", () => {
+    const t = performance.now();
+    const r = evaluate("3^209000 ÷ 5^140000", { maxBits: 110000 });
+    expect(performance.now() - t).toBeLessThan(20);
+    expect(r).toEqual({ error: "Too large to work out while typing" });
+  });
+  it("still says when = would be too large", () => expect(evaluate("2^1000000", { maxBits: 110000 })).toEqual({ error: "Number is too large" }));
+  it("works out what fits", () => expect(v("2^100 + 1", { maxBits: 110000 })).toBe("1267650600228229401496703205377"));
+  it("is gone again for the next sum", () => { evaluate("1", { maxBits: 10 }); expect(v("2^1000")).toMatch(/×10³⁰¹$/); });
+});
