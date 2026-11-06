@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The computer layout (Motus's, from Money Manager): the rail with its gliding highlight, the logo (click: a random
-// look), the pages, and Appearance at the bottom. The window's own frame and title bar come from the desktop app.
+// look), the pages, and Appearance at the bottom. In the desktop app the page also draws the title strip (#dragbar).
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import { NAV, PAGES, page, go } from "./nav";
 import { appearanceOpen } from "../core/ui";
@@ -39,9 +39,12 @@ onMounted(() => {
   document.fonts?.ready.then(onResize);
 });
 onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(); });
+// the desktop app: the page draws the title strip that drags the window (styles/layout.css, html.dframe)
+const dframe = typeof window !== "undefined" && !!window.desktopFrame;
 </script>
 
 <template>
+  <div v-if="dframe" id="dragbar" aria-hidden="true" />
   <div class="shell">
     <nav ref="nav" :aria-label="t('nav.menu')">
       <i ref="pill" class="nbi" style="transform-origin:0 0" />

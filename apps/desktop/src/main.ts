@@ -2,7 +2,7 @@
 // No server, no account, nothing loaded from the internet: the pages come through the app:// scheme below. The page's
 // only outside requests are the optional currency-rate refreshes (public central-bank rate files, allowed below); the
 // optional update check (Settings → Updates) is made here in the main process, in its own sessions, never by the page.
-import { app, BrowserWindow, Menu, ipcMain, protocol, session, shell, screen } from "electron";
+import { app, BrowserWindow, Menu, ipcMain, nativeTheme, protocol, session, shell, screen } from "electron";
 import { autoUpdater } from "electron-updater";
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +20,8 @@ const WEB = app.isPackaged ? path.join(process.resourcesPath, "web") : path.reso
 app.setPath("userData", path.join(app.getPath("appData"), "io.github.userofit123.calculator"));
 const USER = app.getPath("userData");
 const STATE = path.join(USER, "window.json");
-// the background of the last look, so the window opens in its colour instead of white (written when the look changes)
+// the background and text colour of the last look, so the window (and its window buttons) open in its colours instead of
+// white or the system's (written when the look changes)
 const BOOT = path.join(USER, "boot.json");
 // the only outside pages a link may open in the system browser
 const LINKS = ["https://github.com/userofit123/calculator", "https://www.ecb.europa.eu/", "https://data.ecb.europa.eu/"];
@@ -37,7 +38,10 @@ app.commandLine.appendSwitch("disable-features", "SpellcheckService,MediaRouter,
 
 const readJson = <T>(f: string, d: T): T => { try { return JSON.parse(fs.readFileSync(f, "utf8")) as T; } catch { return d; } };
 const writeJson = (f: string, v: unknown) => { try { fs.mkdirSync(USER, { recursive: true }); fs.writeFileSync(f + ".tmp", JSON.stringify(v)); fs.renameSync(f + ".tmp", f); } catch { /* next time it opens in the default size or colour */ } };
-const isColour = (s: unknown): s is string => typeof s === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(s);
+const isColour = (s: unknown): s is string => typeof s === "string" && /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(s);
+interface Boot { bg?: string; fg?: string }
+const bootSaved = (): Boot => readJson<Boot>(BOOT, {});
+const saveBoot = (b: Boot) => { const o = bootSaved(); if (o.bg !== b.bg || o.fg !== b.fg) writeJson(BOOT, b); };
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml",
@@ -74,10 +78,15 @@ async function serve(req: Request): Promise<Response> {
 
 let win: BrowserWindow | null = null;
 
-interface WinState { x?: number; y?: number; width: number; height: number; maximized?: boolean }
+// The first open is a phone-sized calculator, as GNOME Calculator 50 opens (360 wide, 616 tall with its header bar; here
+// the title strip is part of the page, so a little taller). After that the window keeps the size and place it was left in.
+// STATE_V: a size saved by a version before this default (C-53) is not reused, so everyone gets the new size once.
+const DEF_W = 360, DEF_H = 640, MIN_W = 320, MIN_H = 480, STATE_V = 2;
+interface WinState { v?: number; x?: number; y?: number; width: number; height: number; maximized?: boolean }
 function savedState(): WinState {
-  const s = readJson<WinState>(STATE, { width: 400, height: 640 });
-  const w = Math.max(320, Math.round(+s.width || 400)), h = Math.max(480, Math.round(+s.height || 640));
+  let s = readJson<WinState>(STATE, { width: DEF_W, height: DEF_H });
+  if (s.v !== STATE_V) s = { width: DEF_W, height: DEF_H };
+  const w = Math.max(MIN_W, Math.round(+s.width || DEF_W)), h = Math.max(MIN_H, Math.round(+s.height || DEF_H));
   // the saved place only if it is still on a screen (a monitor may have been unplugged since)
   if (typeof s.x === "number" && typeof s.y === "number") {
     const on = screen.getAllDisplays().some((d) => { const a = d.workArea; return s.x! + 80 > a.x && s.y! + 40 > a.y && s.x! < a.x + a.width - 80 && s.y! < a.y + a.height - 40; });
@@ -86,12 +95,26 @@ function savedState(): WinState {
   return { width: w, height: h, maximized: !!s.maximized };
 }
 
+// The window frame (Money Manager's, desktop/main.js): no system title bar. The page runs to the top of the window and
+// leaves an empty strip TB px tall there (apps/web/src/styles/layout.css, html.dframe), which drags the window; the
+// system's window buttons sit on it with no background of their own (the page shows through), in the look's text colour.
+// The page sends its colours (frame:titlebar) whenever the look changes; the last ones are kept in boot.json, so the next
+// open has the right buttons before the page loads. Windows and Linux (X11 and Wayland); macOS keeps its own title bar.
+const TB = 38, OVERLAY_BG = "#00000000";
+function frameOptions(boot: Boot): Electron.BrowserWindowConstructorOptions {
+  if (process.platform === "darwin") return {};
+  const fg = isColour(boot.fg) ? boot.fg : nativeTheme.shouldUseDarkColors || !isColour(boot.bg) ? "#e6e4ea" : "#1b1b22";
+  return { titleBarStyle: "hidden", titleBarOverlay: { color: OVERLAY_BG, symbolColor: fg, height: TB } };
+}
+
 function createWindow() {
   const st = savedState();
-  const boot = readJson<{ bg?: string }>(BOOT, {});
+  const boot = bootSaved();
   const w = new BrowserWindow({
-    ...st, minWidth: 320, minHeight: 480, show: false, autoHideMenuBar: true, title: "Calculator",
+    ...st, minWidth: MIN_W, minHeight: MIN_H, show: false, autoHideMenuBar: true, title: "Calculator",
     backgroundColor: isColour(boot.bg) ? boot.bg : DEFAULT_BG,
+    ...frameOptions(boot),
+    // the taskbar, alt-tab and window-list icon on Linux (Windows takes the program's own icon)
     icon: path.join(__dirname, "icon.png"),
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, sandbox: true, nodeIntegration: false, webviewTag: false, spellcheck: false, devTools: !app.isPackaged },
   });
@@ -100,9 +123,10 @@ function createWindow() {
 
   // remember the size and place (not while maximized: then the size to come back to is kept)
   let t: NodeJS.Timeout | undefined;
-  const remember = () => { clearTimeout(t); t = setTimeout(() => { if (w.isDestroyed()) return; const max = w.isMaximized(); writeJson(STATE, { ...(max ? readJson(STATE, {}) : w.getNormalBounds()), maximized: max }); }, 400); };
+  const save = () => { const max = w.isMaximized(); writeJson(STATE, { ...(max ? savedState() : w.getNormalBounds()), maximized: max, v: STATE_V }); };
+  const remember = () => { clearTimeout(t); t = setTimeout(() => { if (!w.isDestroyed()) save(); }, 400); };
   w.on("resize", remember); w.on("move", remember); w.on("maximize", remember); w.on("unmaximize", remember);
-  w.on("close", () => { clearTimeout(t); const max = w.isMaximized(); writeJson(STATE, { ...(max ? readJson(STATE, {}) : w.getNormalBounds()), maximized: max }); });
+  w.on("close", () => { clearTimeout(t); save(); });
 
   // links leave the app for the system browser (https only); the window itself never goes anywhere but the app
   w.webContents.setWindowOpenHandler(({ url }) => { openLink(url); return { action: "deny" }; });
@@ -114,14 +138,25 @@ function createWindow() {
   return w;
 }
 
+// only the app's own page in its own window may change the window's colours
+const fromWin = (e: Electron.IpcMainEvent) => !!win && !win.isDestroyed() && e.sender === win.webContents && !!e.senderFrame?.url.startsWith(ORIGIN + "/");
 // the look's background, sent by the page whenever it changes (preload.ts, calcApp.setBars): the window's own colour
 // follows it now (nothing white shows while resizing) and the next open starts in it
 let lastBg = "";
 ipcMain.on("look:bg", (e, bg: unknown) => {
-  if (!isColour(bg) || bg === lastBg) return;
+  if (!fromWin(e) || !isColour(bg) || bg === lastBg) return;
   lastBg = bg;
-  BrowserWindow.fromWebContents(e.sender)?.setBackgroundColor(bg);
-  if (readJson<{ bg?: string }>(BOOT, {}).bg !== bg) writeJson(BOOT, { bg });
+  win!.setBackgroundColor(bg);
+  saveBoot({ ...bootSaved(), bg });
+});
+// the look's background and text colour (core/theme.ts, desktopFrame.setTitleBar): the window buttons' symbols take the
+// text colour (they have no background: the page shows through), and both are kept for the next open
+let lastFrame = "";
+ipcMain.on("frame:titlebar", (e, bg: unknown, fg: unknown) => {
+  if (process.platform === "darwin" || !fromWin(e) || !isColour(bg) || !isColour(fg) || bg + fg === lastFrame) return;
+  lastFrame = bg + fg;
+  try { win!.setTitleBarOverlay({ color: OVERLAY_BG, symbolColor: fg, height: TB }); } catch { /* the buttons keep their colours */ }
+  saveBoot({ bg, fg });
 });
 
 // ----- updates from GitHub Releases (task C-27, after Motus) -----

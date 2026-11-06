@@ -8,6 +8,7 @@
   "license": "PolyForm-Noncommercial-1.0.0",
   "private": true,
   "main": "dist/main.cjs",
+  "desktopName": "userofit123-calculator.desktop",
   "scripts": {
     "web": "pnpm --filter @calc/web exec vite build",
     "build": "node build.mjs",
@@ -67,15 +68,15 @@
       "synopsis": "A private, offline calculator",
       "maintainer": "userofit123 <45289144+userofit123@users.noreply.github.com>",
       "vendor": "userofit123",
-      "icon": "../web/public/icon-1024.png",
+      "icon": "build-res/icons",
       "desktop": {
         "entry": {
           "Name": "Calculator",
-          "StartupWMClass": "Calculator",
           "Keywords": "calculator;calc;converter;currency;units;"
         }
       },
-      "description": "Basic, scientific, financial and programming calculator with a unit and currency converter"
+      "description": "Basic, scientific, financial and programming calculator with a unit and currency converter",
+      "syncDesktopName": true
     },
     "deb": {
       "packageName": "userofit123-calculator"
@@ -85,7 +86,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "../web/public/icon-512.png"
+      "icon": "build-res/icon.ico"
     },
     "nsis": {
       "oneClick": false,

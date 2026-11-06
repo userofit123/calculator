@@ -15,8 +15,14 @@ From the [latest release](https://github.com/userofit123/calculator/releases/lat
 - **Windows:** `calculator-x.y.z-setup.exe`. The installer isn't signed, so Windows SmartScreen may warn the first time:
   choose "More info", then "Run anyway".
 
-Opening Calculator again while it is open brings the open window to the front. The window remembers its size and place;
-make it wider for the desktop layout.
+Opening Calculator again while it is open brings the open window to the front. The first time, it opens phone-sized
+(360 × 640, about the size GNOME Calculator opens at); after that the window remembers its size and place. Make it wider
+for the desktop layout.
+
+The window has no system title bar, like Money Manager's: the calculator runs to the top of the window, and the window
+buttons (minimise, maximise, close) sit on it in the look's text colour, with the page showing through them. Drag the
+empty strip along the top to move the window. The last look's colours are kept, so the
+next start opens in them. On macOS the system title bar stays.
 
 ### Private
 
@@ -55,9 +61,19 @@ program, the package, the icon and the install folder (`/opt/userofit123-calcula
 `io.github.userofit123.calculator` for the data folder under the user's config directory. The name people see is
 "Calculator". electron-builder takes the `/opt` folder from `build.productName` (there is no separate option), so that
 is set to `userofit123-calculator`, while the packaged `package.json` keeps `productName: "Calculator"` (the app's
-runtime name, so the X11 WM_CLASS and Wayland app_id stay "Calculator"); the menu entry pins `Name` and
-`StartupWMClass` to "Calculator" and the Windows installer pins its shortcut and uninstall names to "Calculator".
+runtime name). Electron 45 takes the window's X11 WM_CLASS and Wayland app_id from `desktopName`
+(`userofit123-calculator.desktop`), so they are `userofit123-calculator`, the same as the menu entry's file name and its
+`StartupWMClass`: that is how the dock, taskbar and alt-tab find the entry and its icon (without `desktopName` the
+window was `calculator` and matched nothing). The menu entry pins `Name` to "Calculator" and the Windows installer pins
+its shortcut and uninstall names to "Calculator".
 Built on Electron 45 (keep it on a supported major).
+
+The icons are made from `apps/web/public/icon.svg` with `python3 make-icons.py` in apps/desktop (needs ImageMagick):
+`build-res/icons/<size>.png` (16 to 512 px; the packages install each as
+`/usr/share/icons/hicolor/<size>/apps/userofit123-calculator.png`, the name the menu entry's `Icon=` uses, and the
+AppImage carries them too) and `build-res/icon.ico` (the program, its shortcuts and the installer on Windows). The
+window's own icon (the taskbar and alt-tab on Linux) is `build-res/icons/128x128.png`, copied in by build.mjs (Chromium's X11 window drops an icon bigger than 128 px). A single large PNG is not
+enough on Linux: the hicolor theme lists sizes up to 512, so an icon only in `1024x1024` is never found.
 
 Building the Linux packages in a container (needs no tools on the computer):
 

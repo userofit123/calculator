@@ -178,3 +178,70 @@ html.nt *::before,
 html.nt *::after {
   transition: none !important;
 }
+
+/* ---------- the desktop app's title strip (Money Manager's frame: its layout.css, html.dframe) ----------
+   The desktop app has no system title bar. The page runs to the top of the window, and the system's window buttons sit
+   on it at the end with no background of their own (the page shows through them; their symbols take the look's text
+   colour, core/theme.ts → desktopFrame.setTitleBar). core/theme.ts adds html.dframe. The pages start below the strip
+   (--nst: the same room the Android app leaves for its status bar, so sheets and the calculator's height allow for it);
+   the strip itself is invisible and drags the window. --tb is the window buttons' height (apps/desktop/src/main.ts, TB). */
+html.dframe {
+  --tb: 38px;
+  --nst: var(--tb);
+}
+
+#dragbar {
+  display: none;
+}
+
+html.dframe #dragbar {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0; /* fixed side */
+  right: 0; /* fixed side */
+  height: var(--tb);
+  z-index: 400;
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+/* the computer layout: the strip starts after the rail, so the logo and the rail's buttons stay clickable; the rail keeps
+   its own top (the window buttons are at the other end) */
+html.dframe:not(.phone) #dragbar {
+  left: calc(3.75rem + 28px); /* fixed side: the rail's width */
+}
+
+html.dframe:not(.phone) nav {
+  padding-top: 18px;
+}
+
+html.dframe[data-nav="mini"]:not(.phone) #dragbar {
+  left: 68px; /* fixed side: the narrow rail */
+}
+
+/* in Hebrew the rail is at the end, under the window buttons: the strip runs up to it, and its content starts below them */
+html.dframe[dir="rtl"]:not(.phone) #dragbar {
+  left: 0; /* fixed side */
+  right: calc(3.75rem + 28px); /* fixed side */
+}
+
+html.dframe[dir="rtl"][data-nav="mini"]:not(.phone) #dragbar {
+  left: 0; /* fixed side */
+  right: 68px; /* fixed side */
+}
+
+html.dframe[dir="rtl"]:not(.phone) nav {
+  padding-top: calc(18px + var(--tb));
+}
+
+/* the computer layout's pages start below the strip; the strip's room comes out of the page's large bottom space, so a
+   page that just fitted the window still fits without scrolling */
+html.dframe:not(.phone) main {
+  padding-bottom: calc(90px - var(--tb) + var(--sb));
+}
+
+/* the Appearance panel grows up from the bottom: it stops below the strip */
+html.dframe .pop {
+  max-height: calc(100vh - 32px - var(--tb));
+}

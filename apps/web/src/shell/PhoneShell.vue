@@ -40,6 +40,8 @@ onMounted(() => {
   document.fonts?.ready.then(onResize);
 });
 onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(); });
+// the desktop app: the page draws the title strip that drags the window (styles/layout.css, html.dframe)
+const dframe = typeof window !== "undefined" && !!window.desktopFrame;
 
 /** Whether the touch starts in something that scrolls sideways (the converter's category chips, a wide table...):
  *  a sideways swipe there scrolls it and must not also change the page. Checked from the target up to the shell. */
@@ -68,6 +70,7 @@ function te(e: TouchEvent) {
 </script>
 
 <template>
+  <div v-if="dframe" id="dragbar" aria-hidden="true" />
   <div class="pshell" :class="{ hasupd: !!upd.latest }" @touchstart.passive="ts" @touchend.passive="te">
     <div class="pmain" role="main"><Transition :name="motion" mode="out-in"><component :is="PAGES[page]" :key="page" /></Transition></div>
     <div class="dock">
