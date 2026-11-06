@@ -75,5 +75,17 @@ describe("display and paste", () => {
   it("pastes a negative mixed number", () => expect(sanitizeInput("-1 3/4")).toBe("−(1+3÷4)"));
   it("a pasted mixed number works out", () => expect(v(sanitizeInput("-2 1/3"), F)).toBe("-7/3"));
   it("a grouped number with a fraction isn't a mixed number", () => expect(sanitizeInput("1 234/2")).toBe("1234÷2"));
+  it("a space-grouped number over something is not a mixed number", () => {
+    expect(v(sanitizeInput("10 000/12"), F)).toBe("2500/3");
+    expect(sanitizeInput("10 000/12")).toBe("10000÷12");
+    expect(sanitizeInput("25 000/365")).toBe("25000÷365");
+    expect(sanitizeInput("1 234/567")).toBe("1234÷567"); // 234/567 reduces (gcd 9), so it can't be a displayed fraction
+  });
+  it("mixed numbers need a reduced proper fraction", () => {
+    expect(v(sanitizeInput("1 3/4"), F)).toBe("7/4");
+    expect(v(sanitizeInput("2 1/2"), F)).toBe("5/2");
+    expect(v(sanitizeInput("-1 3/4"), F)).toBe("-7/4");
+    expect(sanitizeInput("1 2/4")).toBe("1 2÷4"); // 2/4 isn't in lowest terms: not mixed, no 3-digit group, so left as typed (1 × 2/4)
+  });
   it("a pasted fraction is a division", () => expect(v(sanitizeInput("7/4"), M)).toBe("1 3/4"));
 });

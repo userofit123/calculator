@@ -25,13 +25,29 @@ async function show() {
     left: Math.max(sa.left + 8, Math.min(b.left, innerWidth - sa.right - m.width - 8)),
   };
   setTimeout(() => { addEventListener("click", away, true); addEventListener("keydown", onKey, true); });
+  items()[0]?.focus();
 }
-const away = (e: Event) => { if (!el.value?.contains(e.target as Node)) { e.stopPropagation(); close(); } };
+const items = () => Array.from(el.value?.querySelectorAll<HTMLElement>("button:not(:disabled)") ?? []);
+const away = (e: Event) => { if (!el.value?.contains(e.target as Node)) { e.stopPropagation(); close(false); } };
 // Escape closes the popover only (it would clear the calculator otherwise)
-const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); chip.value?.focus(); } };
-function close() { open.value = false; removeEventListener("click", away, true); removeEventListener("keydown", onKey, true); }
+const onKey = (e: KeyboardEvent) => {
+  if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); return; }
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const l = items();
+  if (!l.length) return;
+  e.preventDefault();
+  const i = l.indexOf(document.activeElement as HTMLElement);
+  l[(i + (e.key === "ArrowDown" ? 1 : -1) + l.length) % l.length]!.focus();
+};
+// focus goes back to the chip unless the close came from a click elsewhere (that click decides where focus goes)
+function close(refocus = true) {
+  if (!open.value) return;
+  open.value = false;
+  removeEventListener("click", away, true); removeEventListener("keydown", onKey, true);
+  if (refocus) chip.value?.focus();
+}
 const step = (d: number) => { settings.decimals = Math.max(0, Math.min(MAX_PLACES, settings.decimals + d)); };
-onBeforeUnmount(close);
+onBeforeUnmount(() => close(false));
 </script>
 
 <template>
