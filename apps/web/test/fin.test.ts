@@ -43,3 +43,19 @@ describe("Financial forms", () => {
     const s = workOut("0,05÷12"); expect("value" in s && s.value).toBe("0.004167");
   });
 });
+
+describe("a financial function's name as a variable", () => {
+  it("= after it doesn't start an assignment that can never work: it says the name is taken", () => {
+    calc.mode = "basic"; calc.expr = "rate"; press("=");
+    expect(calc.expr).toBe("rate");
+    expect(calc.error).toBe("rate is a built-in name");
+  });
+  it("in any case", () => {
+    calc.mode = "basic"; calc.expr = "PV"; press("=");
+    expect(calc.error).toBe("PV is a built-in name");
+  });
+  it("other names still start one", () => {
+    calc.mode = "basic"; calc.expr = "y"; press("=");
+    expect(calc.expr).toBe("y = ");
+  });
+});

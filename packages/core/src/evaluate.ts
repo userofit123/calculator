@@ -5,7 +5,7 @@
 // Every step takes bounded time, whatever is typed: the preview works it out on every key press.
 import {
   type Q, CalcError, q, ZERO, ONE, add, sub, mul, div, neg, isInt, cmp, floor, trunc, powInt, rootExact, rootApprox, lnQ, toNumber, parseDecimal, withBudget, OverBudget,
-  powNum, fromLog10, exponent10, bitLength,
+  powNum, fromLog10, exponent10, bitLength, MAX_BITS,
 } from "./rational";
 import { type Value, type FormatOptions, asQ, formatValue, exactText, parseStored, approx, precision, cleanFloat } from "./format";
 import { parse, type Node } from "./parse";
@@ -74,9 +74,10 @@ function arith(op: "+" | "-" | "*" | "/", a: Value, b: Value): Value {
 
 function pow(a: Value, b: Value): Value {
   if (exact(b) && exact(a)) {
-    if (isInt(b.q)) return { q: powInt(a.q, b.q.n) };
+    // a whole power past the largest number kept exactly (1.05^(−10^7) has 211,894 digits) is approximated below instead
+    if (isInt(b.q)) { try { return { q: powInt(a.q, b.q.n) }; } catch (e) { if (!tooLarge(e)) throw e; } }
     // a rational power p/r: exact when the r-th root comes out (8^(1/3) = 2, 4^1.5 = 8)
-    if (b.q.d <= 1000n) { const r = rootExact(a.q, Number(b.q.d)); if (r) return { q: powInt(r, b.q.n) }; }
+    else if (b.q.d <= 1000n) { const r = rootExact(a.q, Number(b.q.d)); if (r) return { q: powInt(r, b.q.n) }; }
   }
   const sa = sgn(a);
   if (sa === 0) { if (num(b) < 0) throw new CalcError("Division by zero"); return fl(0 ** num(b)); }
@@ -109,8 +110,12 @@ function pow(a: Value, b: Value): Value {
     const rt = rootApprox(m.q, Number(b.q.d));
     return approx(mul(q(BigInt(sign)), powInt(rt, b.q.n)), 30 - Math.log10(Math.abs(Number(b.q.n))));
   }
+  // smaller than the smallest number the calculator holds (10^−100000): approximately 0, as a double would underflow
+  if (r.l10 < UNDERFLOW_L10) return fl(0);
   return approx(mul(q(BigInt(sign)), fromLog10(r.l10)), Math.min(p, 15.5 - Math.log10(Math.max(1, Math.abs(r.l10)))));
 }
+const UNDERFLOW_L10 = -MAX_BITS * Math.log10(2);
+const tooLarge = (e: unknown) => e instanceof CalcError && e.message === "Number is too large";
 
 function root(a: Value, n: number): Value {
   if (!Number.isInteger(n) || n === 0) throw new CalcError("Malformed expression");
@@ -215,8 +220,22 @@ function logBase(v: Value, base: Value): Value {
 // The financial functions' arithmetic: exact while the numbers stay a sensible size. A compounding factor of thousands
 // of digits ((241/240)^360 for a 30-year mortgage) is worked out as a double instead: nobody needs a payment as a
 // 1,400-digit fraction, and it would fill history and ans. A whole-power check too big to try is skipped the same way.
-const tooBig = (e: unknown) => e instanceof OverBudget || (e instanceof CalcError && e.message === "Number is too large");
+const tooBig = (e: unknown) => e instanceof OverBudget || tooLarge(e);
 const FIN_POW_BITS = 1000;
+const ONE_V: Value = { q: ONE };
+/** x^n when it comes out exact at a sensible size, else null */
+function finExactPow(x: Value, n: Value): Value | null {
+  if (!exact(x) || !exact(n) || (bitLength(x.q.n) + bitLength(x.q.d)) * Math.abs(toNumber(n.q)) > FIN_POW_BITS) return null;
+  try { const r = pow(x, n); return exact(r) ? r : null; } catch (e) { if (tooBig(e)) return null; throw e; }
+}
+/** ln(1 + v) without forming 1 + v as a double (which loses a small rate's digits) */
+function ln1p(v: Value): Value {
+  const x = num(v);
+  if (x !== 0 && Number.isFinite(x)) return fl(Math.log1p(x));
+  if (sgn(v) === 0) return Z;
+  // a rate beyond a double: ln(1 + v) is v itself when that small (10^−400), to far more digits than a double has
+  return x === 0 ? approx(qOf(v), 15) : fl(lnOf(arith("+", ONE_V, v)));
+}
 const FIN: FinOps<Value> = {
   int: (n) => ({ q: q(n) }),
   add: (a, b) => arith("+", a, b), sub: (a, b) => arith("-", a, b), mul: (a, b) => arith("*", a, b), div: (a, b) => arith("/", a, b),
@@ -224,8 +243,30 @@ const FIN: FinOps<Value> = {
     if (exact(a) && exact(b) && isInt(b.q) && (bitLength(a.q.n) + bitLength(a.q.d)) * Math.abs(toNumber(b.q)) > FIN_POW_BITS) return pow(fl(num(a)), b);
     try { return pow(a, b); } catch (e) { if (exact(a) && tooBig(e)) return pow(fl(num(a)), b); throw e; }
   },
-  log: (x, base) => {
-    try { return logBase(x, base); } catch (e) { if (tooBig(e)) return fl(lnOf(x) / lnOf(base)); throw e; }
+  // exact when the power comes out at a sensible size, else expm1 / log1p on doubles (accurate for any small rate), and
+  // only past a double's range the power itself, approximated
+  grow: (i, n) => {
+    const base = arith("+", ONE_V, i), r = finExactPow(base, n);
+    if (r) return arith("-", r, ONE_V);
+    const x = num(i);
+    if (x !== 0) { const g = Math.expm1(Math.log1p(x) * num(n)); if (Number.isFinite(g)) return fl(g); }
+    else { const t = mul(qOf(n), qOf(i)); if (Math.abs(toNumber(t)) < 1e-17) return approx(t, 15); } // ≈ n·i
+    return arith("-", FIN.pow(base, n), ONE_V);
+  },
+  rootm1: (x, n) => {
+    const e = arith("/", ONE_V, n), r = finExactPow(x, e);
+    if (r) return arith("-", r, ONE_V);
+    const g = Math.expm1(lnOf(x) / num(n));
+    if (Number.isFinite(g)) return fl(g);
+    return arith("-", FIN.pow(x, e), ONE_V);
+  },
+  logp1: (y, i) => {
+    const r = arith("/", ln1p(y), ln1p(i)), x = num(r), k = Math.round(x);
+    // a whole number of periods is checked exactly (Ctrm(0.1; 121; 100) = 2)
+    if (exact(y) && exact(i) && Number.isFinite(x) && Math.abs(x - k) < 1e-9 * Math.max(1, Math.abs(k))) {
+      try { if (cmp(powInt(add(ONE, i.q), BigInt(k)), add(ONE, y.q)) === 0) return { q: q(BigInt(k)) }; } catch (e) { if (!tooBig(e)) throw e; }
+    }
+    return r;
   },
   sgn, whole: intOf,
 };

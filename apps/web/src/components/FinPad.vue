@@ -94,7 +94,7 @@ function calculate() {
 /* Financial mode. Tokens only, like the rest of the calculator (calc.css). */
 .finkeys .key { font-size: calc(var(--kfs) - 6px); }
 .finabout { color: var(--tx2); line-height: 1.5; margin-bottom: var(--hg); }
-.finhint { color: var(--tx2); margin-top: 4px; line-height: 1.4; }
+.finhint { color: var(--tx2); margin-top: calc(var(--lpy) * 0.4); line-height: 1.4; }
 .finhint.err { color: var(--neg); }
 .finform .fld input { font-variant-numeric: tabular-nums; }
 html.phone .finkeys { grid-auto-rows: minmax(calc(var(--kh) * .62), auto); }

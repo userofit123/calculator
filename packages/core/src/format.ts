@@ -72,9 +72,9 @@ export function formatValue(v: Value, o: FormatOptions = {}): string {
 /** The value in full (a fraction "n/d" or a double's shortest text), for storing an answer, memory or variable */
 export function exactText(v: Value): string {
   if ("f" in v) {
-    // a double is written so that it reads back as one: with an exponent, 16+ decimals, or else marked "≈"
-    const t = String(v.f);
-    return /[eE]/.test(t) || /\.\d{16,}/.test(t) ? t : "≈" + t;
+    // a double is always marked "≈": it is approximate (2^(1/3), Pmt(1000; 10^−9; 360)) and must not be taken back as
+    // exact digits when it is reused or shown as a stored value; it reads back as the same double
+    return "≈" + String(v.f);
   }
   if ("a" in v) return approxText(v.a, v.p);
   return isInt(v.q) ? v.q.n.toString() : `${v.q.n}/${v.q.d}`;
@@ -91,7 +91,9 @@ export function approxText(x: Q, p: number): string {
 export function parseStored(s: string): Value {
   s = s.trim();
   if (s.startsWith("≈")) { // an approximation, to the digits written
-    const t = s.slice(1), digits = t.replace(/[eE].*$/, "").replace(/\D/g, "").replace(/^0+/, "").length;
+    const t = s.slice(1), x = Number(t);
+    if (Number.isFinite(x) && Math.abs(x) >= 1e-300) return { f: x }; // a double, exactly as it was
+    const digits = t.replace(/[eE].*$/, "").replace(/\D/g, "").replace(/^0+/, "").length;
     return approx(parseDecimal(t), Math.max(1, Math.min(digits, APPROX_DIGITS)));
   }
   const m = /^(-?\d+)\/(\d+)$/.exec(s.trim());

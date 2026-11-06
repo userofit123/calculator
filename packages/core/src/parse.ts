@@ -3,7 +3,7 @@
 // open at the end, scientific entry (1.2e5), functions with or without brackets (sin 30, log₂(8), log(8; 2)) and
 // "name = expression" to store a variable.
 import { CalcError } from "./rational";
-import { FINANCIAL_NAMES } from "./financial";
+import { FINANCIAL_NAMES, financialName } from "./financial";
 
 export type Node =
   | { k: "num"; text: string }
@@ -69,7 +69,8 @@ export const FUNCTIONS = new Set([
   "ln", "log", "exp", "sqrt", "cbrt", "root", "abs", "floor", "ceil", "round", "frac", "int", "sgn", "gamma", "fact",
   ...FINANCIAL_NAMES,
 ]);
-const isFunction = (n: string) => FUNCTIONS.has(n) || /^log[₀-₉]+$/.test(n);
+/** A function's name, so it can't be a variable: the financial ones in any case (PMT, Pmt, pmt) */
+export const isFunction = (n: string) => FUNCTIONS.has(n) || financialName(n) !== null || /^log[₀-₉]+$/.test(n);
 
 export function parse(src: string): Statement {
   const toks = tokenize(src);
@@ -174,6 +175,11 @@ export function parse(src: string): Statement {
     // a name: a function, a constant or a variable
     p++;
     if (isFunction(t.v)) {
+      // a function name with nothing to work on ("rate", "rate × 2", "(term)"): most likely meant as a variable
+      const nx = peek();
+      if (!nx || (nx.t === "op" && [")", ";", "+", "*", "/", "="].includes(nx.v)) || (nx.t === "name" && nx.v === "mod")) {
+        throw new CalcError(`${t.v} is a built-in name`);
+      }
       // sin²(x) is (sin x)², sin⁻¹(x) is asin x
       let f = t.v, sq: Node | null = null;
       const s = peek();
@@ -191,7 +197,11 @@ export function parse(src: string): Statement {
 
   let assign: string | undefined;
   const t0 = toks[0]!;
-  if (t0.t === "name" && toks[1]?.t === "op" && toks[1].v === "=" && !isFunction(t0.v)) { assign = t0.v; p = 2; }
+  if (t0.t === "name" && toks[1]?.t === "op" && toks[1].v === "=") {
+    // "rate = 3": a function's name can't be stored to (like ans or π, see RESERVED)
+    if (isFunction(t0.v)) throw new CalcError(`Can't change ${t0.v}, it's a built-in name`);
+    assign = t0.v; p = 2;
+  }
   const e = expr();
   if (p < toks.length) throw new CalcError(isOp(")") ? "Too many closing brackets" : "Malformed expression");
   return { assign, expr: e };

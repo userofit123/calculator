@@ -395,7 +395,7 @@ describe("approximate roots beyond a double are marked approximate, never exact"
   });
   it("a power by logarithms beyond a double is approximate", () => {
     expect(exactOf("(10^400)^1.5")).toBe("1" + "0".repeat(600));
-    expect(exactOf("(2×10^400)^0.75")).toMatch(/^1\.68179283\d*e\+300$/);
+    expect(exactOf("(2×10^400)^0.75")).toMatch(/^≈1\.68179283\d*e\+300$/);
   });
 });
 
@@ -413,4 +413,20 @@ describe("stored values too long to keep", () => {
 describe("stored approximations typed back into a sum", () => {
   it("negative ones too", () => expect(v("(≈-1.41421356237309504880168872421e500)+(≈−1.41421356237309504880168872421e500)")).toBe("-2.828427124746×10⁵⁰⁰"));
   it("as memory plus an answer", () => expect(evaluate("(≈2.5)+(1/2)")).toEqual({ value: "3", exact: "≈3" }));
+});
+
+describe("every double is stored marked approximate, and reads back as the same double", () => {
+  const exactOf = (e: string, o: EvalOptions = {}) => { const r = evaluate(e, o); return "exact" in r ? r.exact : "error: " + r.error; };
+  it("2^(1÷3)", () => expect(exactOf("2^(1÷3)")).toBe("≈1.2599210498948732"));
+  it("…read back", () => expect(exactOf("ans", { ans: "≈1.2599210498948732" })).toBe("≈1.2599210498948732"));
+  it("…and typed back in", () => expect(exactOf("≈1.2599210498948732 × 1")).toBe("≈1.2599210498948732"));
+  it("a small double", () => expect(exactOf("ans", { ans: "≈-1.5e-7" })).toBe("≈-1.5e-7"));
+});
+
+describe("powers past the smallest number kept", () => {
+  const exactOf = (e: string, o: EvalOptions = {}) => { const r = evaluate(e, o); return "exact" in r ? r.exact : "error: " + r.error; };
+  it("1.05^(−10^6) is a tiny approximation", () => expect(exactOf("1.05^(−10^6)")).toMatch(/^≈5\.02261699\d*e-21190$/));
+  it("1.05^(−10^7) is approximately 0", () => expect(exactOf("1.05^(−10^7)")).toBe("≈0"));
+  it("2^(−10^6) too", () => expect(exactOf("2^(−10^6)")).toBe("≈0"));
+  it("1.05^(10^7) is too large", () => expect(evaluate("1.05^(10^7)")).toEqual({ error: "Number is too large" }));
 });

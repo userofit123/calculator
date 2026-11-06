@@ -3,7 +3,7 @@
 // Memory, variables, the last answer and the calculator settings are kept on this device.
 import { reactive, watch } from "vue";
 import {
-  evaluate, formatDisplay, sanitizeInput, storable, RESERVED, type AngleUnit, type EvalOptions, type EvalResult, type NumberFormat,
+  evaluate, formatDisplay, sanitizeInput, storable, RESERVED, isFunction, type AngleUnit, type EvalOptions, type EvalResult, type NumberFormat,
   evaluateProgramming, formatInt, fitsWord, literal, rebase, toProgramming, fromProgramming, type Base, type WordSize, type ProgOptions,
 } from "@calc/core";
 import { readJson, writeJson } from "./prefs";
@@ -247,7 +247,7 @@ export function press(k: string) {
   if (k === "=") {
     if (!calc.expr || calc.answer) return;
     // "x" then = starts an assignment (x = …) instead of working out x
-    if (!isProg() && /^[\p{L}_][\p{L}_₀-₉]*$/u.test(calc.expr) && !Object.prototype.hasOwnProperty.call(calc.vars, calc.expr) && !RESERVED.has(calc.expr)) { calc.expr += " = "; return; }
+    if (!isProg() && /^[\p{L}_][\p{L}_₀-₉]*$/u.test(calc.expr) && !Object.prototype.hasOwnProperty.call(calc.vars, calc.expr) && !RESERVED.has(calc.expr) && !isFunction(calc.expr)) { calc.expr += " = "; return; }
     const r = run(calc.expr);
     if (!("value" in r)) { calc.error = r.error; return; }
     if (open() > 0) calc.expr += ")".repeat(open()); // the brackets closed for you show in the sum and its history

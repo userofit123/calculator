@@ -84,7 +84,9 @@ describe("in expressions", () => {
 describe("plain error messages", () => errors([
   ["Pmt(1000; 0.05)", "Pmt takes 3 numbers: principal; periodic interest rate; term"],
   ["Syd(1000; 0; 5)", "Syd takes 4 numbers: cost; salvage; life; period"],
-  ["Pmt(1000; -0.05; 10)", "Interest rate can't be negative"],
+  ["Pmt(1000; -1; 10)", "Interest rate must be above -1 (-100%)"],
+  ["Fv(100; -1.5; 10)", "Interest rate must be above -1 (-100%)"],
+  ["Pv(100; -1; 10)", "Interest rate must be above -1 (-100%)"],
   ["Pmt(1000; 0.05; 0)", "Term must be above 0"],
   ["Fv(100; 0.05; -1)", "Number of periods must be above 0"],
   ["Ctrm(0; 200; 100)", "Interest rate must be above 0"],
@@ -113,4 +115,57 @@ describe("names", () => {
     expect(financialName("sin")).toBe(null);
   });
   it("can't be variables", () => expect(err("pv = 5")).not.toMatch(/^value/));
+  it("work in any case", () => {
+    expect(v("PMT(200000; 0.05/12; 360)", d2)).toBe("1073.64");
+    expect(v("pMt(200000; 0.05/12; 360)", d2)).toBe("1073.64");
+    expect(v("FV(100; 0.1; 2)")).toBe("210");
+  });
+  it("storing to one says it is a built-in name", () => {
+    expect(err("rate = 3")).toBe("Can't change rate, it's a built-in name");
+    expect(err("Term = 3")).toBe("Can't change Term, it's a built-in name");
+    expect(err("sin = 3")).toBe("Can't change sin, it's a built-in name");
+  });
+  it("one used as a variable says it is a built-in name", () => {
+    expect(err("rate")).toBe("rate is a built-in name");
+    expect(err("pv × 2")).toBe("pv is a built-in name");
+    expect(err("1 + (FV)")).toBe("FV is a built-in name");
+  });
+});
+
+describe("negative interest rates (as GNOME allows)", () => cases([
+  ["Pmt(1000; -0.05; 10)", "74.606535934549"],
+  ["Fv(100; -0.02; 12)", "1076.416381326"],
+  ["Pv(100; -0.01; 5)", "515.357128133502"],
+]));
+
+// 1 + i as a double keeps few of a small rate's digits: the growth is worked out with expm1 / log1p instead
+describe("small rates", () => {
+  it("Fv(1; 10^−300; 3) = 3", () => expect(v("Fv(1; 10^−300; 3)")).toBe("3"));
+  it("Fv(1; 10^−400; 3) = 3 (a rate below a double)", () => expect(v("Fv(1; 10^−400; 3)")).toBe("3"));
+  it("Pmt(1000; 10^−12; 360) = 2.77778", () => expect(v("Pmt(1000; 10^−12; 360)", { decimals: 5 })).toBe("2.77778"));
+  it("Fv(1; 10^−9; 360) = 360.0000646…", () => expect(v("Fv(1; 10^−9; 360)")).toBe("360.000064620008"));
+  it("Rate(2; 1; 10^30) ≈ 6.93×10⁻³¹", () => expect(v("Rate(2; 1; 10^30)")).toBe("6.931471805599×10⁻³¹"));
+  it("Ctrm(10^−20; 2; 1) ≈ 6.93×10¹⁹", () => expect(v("Ctrm(10^−20; 2; 1)")).toBe("69314718055994500000"));
+  it("Ctrm(10^−400; 2; 1) ≈ 6.93×10³⁹⁹", () => expect(v("Ctrm(10^−400; 2; 1)")).toBe("6.931471805599×10³⁹⁹"));
+  it("whole answers stay exact", () => {
+    expect(exactOf("Ctrm(0.1; 121; 100)")).toBe("2");
+    expect(exactOf("Rate(121; 100; 2)")).toBe("1/10");
+    expect(exactOf("Fv(100; 0.1; 2)")).toBe("210");
+  });
+});
+
+describe("huge numbers of periods", () => {
+  it("Pmt tends to the interest alone (a perpetuity)", () => {
+    expect(v("Pmt(1000; 0.05; 10^7)")).toBe("50");
+    expect(v("Pmt(1000; 0.05; 10^7)", { maxBits: 110_000 })).toBe("50"); // also while typing
+    expect(v("Pmt(1000; 0.05; 10^30)")).toBe("50");
+  });
+  it("Pv tends to payment ÷ rate", () => expect(v("Pv(1; 0.05; 10^7)", { maxBits: 110_000 })).toBe("20"));
+  it("Fv really is too large", () => expect(err("Fv(1; 0.05; 10^7)")).toBe("Number is too large"));
+});
+
+describe("approximate answers are stored as approximate", () => {
+  it("Rate(3^5000; 2^5000; 5000)", () => expect(exactOf("Rate(3^5000; 2^5000; 5000)")).toMatch(/^≈0\.(5|4999)/));
+  it("Pmt(1000; 10^−9; 360)", () => expect(exactOf("Pmt(1000; 10^−9; 360)")).toMatch(/^≈2\.7777782791/));
+  it("Pmt(200000; 0.05/12; 360)", () => expect(exactOf("Pmt(200000; 0.05/12; 360)")).toMatch(/^≈1073\.64324602/));
 });
