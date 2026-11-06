@@ -1,0 +1,83 @@
+{
+  "name": "@calc/desktop",
+  "productName": "Calculator",
+  "version": "0.1.0",
+  "description": "A private, offline calculator",
+  "author": "userofit123",
+  "homepage": "https://github.com/userofit123/calculator",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "private": true,
+  "main": "dist/main.cjs",
+  "scripts": {
+    "web": "pnpm --filter @calc/web exec vite build",
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "typecheck": "tsc --noEmit",
+    "dist": "pnpm run web && node build.mjs && electron-builder --publish never",
+    "dist:linux": "pnpm run web && node build.mjs && electron-builder --linux --publish never",
+    "dist:win": "pnpm run web && node build.mjs && electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8",
+    "esbuild": "0.24.2",
+    "typescript": "5.7.2"
+  },
+  "build": {
+    "appId": "io.github.userofit123.calculator",
+    "productName": "Calculator",
+    "executableName": "calculator",
+    "artifactName": "calculator-${version}-${arch}.${ext}",
+    "copyright": "userofit123",
+    "directories": {
+      "output": "release",
+      "buildResources": "build-res"
+    },
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web"
+      }
+    ],
+    "electronLanguages": [
+      "en-US"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Utility",
+      "synopsis": "A private, offline calculator",
+      "maintainer": "userofit123 <45289144+userofit123@users.noreply.github.com>",
+      "vendor": "userofit123",
+      "icon": "../web/public/icon-1024.png",
+      "desktop": {
+        "Name": "Calculator",
+        "Comment": "Basic, advanced, financial and programming calculator and unit converter",
+        "Keywords": "calculator;calc;converter;currency;units;"
+      }
+    },
+    "deb": {
+      "packageName": "calculator"
+    },
+    "rpm": {
+      "packageName": "calculator"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "../web/public/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "calculator-${version}-setup.${ext}"
+    }
+  }
+}
