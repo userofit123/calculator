@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   parseNbuJson, parseBcraJson, rateSourceLine, sourceDayOf, CENTRAL_BANK_SOURCES, USD_PEGS, RATE_SOURCES,
-  UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions, formatValue,
+  UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions,
 } from "../src";
 import { parseDecimal } from "../src/rational";
 import { formatValue } from "../src/format";
