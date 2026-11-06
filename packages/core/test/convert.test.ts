@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   parseNbuJson, parseBcraJson, rateSourceLine, sourceDayOf, CENTRAL_BANK_SOURCES, USD_PEGS, RATE_SOURCES,
-  UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions,
+  UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, formatDms, parseDms, parseEcbCsv, currencyCategory, currencyFlag, BUNDLED_RATES, mergeRates, retryDelayMs, refreshDue, type Category, type EvalOptions, formatValue,
 } from "../src";
+import { parseDecimal } from "../src/rational";
+import { formatValue } from "../src/format";
 
 const cat = (id: string) => UNIT_CATEGORIES.find((c) => c.id === id)!;
 const cv = (c: string | Category, from: string, to: string, amount: string, o: EvalOptions = {}) => {
@@ -328,5 +330,30 @@ describe("shown to the converter's significant digits", () => {
   it("small values keep their significant digits, up to the decimals chosen", () => {
     expect(cv("length", "mm", "meter", "1.23456789", o)).toBe("0.0012345679");
     expect(cv("length", "foot", "meter", "1", { decimals: 3, significant: CONVERT_DIGITS })).toBe("0.305");
+  });
+});
+
+describe("significant digits in ×10ⁿ form and carries", () => {
+  const fv = (x: string, o = {}) => formatValue({ q: parseDecimal(x) }, { decimals: 15, significant: CONVERT_DIGITS, ...o });
+  it("tiny and huge results keep 10 significant digits (trailing zeros dropped)", () => {
+    expect(fv("0.000000123456789012345")).toBe("1.23456789×10⁻⁷");
+    expect(fv("1234567890123456789012345678.5")).toBe("1.23456789×10²⁷");
+    expect(fv("0.000000123456789012345", {})).not.toBe(fv("0.000000123456789012345", { significant: undefined }));
+  });
+  it("negative values and short mantissas", () => {
+    expect(fv("-0.000000123456789012345")).toBe("-1.23456789×10⁻⁷");
+    expect(fv("-1234567890123456789012345678.5")).toBe("-1.23456789×10²⁷");
+    expect(fv("0.0000005")).toBe("5×10⁻⁷");
+    expect(fv("0.0000005", { decimals: 3 })).toBe("5×10⁻⁷");
+  });
+  it("carries", () => {
+    expect(fv("9.99999999996")).toBe("10");
+    expect(fv("0.99999999996")).toBe("1");
+    expect(fv("0.0000009999999999996")).toBe("1×10⁻⁶");
+    expect(fv("9999999999960000000000000.5")).toBe("1×10²⁵");
+    expect(fv("-9999999999960000000000000.5")).toBe("-1×10²⁵");
+  });
+  it("without significant the mantissa keeps up to 15 decimals", () => {
+    expect(fv("0.000000123456789012345", { significant: undefined })).toBe("1.23456789012345×10⁻⁷");
   });
 });
