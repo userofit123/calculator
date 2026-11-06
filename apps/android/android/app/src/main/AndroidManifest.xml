@@ -44,6 +44,10 @@
     <!-- Internet: the optional currency-rate refresh from the European Central Bank and the optional update check on
          GitHub (both can be switched off in Settings). Everything else is inside the app and works offline. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Whether there is a connection at all: without it Android's WebView always reports "online" (navigator.onLine,
+         the "online" event), so with no internet the app kept asking the rate sources and said it couldn't reach them
+         instead of "No internet connection", and never refreshed when the connection came back. Reads no data. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Installing an update the person chose in Settings, Updates: Android's installer still asks to confirm. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>
