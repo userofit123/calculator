@@ -6,8 +6,16 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+## [0.3.2] - 2026-11-07
+
 - The Windows installer, its install folder and the program are called "Calculator" (they were
   "userofit123-calculator"). An installed copy updates in place.
+- Android: an update keeps downloading when you switch to another app, with its progress notification, and ends with
+  "Update ready - tap to install". Reopening the app during a download shows its progress again.
+- Tip & Split: "Split between people" slides its section open and closed instead of jumping, and the "People" label
+  has room above it.
+- Phone tabs: the highlight behind the chosen tab stays on its icon when the next page's scrollbar shifts the tabs, and
+  only the chosen tab's label is bold.
 
 ## [0.3.1] - 2026-11-07
 
