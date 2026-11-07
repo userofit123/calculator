@@ -1,6 +1,7 @@
 package io.github.userofit123.calculator;
 
 import android.Manifest;
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -39,7 +40,6 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * In-app updates from this app's GitHub releases (task C-27, after Motus's MotusUpdaterPlugin). The page (core/appUpdate.ts)
@@ -57,6 +57,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * channel shows its progress bar, so leaving the app doesn't hide it; once the file is checked it becomes "Update ready -
  * tap to install", and the tap opens Android's installer through install()'s same checks. The notification needs POST_NOTIFICATIONS on Android 13+, asked only from the person's tap (askNotify());
  * without it the download still runs and shows in the app. The words come from the page, in the language shown.
+ * The download runs under UpdateDownloadService (C-74): a plain thread stopped when the person went to another app, as
+ * Android freezes or cuts off a background app's network, so the service keeps the app in the foreground until it ends.
+ * It also carries on when the app is swiped away; reopened, the page follows it again (staged() and attach()).
  */
 @CapacitorPlugin(name = "CalcUpdater", permissions = { @Permission(alias = "notifications", strings = { Manifest.permission.POST_NOTIFICATIONS }) })
 public class CalcUpdaterPlugin extends Plugin {
@@ -67,11 +70,20 @@ public class CalcUpdaterPlugin extends Plugin {
     private static final int MAX_JSON = 1024 * 1024;
     private static final String PREFS = "calc-updater", K_VERSION = "version", K_SHA = "sha256";
     private static final AtomicBoolean BUSY = new AtomicBoolean(false);
-    // each download has its own number: a thread whose number is no longer current (the app was closed) leaves the
-    // notification alone
-    private static final AtomicLong GEN = new AtomicLong(0);
     private static final String CHANNEL = "updates";
-    private static final int NOTICE_ID = 5201;
+    /** The running download's progress notification (UpdateDownloadService's), and "Update ready" / "Update failed"
+     *  after it: a separate number, so the service's notification going can never take the final one with it. */
+    static final int NOTICE_ID = 5201, DONE_ID = 5202;
+    /** The running download: who hears about it (the page that started it or followed it again), null when none. */
+    private static final class Job {
+        final String version;
+        PluginCall call;
+        CalcUpdaterPlugin page;
+        Job(String version, PluginCall call, CalcUpdaterPlugin page) { this.version = version; this.call = call; this.page = page; }
+    }
+    private static Job job;
+    /** The progress notification shown last, for UpdateDownloadService's start. */
+    private static volatile Notification running;
     /** The action of the "Update ready - tap to install" notification's tap (see installFrom). */
     static final String ACTION_INSTALL = "io.github.userofit123.calculator.INSTALL_UPDATE";
     private static final String SEMVER = "\\d{1,6}\\.\\d{1,6}\\.\\d{1,6}";
@@ -236,20 +248,26 @@ public class CalcUpdaterPlugin extends Plugin {
             || !sha.matches("[0-9a-fA-F]{64}") || size <= 0 || size > MAX_APK) { call.reject("The update information is not valid"); return; }
         final Texts tx = new Texts(call.getObject("texts"), version);
         if (!BUSY.compareAndSet(false, true)) { call.reject("Already downloading"); return; }
-        final long gen = GEN.incrementAndGet();
+        final Job me = new Job(version, call, this);
+        synchronized (Job.class) { job = me; }
         final Context ctx = getContext().getApplicationContext();
         channel(ctx, tx.channel);
         final File part = new File(dir(), "update.apk.part"), out = apk();
         part.delete(); out.delete();
         prefs().edit().clear().apply();
+        NotificationManagerCompat.from(ctx).cancel(DONE_ID);
+        notice(ctx, tx.downloading, "0%", 0, true, false);
+        // started here, from the person's tap (or an automatic download while the app is open): Android 12+ allows
+        // starting it only while the app is in front
+        UpdateDownloadService.begin(ctx);
         new Thread(() -> {
             HttpURLConnection c = null;
+            String failed = null;
             try {
                 c = open(url);
                 if (c.getResponseCode() != 200) throw new Exception("status");
                 MessageDigest md = MessageDigest.getInstance("SHA-256");
                 long done = 0, last = 0, lastNotice = 0;
-                notice(ctx, tx.downloading, "0%", 0, true, false);
                 try (InputStream in = c.getInputStream(); FileOutputStream fo = new FileOutputStream(part)) {
                     byte[] buf = new byte[65536];
                     int n;
@@ -259,9 +277,9 @@ public class CalcUpdaterPlugin extends Plugin {
                         if (done > size) throw new SecurityException("The download is larger than expected");
                         fo.write(buf, 0, n); md.update(buf, 0, n);
                         long now = System.currentTimeMillis();
-                        if (now - last >= 250) { last = now; JSObject p = new JSObject(); p.put("loaded", done); p.put("total", size); notifyListeners("progress", p); }
+                        if (now - last >= 250) { last = now; progress(me, done, size); }
                         // the notification once a second: Android drops updates that come faster
-                        if (now - lastNotice >= 1000 && GEN.get() == gen) { lastNotice = now; int pct = (int) (done * 100 / size); notice(ctx, tx.downloading, pct + "%", pct, true, false); }
+                        if (now - lastNotice >= 1000) { lastNotice = now; int pct = (int) (done * 100 / size); notice(ctx, tx.downloading, pct + "%", pct, true, false); }
                     }
                 }
                 if (done != size) throw new SecurityException("The download is incomplete");
@@ -270,28 +288,56 @@ public class CalcUpdaterPlugin extends Plugin {
                 if (why != null) throw new SecurityException(why);
                 if (!part.renameTo(out)) throw new Exception("rename");
                 prefs().edit().putString(K_VERSION, version).putString(K_SHA, sha.toLowerCase()).apply();
-                // checked: the tap goes straight to Android's installer (through install()'s checks once more)
-                if (GEN.get() == gen) notice(ctx, tx.ready, tx.readyText, 0, false, true);
-                call.resolve();
             } catch (SecurityException e) {
                 part.delete(); out.delete();
-                if (GEN.get() == gen) notice(ctx, tx.failed, tx.failedText, 0, false, false);
-                call.reject(e.getMessage());
+                failed = e.getMessage();
             } catch (Exception e) {
                 part.delete(); out.delete();
-                if (GEN.get() == gen) notice(ctx, tx.failed, tx.failedText, 0, false, false);
-                call.reject("The download didn't finish: try again");
+                failed = "The download didn't finish: try again";
             } finally {
                 if (c != null) c.disconnect();
+                PluginCall to;
+                synchronized (Job.class) { to = me.call; job = null; }
                 BUSY.set(false);
+                UpdateDownloadService.end();
+                running = null;
+                NotificationManagerCompat.from(ctx).cancel(NOTICE_ID);
+                // checked: the tap goes straight to Android's installer (through install()'s checks once more)
+                if (failed == null) notice(ctx, tx.ready, tx.readyText, 0, false, true);
+                else notice(ctx, tx.failed, tx.failedText, 0, false, false);
+                if (to != null) { if (failed == null) to.resolve(); else to.reject(failed); }
             }
         }).start();
     }
 
-    /** The checked download from before (also after the app was closed), if it is still there and still newer: {version}. */
+    /** The download's progress to the page that hears about it, if one does (none while the app is closed). */
+    private static void progress(Job j, long loaded, long total) {
+        CalcUpdaterPlugin p;
+        synchronized (Job.class) { p = j.page; }
+        if (p == null) return;
+        JSObject o = new JSObject(); o.put("loaded", loaded); o.put("total", total);
+        p.notifyListeners("progress", o);
+    }
+
+    /** The page follows a download still running from before it was opened (the app was swiped away and opened again,
+     *  see staged()): its progress comes as "progress" and this ends as download() does. {idle: true} at once when no
+     *  download runs any more (the page then asks staged() again). */
+    @PluginMethod
+    public void attach(PluginCall call) {
+        synchronized (Job.class) {
+            if (job != null) { job.call = call; job.page = this; return; }
+        }
+        JSObject r = new JSObject();
+        r.put("idle", true);
+        call.resolve(r);
+    }
+
+    /** The checked download from before (also after the app was closed), if it is still there and still newer: {version};
+     *  or {downloading: version} while a download started before this page still runs (follow it with attach()). */
     @PluginMethod
     public void staged(PluginCall call) {
         JSObject r = new JSObject();
+        synchronized (Job.class) { if (job != null) { r.put("downloading", job.version); call.resolve(r); return; } }
         String v = prefs().getString(K_VERSION, null);
         File f = apk();
         if (v != null && f.isFile() && !BUSY.get() && refuse(f, v) == null) r.put("version", v);
@@ -387,7 +433,8 @@ public class CalcUpdaterPlugin extends Plugin {
     }
 
     /** `busy`: a bar at `pct` (ongoing, goes by itself if nothing updates it for two minutes, so a download Android
-     *  stopped without warning leaves nothing behind). `install`: the tap opens the installer, else the app. */
+     *  stopped without warning leaves nothing behind), as NOTICE_ID; else the final one, as DONE_ID. `install`: the tap
+     *  opens the installer, else the app. */
     private static void notice(Context ctx, String title, String text, int pct, boolean busy, boolean install) {
         Intent open = new Intent(ctx, MainActivity.class);
         open.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -405,16 +452,28 @@ public class CalcUpdaterPlugin extends Plugin {
             .setCategory(busy ? NotificationCompat.CATEGORY_PROGRESS : NotificationCompat.CATEGORY_STATUS)
             .setContentIntent(pi);
         if (busy) b.setProgress(100, Math.max(0, Math.min(100, pct)), false).setTimeoutAfter(120_000);
-        try { NotificationManagerCompat.from(ctx).notify(NOTICE_ID, b.build()); } catch (SecurityException e) { /* notifications not allowed: the app shows it */ }
+        Notification n = b.build();
+        if (busy) running = n;
+        try { NotificationManagerCompat.from(ctx).notify(busy ? NOTICE_ID : DONE_ID, n); } catch (SecurityException e) { /* notifications not allowed: the app shows it */ }
     }
 
-    private static void cancelNotice(Context ctx) { NotificationManagerCompat.from(ctx).cancel(NOTICE_ID); }
+    /** The notification UpdateDownloadService starts with: the download's latest progress (Android shows it in the
+     *  phone's list of running apps even when notifications are off). */
+    static Notification runningNotice(Context ctx) {
+        Notification n = running;
+        if (n != null) return n;
+        channel(ctx, "App updates");
+        return new NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle("Downloading Calculator").setProgress(100, 0, true).setOngoing(true).setSilent(true).setShowWhen(false).build();
+    }
 
-    // The app is closed (swiped away) mid-download: the download stops with it, so its ongoing notification would stay
-    // with a bar that never moves. It goes.
+    private static void cancelNotice(Context ctx) { NotificationManagerCompat.from(ctx).cancel(NOTICE_ID); NotificationManagerCompat.from(ctx).cancel(DONE_ID); }
+
+    // The app is closed (swiped away) mid-download: the download carries on under UpdateDownloadService and ends with
+    // its notification; this page just stops hearing about it.
     @Override
     protected void handleOnDestroy() {
-        if (BUSY.get()) { GEN.incrementAndGet(); cancelNotice(getContext().getApplicationContext()); }
+        synchronized (Job.class) { if (job != null && job.page == this) { job.page = null; job.call = null; } }
         super.handleOnDestroy();
     }
 

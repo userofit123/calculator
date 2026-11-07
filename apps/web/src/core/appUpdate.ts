@@ -148,8 +148,10 @@ function start() {
         upd.canTellMetered = true;
         await refreshNotify();
         // a download that finished before the app was closed is still ready (the plugin checked it again)
-        const s = (await a.staged!().catch(() => null)) as { version?: string } | null;
+        const s = (await a.staged!().catch(() => null)) as { version?: string; downloading?: string } | null;
         if (s?.version && newer(s.version, upd.current)) { upd.latest = s.version; upd.ready = true; upd.status = `Version ${s.version} is ready to install`; }
+        // a download started before the app was swiped away still runs (CalcUpdaterPlugin's foreground service): follow it
+        else if (s?.downloading && newer(s.downloading, upd.current)) { upd.latest = s.downloading; void follow(a); }
       }
     } catch { /* the version stays unknown: no update is offered */ }
   })());
@@ -225,25 +227,48 @@ const noticeTexts = (v: string) => ({
 export async function download(byHand = false): Promise<void> {
   if (!upd.latest || upd.downloading || upd.ready) return;
   if (byHand && upd.notify === "prompt") await askNotify();
+  await track(async (at) => {
+    const d = desktop(), a = android();
+    if (d) { d.onProgress((p) => at(p)); await d.download(upd.latest, upd.autoDownload); }
+    else if (a) {
+      const m = manifest;
+      if (!m || m.version !== upd.latest) throw new Error("Check for updates again first");
+      await androidProgress(a, at, () => a.download!({ ...m, texts: noticeTexts(m.version) }));
+    }
+  });
+}
+
+/** Android: follows a download that started before the page was opened again (it carries on when the app is swiped
+ *  away), with its progress, to "ready" or its error like download(). */
+async function follow(a: Plugin): Promise<void> {
+  if (upd.downloading) return;
+  await track(async (at) => {
+    const r = (await androidProgress(a, at, () => a.attach!())) as { idle?: boolean } | null;
+    // it ended just before: the checked file is there, or it failed
+    if (r?.idle && !((await a.staged!()) as { version?: string } | null)?.version) throw new Error("The download didn't finish: try again");
+  });
+}
+
+/** Runs a download with the progress bar, then "ready" or the error. `at(share)`: share < 0 when the size is unknown
+ *  (the bar then moves without a number). */
+async function track(go: (at: (share: number, bytes?: number) => void) => Promise<void>): Promise<void> {
   upd.downloading = true; upd.progress = null; upd.error = ""; upd.status = progressText(null);
-  // share < 0: the size is unknown (the bar then moves without a number)
   const at = (share: number, bytes?: number) => {
     upd.progress = typeof share === "number" && Number.isFinite(share) && share >= 0 ? Math.min(1, share) : null;
     upd.status = progressText(upd.progress, bytes);
   };
-  let h: { remove(): void } | null = null;
   try {
-    const d = desktop(), a = android();
-    if (d) { d.onProgress((p) => at(p)); await d.download(upd.latest, upd.autoDownload); }
-    else if (a) {
-      if (!manifest || manifest.version !== upd.latest) throw new Error("Check for updates again first");
-      h = (await a.addListener?.("progress", (({ loaded, total }: { loaded: number; total: number }) => at(shareOf(loaded, total) ?? -1, loaded)) as (e: never) => void)) ?? null;
-      await a.download!({ ...manifest, texts: noticeTexts(manifest.version) });
-    }
+    await go(at);
     upd.ready = true; upd.status = `Version ${upd.latest} is ready to install`; lastDlFail = 0;
   } catch (e) {
     upd.error = said(e, "The download didn't finish"); upd.status = ""; lastDlFail = Date.now();
-  } finally { h?.remove(); upd.downloading = false; upd.progress = null; }
+  } finally { upd.downloading = false; upd.progress = null; }
+}
+
+/** The plugin's "progress" events to `at` while `run` lasts. */
+async function androidProgress(a: Plugin, at: (share: number, bytes?: number) => void, run: () => Promise<unknown>): Promise<unknown> {
+  const h = (await a.addListener?.("progress", (({ loaded, total }: { loaded: number; total: number }) => at(shareOf(loaded, total) ?? -1, loaded)) as (e: never) => void)) ?? null;
+  try { return await run(); } finally { h?.remove(); }
 }
 
 /** Desktop: closes the app, installs and starts the new version (a .deb / .rpm after the system's password prompt; when

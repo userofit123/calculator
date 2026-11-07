@@ -39,6 +39,13 @@
                 android:resource="@xml/update_paths" />
         </provider>
 
+        <!-- Only while an update you chose downloads (CalcUpdaterPlugin): keeps the download going when you switch to
+             another app, with its progress notification. Not exported; stops as soon as the download ends. -->
+        <service
+            android:name=".UpdateDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
     </application>
 
     <!-- Internet: the optional currency-rate refresh from the European Central Bank and the optional update check on
@@ -54,4 +61,8 @@
          only when you turn on automatic downloads, tap Download or tap Allow in Settings, App & updates; without it the
          download shows in the app only. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The update download carries on when you switch to another app (UpdateDownloadService): Android stops a
+         background app's download otherwise. Used only while that download runs. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 </manifest>
