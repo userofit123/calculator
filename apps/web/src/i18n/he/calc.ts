@@ -41,7 +41,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "angle.rad": "רדיאנים",
   "angle.grad": "גראדים",
   "calc.notInMode": "לא זמין במצב {mode}",
-  "calc.mode": "מצב המחשבון",
+  "calc.modeNamed": "{mode}, מצב המחשבון",
   "calc.tabs": "מחשבון וכלים",
   "calc.backTo": "{mode}: חזרה למחשבון",
   "calc.vars": "משתנים",

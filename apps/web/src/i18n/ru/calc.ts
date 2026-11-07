@@ -41,7 +41,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "angle.rad": "радианы",
   "angle.grad": "грады",
   "calc.notInMode": "Недоступно в режиме «{mode}»",
-  "calc.mode": "Режим калькулятора",
+  "calc.modeNamed": "{mode}, режим калькулятора",
   "calc.tabs": "Калькулятор и инструменты",
   "calc.backTo": "{mode}: назад к калькулятору",
   "calc.vars": "Переменные",

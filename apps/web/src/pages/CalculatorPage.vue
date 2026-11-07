@@ -181,6 +181,7 @@ const busy = (e: Event) => !!(e.target as HTMLElement).closest?.("input, textare
 const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".cpad, .memk, .ppanel, .pbar");
 const onKeyUp = (e: KeyboardEvent) => { if (e.key === " " && onPadKey(e)) e.preventDefault(); };
 function onKey(e: KeyboardEvent) {
+  if ((e.target as HTMLElement).closest?.(".mnu")) return; // an open menu (teleported to body) has its own keys
   if (busy(e) || dateMode.value || kbd.value) return; // Keyboard mode's line takes the keys (KeyboardCalc)
   // Enter on a focused tab chooses it or opens the type menu (it would otherwise be =)
   if (e.key === "Enter" && (e.target as HTMLElement).closest?.(".ctabs")) return;
@@ -228,7 +229,7 @@ async function copyAnswer() {
     <div class="calc-top">
       <div class="ctabs" role="group" :aria-label="t('calc.tabs')">
         <!-- on a tool, the calculator's tab goes back to the calculator; on the calculator it opens the type menu -->
-        <Menu :items="modeItems" :text="typeLabel" :label="dateMode ? t('calc.backTo', { mode: typeLabel }) : t('calc.mode')" :inactive="dateMode" align="start" @activate="calc.mode = lastType" />
+        <Menu :items="modeItems" :text="typeLabel" :label="dateMode ? t('calc.backTo', { mode: typeLabel }) : t('calc.modeNamed', { mode: typeLabel })" :pressed="!dateMode" :inactive="dateMode" align="start" @activate="calc.mode = lastType" />
         <button v-for="m in TOOLS" :key="m.id" type="button" class="ctab" :class="{ on: calc.mode === m.id }" :aria-pressed="calc.mode === m.id" :title="modeHint(m.id)" @click="calc.mode = m.id">{{ modeName(m.id) }}</button>
       </div>
       <button v-if="adv || kbd" type="button" class="cvars" @click="varsOpen = true">{{ t("calc.vars") }}</button>

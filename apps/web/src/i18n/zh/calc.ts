@@ -41,7 +41,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "angle.rad": "弧度",
   "angle.grad": "百分度",
   "calc.notInMode": "{mode}模式下不可用",
-  "calc.mode": "计算器模式",
+  "calc.modeNamed": "{mode}，计算器模式",
   "calc.tabs": "计算器和工具",
   "calc.backTo": "{mode}：返回计算器",
   "calc.vars": "变量",

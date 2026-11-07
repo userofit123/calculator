@@ -41,7 +41,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "angle.rad": "radyan",
   "angle.grad": "grad",
   "calc.notInMode": "{mode} modunda kullanılamaz",
-  "calc.mode": "Hesap makinesi modu",
+  "calc.modeNamed": "{mode}, hesap makinesi modu",
   "calc.tabs": "Hesap makinesi ve araçlar",
   "calc.backTo": "{mode}: hesap makinesine dön",
   "calc.vars": "Değişkenler",

@@ -12,7 +12,7 @@ interface MenuItem { label: string; hint?: string; icon?: string; run: () => voi
 // align "start": the menu opens from the button's left edge (as far as the screen allows), for a button that isn't the
 // last thing in its row; otherwise its right edge lines up with the button's. Right to left it is the mirror image.
 // inactive: a tab (the calculator's, C-66) whose first tap only selects it ("activate"); once selected it opens the menu
-const props = defineProps<{ items: MenuItem[]; icon?: string; label?: string; text?: string; align?: "start" | "end"; inactive?: boolean }>();
+const props = defineProps<{ items: MenuItem[]; icon?: string; label?: string; text?: string; align?: "start" | "end"; inactive?: boolean; pressed?: boolean }>();
 const emit = defineEmits<{ activate: [] }>();
 const open = ref(false), pos = ref({ top: 0, left: 0 }), btn = ref<HTMLElement | null>(null), el = ref<HTMLElement | null>(null);
 // on the phone the menu is a bottom sheet over a scrim, so the page stays still behind it; on a computer it is a small popover with
@@ -48,8 +48,10 @@ const pick = (i: MenuItem) => { close(); i.run(); };
 // a menu's keys: arrows, Home and End move, Esc closes it (and nothing under it), Tab leaves it
 function key(e: KeyboardEvent) {
   const l = items(), i = l.indexOf(document.activeElement as HTMLElement);
+  // Enter and Space press the focused item (the browser's click); the page's own key handler must never see them as "=" etc.
+  e.stopPropagation();
   const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: l.length - 1 }[e.key];
-  if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
+  if (e.key === "Escape") { e.preventDefault(); close(); }
   else if (e.key === "Tab") close();
   else if (to !== undefined && l.length) { e.preventDefault(); l[(to + l.length) % l.length]!.focus(); }
 }
@@ -57,7 +59,7 @@ onBeforeUnmount(() => close(false));
 </script>
 
 <template>
-  <button v-if="text" ref="btn" class="mnub" :class="{ off: inactive }" :aria-label="label" :aria-haspopup="inactive ? undefined : 'menu'" :aria-expanded="inactive ? undefined : open" @click.stop="toggle"><span>{{ text }}</span><Icon name="down" :size="16" /></button>
+  <button v-if="text" ref="btn" class="mnub" :class="{ off: inactive }" :aria-label="label" :aria-pressed="pressed" :aria-haspopup="inactive ? undefined : 'menu'" :aria-expanded="inactive ? undefined : open" @click.stop="toggle"><span>{{ text }}</span><Icon name="down" :size="16" /></button>
   <button v-else ref="btn" class="ib sm plain" :aria-label="label ?? t('c.more')" aria-haspopup="menu" :aria-expanded="open" @click.stop="toggle"><Icon :name="icon ?? 'more'" /></button>
   <Teleport to="body">
     <Transition name="pop" @before-leave="leaving"><div v-if="open" ref="el" class="mnu" :style="{ top: pos.top + 'px', left: pos.left + 'px' }" role="menu" :aria-label="label ?? text ?? t('c.more')" @keydown="key">

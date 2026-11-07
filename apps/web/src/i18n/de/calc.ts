@@ -41,7 +41,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "angle.rad": "Bogenmaß",
   "angle.grad": "Gon",
   "calc.notInMode": "Im Modus {mode} nicht verfügbar",
-  "calc.mode": "Rechnermodus",
+  "calc.modeNamed": "{mode}, Rechnermodus",
   "calc.tabs": "Rechner und Werkzeuge",
   "calc.backTo": "{mode}: zurück zum Rechner",
   "calc.vars": "Variablen",

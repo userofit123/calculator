@@ -41,7 +41,7 @@ export const calc = {
   "angle.rad": "radians",
   "angle.grad": "gradians",
   "calc.notInMode": "Not available in {mode} mode",
-  "calc.mode": "Calculator mode",
+  "calc.modeNamed": "{mode}, calculator mode",
   "calc.tabs": "Calculator and tools",
   "calc.backTo": "{mode}: back to the calculator",
   "calc.vars": "Variables",

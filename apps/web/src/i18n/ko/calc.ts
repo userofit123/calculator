@@ -41,7 +41,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "angle.rad": "라디안",
   "angle.grad": "그라디안",
   "calc.notInMode": "{mode} 모드에서는 사용할 수 없습니다",
-  "calc.mode": "계산기 모드",
+  "calc.modeNamed": "{mode}, 계산기 모드",
   "calc.tabs": "계산기와 도구",
   "calc.backTo": "{mode}: 계산기로 돌아가기",
   "calc.vars": "변수",

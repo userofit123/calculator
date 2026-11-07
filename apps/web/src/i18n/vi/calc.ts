@@ -41,7 +41,7 @@ export const calc: Record<keyof typeof EN, string> = {
   "angle.rad": "radian",
   "angle.grad": "grad",
   "calc.notInMode": "Không có trong chế độ {mode}",
-  "calc.mode": "Chế độ máy tính",
+  "calc.modeNamed": "{mode}, chế độ máy tính",
   "calc.tabs": "Máy tính và công cụ",
   "calc.backTo": "{mode}: quay lại máy tính",
   "calc.vars": "Biến",
