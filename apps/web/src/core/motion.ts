@@ -47,15 +47,24 @@ export function play(el: Element | null | undefined, kind: Kind, by = 1): Animat
     swap: [[{ opacity: 0, transform: "translateY(-5px)" }, { opacity: 1, transform: "none" }], t.d2, t.ease],
     // a bit or a 2nd-layer key turning over to its other side
     flip: [[{ opacity: 0.2, transform: "perspective(200px) rotateX(90deg)" }, { opacity: 1, transform: "none" }], t.d2, t.ease],
-    spin: [[{ transform: "rotate(-180deg)" }, { transform: "none" }], t.d3, t.ease],
+    // a half turn on top of the element's own transform (the converter's swap arrows rest at rotate(90deg)): "add"
+    // keeps that resting angle, where "none" as the end frame replaced it and the icon snapped the last quarter
+    spin: [[{ transform: "rotate(-180deg)" }, { transform: "rotate(0deg)" }], t.d3, t.ease],
     // another mode's keys: from the side the mode is on (in the mode list's order), mirrored right to left
     slide: [[{ opacity: 0, transform: `translateX(${16 * by * dirSign()}px)` }, { opacity: 1, transform: "none" }], t.d3, t.ease],
     in: [[{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], t.d3, t.ease],
   };
-  const [kf, duration, easing] = k[kind];
-  // the same animation again (a fast run of keys) restarts it rather than stacking
-  (el as HTMLElement).getAnimations?.().forEach((a) => { if ((a as Animation & { id: string }).id === "mo-" + kind) a.cancel(); });
-  const a = (el as HTMLElement).animate(kf, { duration, easing });
+  const [base, duration, easing] = k[kind];
+  // the same animation again (a fast run of keys) restarts it rather than stacking; a spin still turning goes on from
+  // the angle it has reached and adds another half turn, so quick taps never make the icon jump back
+  let left = 0;
+  (el as HTMLElement).getAnimations?.().forEach((a) => {
+    if ((a as Animation & { id: string }).id !== "mo-" + kind) return;
+    if (kind === "spin") left = -180 * (1 - (a.effect?.getComputedTiming().progress ?? 1));
+    a.cancel();
+  });
+  const kf: Keyframe[] = left ? [{ transform: `rotate(${left - 180}deg)` }, { transform: "rotate(0deg)" }] : base;
+  const a = (el as HTMLElement).animate(kf, { duration, easing, composite: kind === "spin" ? "add" : "replace" });
   a.id = "mo-" + kind;
   return a;
 }
