@@ -195,6 +195,8 @@ onMounted(() => { if (!isPhone.value) billEl.value?.focus(); });
 .ttg { padding-inline: 0; }
 .ttg .t { font-size: var(--fs); }
 .ttg .s { font-size: var(--fs-xs); color: var(--tx2); }
+/* the people field sits right under the split switch's divider line: give its label the same density-scaled room a list row has above its text */
+.tsplit .ttg + div > .fld:first-child { padding-top: var(--lpy); }
 .tstep { display: flex; align-items: center; gap: var(--hg); }
 .tstep input { flex: 1; text-align: center; }
 </style>
