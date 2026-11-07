@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// The app mark: the launcher icon's calculator in one colour (the display and keys cut out, the tall equals key on the right) on the accent gradient. Clicking it on the rail picks a random look, as in Money Manager.
+// The app mark (core/mark.ts) on the accent gradient; the browser tab shows the same tile. Clicking it on the rail picks a random look, as in Money Manager.
 import { ref } from "vue";
 import { shuffle as doShuffle } from "../core/theme";
 import { t } from "../core/i18n";
+import { MARK } from "../core/mark";
 const props = defineProps<{ shuffle?: boolean }>();
 const el = ref<HTMLElement | null>(null);
 const click = () => { if (props.shuffle) doShuffle(el.value); };
@@ -10,6 +11,6 @@ const click = () => { if (props.shuffle) doShuffle(el.value); };
 
 <template>
   <div ref="el" class="logo" :class="{ click: shuffle }" :title="shuffle ? t('nav.shuffle') : undefined" @click="click">
-    <svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M8.17 3h7.66a2.76 2.76 0 0 1 2.76 2.76v12.48a2.76 2.76 0 0 1 -2.76 2.76h-7.66a2.76 2.76 0 0 1 -2.76 -2.76v-12.48a2.76 2.76 0 0 1 2.76 -2.76zM7.83 4.52h8.34a0.9 0.9 0 0 1 0.9 0.9v1.93a0.9 0.9 0 0 1 -0.9 0.9h-8.34a0.9 0.9 0 0 1 -0.9 -0.9v-1.93a0.9 0.9 0 0 1 0.9 -0.9zM12.72 5.9h2.62a0.48 0.48 0 0 1 0.48 0.48v0a0.48 0.48 0 0 1 -0.48 0.48h-2.62a0.48 0.48 0 0 1 -0.48 -0.48v-0a0.48 0.48 0 0 1 0.48 -0.48zM7.62 9.34h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM10.31 9.34h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM13 9.34h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM7.62 12.03h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM10.31 12.03h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM13 12.03h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM7.62 14.72h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM10.31 14.72h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM13 14.72h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM7.62 17.41h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM10.31 17.41h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM13 17.41h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM15.69 9.34h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM15.69 12.03h0.69a0.69 0.69 0 0 1 0.69 0.69v0.69a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-0.69a0.69 0.69 0 0 1 0.69 -0.69zM15.69 14.72h0.69a0.69 0.69 0 0 1 0.69 0.69v3.38a0.69 0.69 0 0 1 -0.69 0.69h-0.69a0.69 0.69 0 0 1 -0.69 -0.69v-3.38a0.69 0.69 0 0 1 0.69 -0.69z" /></svg>
+    <svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" :d="MARK" /></svg>
   </div>
 </template>

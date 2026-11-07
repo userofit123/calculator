@@ -4,6 +4,7 @@
 // The default is Ember, dark, with the glow background.
 import { reactive, ref, watch } from "vue";
 import { readJson, writeJson } from "./prefs";
+import { markIcon } from "./mark";
 
 type Pal = { L: string[]; D: string[] };
 export const ATM: Record<string, Pal> = {
@@ -110,6 +111,9 @@ function applyTheme() {
     ["--s1", "color-mix(in srgb,var(--tx) " + (d ? "5" : "3") + "%,var(--bg))"], ["--s2", "color-mix(in srgb,var(--tx) " + (d ? "10" : "7") + "%,var(--bg))"],
     ["--ol", "color-mix(in srgb,var(--tx) " + (d ? "13" : "11") + "%,transparent)"]] as [string, string][]).forEach(([p, v]) => r.setProperty(p, v));
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", a[3]!);
+  // the tab icon is the app's logo tile in this look (index.html links the install icon only until this runs)
+  const fav = markIcon(a[0]!, a[4]!, a[5]!);
+  document.querySelector('link[rel="icon"]')?.setAttribute("href", fav);
   try { window.calcApp?.setBars?.(a[3]!, d, a[0]!, a[5]!, getComputedStyle(h).getPropertyValue("--tx").trim()); } catch { /* the bars keep their colour */ }
   if (window.desktopFrame) { h.classList.add("dframe"); try { window.desktopFrame.setTitleBar(a[3]!, ex.tx || XDEF[k]!.tx!); } catch { /* keeps its colours */ } }
   (["outline", "raised", "glass"] as const).forEach((c) => document.body?.classList.toggle(c, theme.surf === c));
@@ -117,7 +121,7 @@ function applyTheme() {
   // everything index.html needs to paint the next open in this look before any code loads: the colours as they are now
   const cs = getComputedStyle(h), V: Record<string, string> = {};
   BOOTVARS.forEach((p) => { V[p] = cs.getPropertyValue(p).trim(); });
-  writeJson("calcBoot", { bg: a[3], d, f: r.getPropertyValue("--font"), v: V });
+  writeJson("calcBoot", { bg: a[3], d, f: r.getPropertyValue("--font"), v: V, i: fav });
 }
 
 // Browsers without view transitions just switch
