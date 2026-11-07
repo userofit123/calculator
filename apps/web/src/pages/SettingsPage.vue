@@ -36,11 +36,13 @@ const rateDate = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString(lo
 
 // --- App & updates (C-27, C-52: Motus's App & Versions) ---
 import { appUpdates, onAndroid, upd, checkNow, download, install, setAuto, setEvery, setAutoDownload, setWifiOnly, askNotify, refreshNotify, EVERY_CHOICES, type Every } from "../core/appUpdate";
-import { pctOf, REPO_URL } from "../core/releases";
+import { pctOf, progressText, REPO_URL } from "../core/releases";
 import { webUpd, checkWebNow, restartWeb } from "../core/update";
 const inApp = appUpdates();
 const isAndroid = onAndroid();
 const onDesktop = !!(globalThis as { calcUpdate?: unknown }).calcUpdate;
+/** the desktop .deb / .rpm: Install asks for the system password, and nothing installs when the app is closed */
+const isPackage = computed(() => upd.kind === "deb" || upd.kind === "rpm");
 if (isAndroid) void refreshNotify();
 const when = (ms: number) => new Date(ms).toLocaleString(locale(), { dateStyle: "medium", timeStyle: "short" });
 /** a GitHub page (the release, all releases, the repository): a link, which the desktop app opens in the browser (its
@@ -48,21 +50,21 @@ const when = (ms: number) => new Date(ms).toLocaleString(locale(), { dateStyle: 
 const openUrl = (u: string) => { if (u) window.open(u, "_blank", "noopener"); };
 const EVERY_OPTIONS = computed(() => EVERY_CHOICES.map((v) => ({ value: v, label: t(`set.every.${v}` as const) })));
 /** what kind of copy this is: "Android app", "Desktop app (AppImage)", "Web app", ... */
-const KINDS: Record<string, "set.kind.android" | "set.kind.appimage" | "set.kind.windows" | "set.kind.package" | "set.kind.dev"> = { android: "set.kind.android", AppImage: "set.kind.appimage", Windows: "set.kind.windows", package: "set.kind.package", dev: "set.kind.dev" };
+const KINDS: Record<string, "set.kind.android" | "set.kind.appimage" | "set.kind.windows" | "set.kind.package" | "set.kind.dev"> = { android: "set.kind.android", AppImage: "set.kind.appimage", Windows: "set.kind.windows", deb: "set.kind.package", rpm: "set.kind.package", package: "set.kind.package", dev: "set.kind.dev" };
 const kindLabel = computed(() => (!inApp ? t("set.kind.web") : KINDS[upd.kind] ? t(KINDS[upd.kind]!) : onDesktop ? t("set.kind.desktop") : t("set.kind.android")));
 const updTitle = computed(() => (upd.checking ? t("set.checking") : upd.error ? tMsg(upd.error) : upd.latest ? (upd.ready ? t("upd.ready", { v: upd.latest }) : t("upd.available", { v: upd.latest }))
   : upd.status && !upd.status.endsWith("is the latest") ? tMsg(upd.status) : upd.lastCheck ? t("set.upToDate") : t("set.notChecked")));
 const updHint = computed(() => {
   if (upd.downloading) return tMsg(upd.status);
   if (upd.latest && upd.mode === "link") return t("set.linkHint");
-  if (upd.latest && upd.ready) return onDesktop ? (upd.autoDownload ? t("set.readyDesktopQuit") : t("set.readyDesktop")) : t("set.readyAndroid");
+  if (upd.latest && upd.ready) return !onDesktop ? t("set.readyAndroid") : isPackage.value ? t("set.readyPackage") : upd.autoDownload ? t("set.readyDesktopQuit") : t("set.readyDesktop");
   if (upd.latest) return t("set.downloadHint");
   return upd.lastCheck ? t("set.checkedAtCap", { when: when(upd.lastCheck) }) : "";
 });
 /** The web app / PWA (C-52): Check now asks its service worker's server; the answer in the same row as the apps' */
-const webTitle = computed(() => (webUpd.checking ? t("set.checking") : webUpd.state === "ready" ? t("set.webReady") : webUpd.state === "latest" ? t("set.upToDate")
+const webTitle = computed(() => (webUpd.state === "downloading" ? t("set.webDownloading") : webUpd.checking ? t("set.checking") : webUpd.state === "ready" ? t("set.webReady") : webUpd.state === "latest" ? t("set.upToDate")
   : webUpd.state === "error" ? t("set.checkFailed") : webUpd.state === "none" ? t("set.webNone") : t("set.webSelf")));
-const webHint = computed(() => (webUpd.checking ? "" : webUpd.state === "ready" ? t("set.webReadyHint") : webUpd.state === "error" ? t("set.checkFailedHint")
+const webHint = computed(() => (webUpd.state === "downloading" ? tMsg(progressText(webUpd.progress)) : webUpd.checking ? "" : webUpd.state === "ready" ? t("set.webReadyHint") : webUpd.state === "error" ? t("set.checkFailedHint")
   : webUpd.state === "none" ? t("set.webNoneHint") : upd.lastCheck ? t("set.checkedAtCap", { when: when(upd.lastCheck) }) : t("set.webUpdates")));
 const checkAny = () => (inApp ? checkNow() : checkWebNow());
 // --- end App & updates ---
@@ -170,7 +172,7 @@ const LANG_OPTIONS = computed(() => [
           <div class="li">
             <Icon name="info" /><div class="grow"><div class="t">{{ t("set.installed") }}</div>
               <div class="s"><bdi>{{ upd.current || version }}</bdi> · {{ kindLabel }}<template v-if="upd.build"> · {{ t("set.build", { b: upd.build }) }}</template></div></div>
-            <button type="button" class="btn o s" :disabled="upd.checking || upd.downloading || webUpd.checking" @click="checkAny()">{{ t("set.checkNow") }}</button>
+            <button type="button" class="btn o s" :disabled="upd.checking || upd.downloading || upd.installing || webUpd.checking || webUpd.state === 'downloading'" @click="checkAny()">{{ t("set.checkNow") }}</button>
           </div>
           <div v-if="inApp" class="li" aria-live="polite">
             <Icon name="download" /><div class="grow"><div class="t">{{ updTitle }}</div>
@@ -179,11 +181,12 @@ const LANG_OPTIONS = computed(() => [
             <template v-if="upd.latest && !upd.checking">
               <button v-if="upd.mode === 'link'" type="button" class="btn s" @click="openUrl(upd.page)">{{ t("set.releasePage") }}</button>
               <button v-else-if="!upd.ready" type="button" class="btn s" :disabled="upd.downloading" @click="download(true)">{{ upd.downloading ? (upd.progress != null ? t("set.pct", { p: pctOf(upd.progress) }) : t("msg.downloading")) : t("set.download") }}</button>
-              <button v-else type="button" class="btn s" @click="install()">{{ onDesktop ? t("set.restartUpdate") : t("set.install") }}</button>
+              <button v-else type="button" class="btn s" :disabled="upd.installing" @click="install()">{{ onDesktop && !isPackage ? t("set.restartUpdate") : t("set.install") }}</button>
             </template>
           </div>
           <div v-else class="li" aria-live="polite">
-            <Icon name="download" /><div class="grow"><div class="t">{{ webTitle }}</div><div v-if="webHint" class="s">{{ webHint }}</div></div>
+            <Icon name="download" /><div class="grow"><div class="t">{{ webTitle }}</div><div v-if="webHint" class="s">{{ webHint }}</div>
+              <div v-if="webUpd.state === 'downloading'" class="pbar" role="progressbar" :aria-label="t('set.progress')" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="webUpd.progress != null ? pctOf(webUpd.progress) : undefined"><i :class="{ busy: webUpd.progress == null }" :style="webUpd.progress != null ? { width: pctOf(webUpd.progress) + '%' } : undefined"></i></div></div>
             <button v-if="webUpd.state === 'ready' && !webUpd.checking" type="button" class="btn s" @click="restartWeb()">{{ t("set.restart") }}</button>
           </div>
         </div>
@@ -206,7 +209,7 @@ const LANG_OPTIONS = computed(() => [
             <AppSelect :model-value="upd.every" :options="EVERY_OPTIONS" :title="t('set.howOften')" @update:model-value="(v: Every) => setEvery(v)" />
           </div>
           <label v-if="upd.auto && upd.mode === 'install'" class="li tg">
-            <Icon name="download" /><div class="grow"><div class="t">{{ t("set.autoDownload") }}</div><div class="s">{{ onDesktop ? t("set.autoDownloadDesktop") : t("set.autoDownloadAndroid") }}</div></div>
+            <Icon name="download" /><div class="grow"><div class="t">{{ t("set.autoDownload") }}</div><div class="s">{{ !onDesktop ? t("set.autoDownloadAndroid") : isPackage ? t("set.autoDownloadPackage") : t("set.autoDownloadDesktop") }}</div></div>
             <input :checked="upd.autoDownload" type="checkbox" @change="setAutoDownload(($event.target as HTMLInputElement).checked)" />
           </label>
           <label v-if="upd.auto && upd.autoDownload && upd.mode === 'install' && upd.canTellMetered" class="li tg">

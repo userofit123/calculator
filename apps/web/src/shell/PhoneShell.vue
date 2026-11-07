@@ -10,6 +10,7 @@ import { swipeBlocked, type SideScroller } from "../core/swipe";
 import Icon from "../components/Icon.vue";
 import UpdateButton from "./UpdateButton.vue";
 import { upd } from "../core/appUpdate";
+import { webUpd } from "../core/update";
 import { t as tr, rtl } from "../core/i18n";
 
 const order = NAV.map((n) => n.name);
@@ -79,7 +80,7 @@ function te(e: TouchEvent) {
 
 <template>
   <div v-if="dframe" id="dragbar" aria-hidden="true" />
-  <div class="pshell" :class="{ hasupd: !!upd.latest }" @touchstart.passive="ts" @touchend.passive="te">
+  <div class="pshell" :class="{ hasupd: !!upd.latest || webUpd.state === 'ready' }" @touchstart.passive="ts" @touchend.passive="te">
     <div class="pmain" role="main"><Transition :name="motion" mode="out-in"><component :is="PAGES[page]" :key="page" /></Transition></div>
     <div class="dock">
       <UpdateButton phone />

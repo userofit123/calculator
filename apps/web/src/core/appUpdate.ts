@@ -11,7 +11,8 @@
 // comes back; "Check now" any time. "No release yet" and "this release has no Android update" are answers, not
 // failures: they count as a check. "Download updates automatically" (on by default, as in Motus) then fetches what a
 // check found in the background (with "Only on Wi-Fi", not on mobile data) and leaves it ready: installing is always the
-// person's tap (Android's installer asks too; the desktop app also installs when it is closed). Nothing here ever pops
+// person's tap (Android's installer asks too, and so does the system's password prompt for the desktop .deb / .rpm; the
+// AppImage and the Windows app also install when they are closed). Nothing here ever pops
 // up or takes focus, so nobody is interrupted mid-typing (C-31).
 import { reactive } from "vue";
 import { readJson, writeJson } from "./prefs";
@@ -21,9 +22,11 @@ import { newer, readRelease, checkAndroidManifest, shareOf, progressText, RELEAS
 /** What the desktop app's preload script exposes (apps/desktop/src/preload.ts). */
 interface DesktopBridge {
   version(): Promise<string>;
-  /** "install": AppImage or Windows installer, electron-updater replaces the app; "link": deb/rpm, the release page. */
+  /** "install": AppImage, Windows installer, .deb or .rpm, electron-updater replaces the app; "link": a development
+   *  copy (or macOS), the release page. */
   mode(): Promise<"install" | "link">;
-  /** what kind of copy this is, for App & updates: "AppImage", "Windows", "mac", "package" (deb/rpm) or "dev" */
+  /** what kind of copy this is, for App & updates: "AppImage", "Windows", "mac", "deb", "rpm", "package" (another
+   *  Linux copy) or "dev" */
   kind?(): Promise<string>;
   latest(): Promise<unknown>;
   /** onQuit: install the download when the app is closed (only when the person chose automatic downloads) */
@@ -63,7 +66,7 @@ export const upd = reactive({
   wifiOnly: saved.wifiOnly === true,
   lastCheck: typeof saved.lastCheck === "number" ? saved.lastCheck : 0,
   current: "",
-  /** what kind of copy: "android", "AppImage", "Windows", "mac", "package", "dev" ("" until known) */
+  /** what kind of copy: "android", "AppImage", "Windows", "mac", "deb", "rpm", "package", "dev" ("" until known) */
   kind: "",
   /** Android's version code, shown as the build */
   build: "",
@@ -78,6 +81,8 @@ export const upd = reactive({
   progress: null as number | null,
   /** the newer version is downloaded and checked, ready to install */
   ready: false,
+  /** Install was tapped and hasn't answered yet (a .deb / .rpm waits for the system's password prompt) */
+  installing: false,
   /** Android: whether it can tell a metered connection (then Only on Wi-Fi shows) */
   canTellMetered: false,
   /** Android: may the app show the download's notification ("granted", "denied", "prompt"; "" elsewhere) */
@@ -241,12 +246,15 @@ export async function download(byHand = false): Promise<void> {
   } finally { h?.remove(); upd.downloading = false; upd.progress = null; }
 }
 
-/** Desktop: closes the app, installs and starts the new version. Android: opens Android's installer, which asks first. */
+/** Desktop: closes the app, installs and starts the new version (a .deb / .rpm after the system's password prompt; when
+ *  that fails the download stays ready and Install can be tapped again). Android: opens Android's installer, which
+ *  asks first. */
 export async function install(): Promise<void> {
-  if (!upd.ready) return;
-  upd.error = "";
+  if (!upd.ready || upd.installing) return;
+  upd.error = ""; upd.installing = true;
   try { const d = desktop(); if (d) await d.install(); else await android()?.install!(); }
   catch (e) { upd.error = said(e, "Could not start the installer"); }
+  finally { upd.installing = false; }
 }
 
 export function setAuto(on: boolean) { upd.auto = on; save(); if (on) void tick(); }

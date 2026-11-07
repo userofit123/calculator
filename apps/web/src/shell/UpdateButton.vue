@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// Shows only in the desktop and Android apps, and only when a newer version was found (Motus's UpdateButton): no badge
-// otherwise. A click opens Settings at App & updates, where the notes, the progress and Download / Install are. In the rail on a
+// Shows only when a newer version was found (Motus's UpdateButton) in the desktop and Android apps, or, in the web app,
+// when a new version is ready and waits for Restart (core/update.ts): no badge otherwise. A click opens Settings at App & updates, where the notes, the progress and Download / Install are. In the rail on a
 // computer, a slim row above the tabs on a phone. Also starts the automatic checks (once, whichever shell mounts first).
 import { nextTick } from "vue";
 import { upd, startAppUpdates } from "../core/appUpdate";
+import { webUpd } from "../core/update";
 import { go } from "./nav";
 import Icon from "../components/Icon.vue";
 import { t } from "../core/i18n";
@@ -24,6 +25,14 @@ function open() {
       <Icon name="download" :size="18" /><span class="grow">{{ upd.ready ? t("upd.ready", { v: upd.latest }) : t("upd.available", { v: upd.latest }) }}</span><b>{{ t("upd.button") }}</b>
     </button>
     <button v-else type="button" class="nb upd" :title="t('upd.available', { v: upd.latest })" :aria-label="t('upd.aria', { v: upd.latest })" @click="open">
+      <span class="ic"><Icon name="download" :size="22" /></span>{{ t("upd.button") }}
+    </button>
+  </template>
+  <template v-else-if="webUpd.state === 'ready'">
+    <button v-if="phone" type="button" class="updrow" @click="open">
+      <Icon name="download" :size="18" /><span class="grow">{{ t("set.webReady") }}</span><b>{{ t("upd.button") }}</b>
+    </button>
+    <button v-else type="button" class="nb upd" :title="t('set.webReady')" :aria-label="t('set.webReady')" @click="open">
       <span class="ic"><Icon name="download" :size="22" /></span>{{ t("upd.button") }}
     </button>
   </template>

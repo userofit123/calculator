@@ -39,29 +39,34 @@ never inside the app, and only a few addresses are allowed (this project's page 
 
 ### Updates
 
-The AppImage and the Windows version update themselves: when a new version is out, an **Update** button appears in the
-menu, and **Settings → App & updates** (the same page as Motus's App & Versions) shows the installed version, what's new,
-the download's progress (a bar with the percentage, also on the taskbar icon) and the settings below. The download comes
-from this project's GitHub release and is checked against the release's `latest-linux.yml` / `latest.yml` (SHA-512)
-before anything is used; **Restart to update** closes the app, installs it and opens the new version. With "Download
-updates automatically" on, the download starts by itself after a check and the update is also installed when you close
-the app; with it off, only your click downloads, and only **Restart to update** installs. The `.deb` and `.rpm` are
-installed by your system's package manager, so there the app only says a new version is out and links to the release
-page: download the new package and open it like the first time.
+Every desktop copy (the AppImage, the Windows version, the `.deb` and the `.rpm`) updates itself: when a new version is
+out, an **Update** button appears in the menu, and **Settings → App & updates** (the same page as Motus's App &
+Versions) shows the installed version, what's new, the download's progress (a bar with the percentage, also on the
+taskbar icon) and the settings below. The download comes from this project's GitHub release and is checked against the
+release's `latest-linux.yml` / `latest.yml` (SHA-512) before anything is used. For the AppImage and Windows,
+**Restart to update** closes the app, installs it and opens the new version; with "Download updates automatically" on,
+the download starts by itself after a check and the update is also installed when you close the app; with it off, only
+your click downloads, and only **Restart to update** installs. For the `.deb` and `.rpm`, **Install** asks for your
+system password (pkexec), installs the downloaded package with `dpkg` / `dnf` (or `zypper`), then opens the new
+version; they are never installed when you close the app, only by that tap. If the password prompt is cancelled or the
+install fails, Settings says so and **Install** can be tapped again. Only a development copy (running from the source)
+links to the release page instead.
 
 Settings → App & updates (desktop and Android, as in Motus):
 
 - **Check for updates automatically** (on): shortly after the app opens, then as often as **How often** says: every
   time the app opens, every 6 hours (the default, as in Motus), once a day or once a week. Off: only **Check now**.
 - **Download updates automatically** (on, as in Motus): what a check finds is downloaded in the background and left
-  ready. Installing is always yours: one tap (Android's installer asks you to confirm), or on the computer also when you
-  close the app.
+  ready. Installing is always yours: one tap (Android's installer asks you to confirm, the `.deb` / `.rpm` ask for your
+  password), or for the AppImage and Windows also when you close the app.
 - **Only on Wi-Fi** (Android, off): an automatic download waits while the phone is on mobile data.
 - **What's new** and **Calculator on GitHub** open the release notes and the source in the browser.
 - Nothing pops up while you work: a found or downloaded update only shows as the Update button and in Settings.
 
-The web app (and the installed PWA) updates itself: the page shows the version and that a new version loads the next
-time you open it, with the links to what's new.
+The web app (and the installed PWA) updates itself through its service worker: **Check now** (or the schedule in **How
+often**) looks for a new version, Settings shows its files downloading with a progress bar, then "A new version is
+ready" with **Restart** (an **Update** button appears in the menu too). Restart switches to it and reloads the page;
+otherwise it applies the next time you open the app, or by itself when the app is idle (never mid-sum).
 
 ### Build it yourself
 

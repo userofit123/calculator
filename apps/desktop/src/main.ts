@@ -167,9 +167,10 @@ ipcMain.on("frame:titlebar", (e, bg: unknown, fg: unknown) => {
 // being made or kept, and githubOnly() strips the header anyway. Downloading is the person's tap or, with "Download
 // updates automatically", the page's request after a check: electron-updater fetches latest.yml / latest-linux.yml and
 // the installer from the release and checks its SHA-512 against latest.yml (its progress reaches the page as a share,
-// validated, over update:progress). It installs on "Restart to update", or when the app is closed only while automatic
-// downloads are on (autoInstallOnAppQuit, update:onQuit). The AppImage and the Windows installer
-// update themselves; the .deb and .rpm are the system's packages, so there the page links to the release page instead.
+// validated, over update:progress). It installs on the person's "Restart to update" / "Install", or for the AppImage and
+// the Windows installer also when the app is closed, only while automatic downloads are on (autoInstallOnAppQuit,
+// update:onQuit). The .deb and .rpm are installed too (electron-updater's DebUpdater / RpmUpdater: dpkg or dnf / zypper
+// through pkexec, which asks for the system password), so for them only the Install tap installs, never a quit.
 const UPDATE_HOSTS = new Set(["api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"]);
 const RELEASES_API = "https://api.github.com/repos/userofit123/calculator/releases/latest";
 const STRIP_HEADERS = new Set(["cookie", "referer", "x-user-staging-id", "accept-language"]);
@@ -186,6 +187,19 @@ function quietUpdater() {
   (autoUpdater as unknown as { getOrCreateStagingUserId: () => Promise<string> }).getOrCreateStagingUserId = async () => "00000000-0000-0000-0000-000000000000";
   autoUpdater.requestHeaders = {};
   try { fs.rmSync(path.join(USER, ".updaterId"), { force: true }); } catch { /* not there */ }
+  // RpmUpdater.doInstall first runs `which zypper`, and spawnSyncLog throws when a command ends with an error, as `which`
+  // does when it finds nothing (Fedora has dnf, no zypper): every .rpm install would fail. A `which` that finds nothing
+  // answers "" instead, so it goes on to `which dnf || which yum` as intended.
+  const u = autoUpdater as unknown as { spawnSyncLog(cmd: string, args?: string[], env?: object): string };
+  const run = u.spawnSyncLog.bind(u);
+  u.spawnSyncLog = (cmd, args = [], env = {}) => { try { return run(cmd, args, env); } catch (e) { if (/^which /.test(cmd)) return ""; throw e; } };
+}
+/** Installs a ready download when the app is closed (AppImage, Windows; never a .deb / .rpm, whose install asks for the
+ *  password). electron-updater adds its quit handler only when a download finishes while this is already on, and it is
+ *  off during every download here, so it is added now. */
+function installOnQuit(on: boolean) {
+  autoUpdater.autoInstallOnAppQuit = on && !!downloaded && !PACKAGE;
+  if (autoUpdater.autoInstallOnAppQuit) (autoUpdater as unknown as { addQuitHandler(): void }).addQuitHandler();
 }
 /** The response's text, refusing anything over `max` bytes (the API's answer is a few kB). */
 async function smallText(r: Response, max: number): Promise<string> {
@@ -214,9 +228,15 @@ function githubOnly(s: Electron.Session) {
   });
   s.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
 }
-// "install": electron-updater can replace this copy (the AppImage, the Windows installer); "link": a .deb / .rpm (or
-// running from the source), which the person updates from the release page
-const updateMode = (): "install" | "link" => (app.isPackaged && (process.platform === "win32" || (process.platform === "linux" && !!process.env.APPIMAGE)) ? "install" : "link");
+// A .deb / .rpm install: electron-builder (FpmTarget) writes resources/package-type ("deb" / "rpm") into those packages
+// only, and electron-updater (main.js, doLoadAutoUpdater) picks DebUpdater / RpmUpdater from it, as read here
+const PACKAGE = ((): "deb" | "rpm" | "" => {
+  if (!app.isPackaged || process.platform !== "linux" || process.env.APPIMAGE) return "";
+  try { const t = fs.readFileSync(path.join(process.resourcesPath, "package-type"), "utf8").trim(); return t === "deb" || t === "rpm" ? t : ""; } catch { return ""; }
+})();
+// "install": electron-updater can replace this copy (the AppImage, the Windows installer, the .deb / .rpm); "link":
+// running from the source (or a macOS copy, which isn't signed), updated from the release page
+const updateMode = (): "install" | "link" => (app.isPackaged && (process.platform === "win32" || (process.platform === "linux" && (!!process.env.APPIMAGE || !!PACKAGE))) ? "install" : "link");
 let checkSession: Electron.Session | null = null;
 let downloaded = "";
 function fromApp(e: Electron.IpcMainInvokeEvent) { return !!win && e.sender === win.webContents && e.senderFrame?.url.startsWith(ORIGIN + "/"); }
@@ -231,12 +251,12 @@ function startUpdates() {
   ipcMain.handle("update:version", (e) => (fromApp(e) ? app.getVersion() : ""));
   ipcMain.handle("update:mode", (e) => (fromApp(e) ? updateMode() : "link"));
   // what kind of copy this is, for Settings → App & updates
-  ipcMain.handle("update:kind", (e) => (!fromApp(e) ? "" : !app.isPackaged ? "dev" : process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "mac" : process.env.APPIMAGE ? "AppImage" : "package"));
+  ipcMain.handle("update:kind", (e) => (!fromApp(e) ? "" : !app.isPackaged ? "dev" : process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "mac" : process.env.APPIMAGE ? "AppImage" : PACKAGE || "package"));
   // install a ready download when the app is closed: only while the person has "Download updates automatically" on
-  // (C-52, as in Money Manager); otherwise only "Restart to update" installs
+  // (C-52, as in Money Manager) and never a .deb / .rpm; otherwise only "Restart to update" / "Install" installs
   ipcMain.handle("update:onQuit", (e, on: unknown) => {
     if (!fromApp(e) || typeof on !== "boolean") throw new Error("Not allowed");
-    autoUpdater.autoInstallOnAppQuit = on && !!downloaded;
+    installOnQuit(on);
   });
   // the release's tag, notes, page and draft flags, read and judged by the page (apps/web/src/core/releases.ts)
   ipcMain.handle("update:latest", async (e) => {
@@ -277,16 +297,23 @@ function startUpdates() {
       // checks the file's SHA-512 against latest.yml; a damaged download fails here
       await autoUpdater.downloadUpdate();
       downloaded = v;
-      // installs when the app is closed only when the person chose automatic downloads
-      autoUpdater.autoInstallOnAppQuit = onQuit === true;
+      // installs when the app is closed only when the person chose automatic downloads (never a .deb / .rpm)
+      installOnQuit(onQuit === true);
     } catch (err) {
       throw new Error((err as Error)?.message?.startsWith("A different") ? (err as Error).message : "The download didn't finish or didn't match: try again");
     } finally { win?.setProgressBar(-1); }
   });
   ipcMain.handle("update:install", (e) => {
     if (!fromApp(e) || !downloaded) throw new Error("Nothing downloaded");
-    // closes the app, installs (the Windows installer silently, the AppImage replaced in place) and starts it again
-    setImmediate(() => autoUpdater.quitAndInstall(true, true));
+    // closes the app, installs (the Windows installer silently, the AppImage replaced in place, the .deb / .rpm through
+    // pkexec, which asks for the password and waits for it) and starts it again. electron-updater reports a failed
+    // install (the password prompt cancelled, dnf / dpkg failing) as an "error" event and keeps the app open and the
+    // download ready, so the page says so and Install can be tapped again.
+    let failed = false;
+    const onError = () => { failed = true; };
+    autoUpdater.on("error", onError);
+    try { autoUpdater.quitAndInstall(true, true); } catch { failed = true; } finally { autoUpdater.removeListener("error", onError); }
+    if (failed) throw new Error("The update wasn't installed: try again");
   });
 }
 

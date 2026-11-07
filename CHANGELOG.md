@@ -6,6 +6,13 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+- The desktop `.deb` and `.rpm` update in the app like the AppImage: the update downloads with a progress bar in
+  Settings, and Install asks for your password, installs it and opens the new version (never on closing the app). A
+  cancelled password prompt or a failed install says so and Install can be tapped again. The web app shows its new
+  version downloading with a progress bar, and an Update button when it is ready to restart.
+- With "Download updates automatically" on, the AppImage and Windows app now really install a ready update when you
+  close the app (the request to do so was set too late to take effect).
+
 ## [0.3.0] - 2026-11-07
 
 - The top of the calculator is a row of tabs: the calculator, named after its type (Basic, Advanced, Financial,

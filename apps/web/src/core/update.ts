@@ -66,10 +66,11 @@ export function startReloadOnMissingFiles() {
 }
 
 /** Settings → App & updates in the web app / PWA (C-52): what Check now found. "": not checked by hand yet; "latest": no
- *  newer version; "ready": a new version is installed and waits (Restart applies it, else the next open does); "error":
+ *  newer version; "downloading": the new version's files are being kept (public/sw.js tells how far: `progress`, 0-1,
+ *  null until known); "ready": a new version is installed and waits (Restart applies it, else the next open does); "error":
  *  the check failed (offline, server not answering); "none": no service worker here (the development server, or a
  *  browser without one), so there is nothing to update. */
-export const webUpd = reactive({ checking: false, state: "" as "" | "latest" | "ready" | "error" | "none" });
+export const webUpd = reactive({ checking: false, state: "" as "" | "latest" | "downloading" | "ready" | "error" | "none", progress: null as number | null });
 let reg: ServiceWorkerRegistration | null = null;
 let asked = false;
 /** Whether a scheduled check of the web app is due (Settings → How often): "open" each time the app is opened or
@@ -99,7 +100,7 @@ export async function checkWebNow(): Promise<void> {
     if ((await settled(reg)) === "redundant") throw new Error("the new version didn't install");
     noteCheck();
     webUpd.state = reg.waiting ? "ready" : "latest";
-  } catch { webUpd.state = "error"; } finally { webUpd.checking = false; }
+  } catch { webUpd.state = "error"; } finally { webUpd.checking = false; webUpd.progress = null; }
 }
 /** Restart in Settings: the waiting version takes over now and the page reloads onto it (the worker agrees only when
  *  this is the app's only window; else it applies the next time the app is opened, as the hint says). */
@@ -121,6 +122,14 @@ export function startUpdates(url: string) {
   stampInput();
   // the worker only takes over early when this is the app's only window, and then this page reloads onto it right away
   sw.addEventListener("controllerchange", () => { if (asked) location.reload(); });
+  // how far a new version's worker is with keeping its files (public/sw.js, precache): only an update counts, not the
+  // very first install (no worker controls this page yet), and only a sensible share
+  sw.addEventListener("message", (e) => {
+    const p = (e.data as { calcInstall?: unknown } | null)?.calcInstall;
+    if (!sw.controller || webUpd.state === "ready" || typeof p !== "number" || !Number.isFinite(p) || p < 0 || p > 1) return;
+    webUpd.state = "downloading"; webUpd.progress = p;
+  });
+  sw.startMessages();
   addEventListener("load", () => {
     sw.register(url, { updateViaCache: "none" }).then((r) => {
       reg = r;
@@ -141,7 +150,11 @@ export function startUpdates(url: string) {
       };
       const track = (w: ServiceWorker | null) => {
         if (!w) return;
-        w.addEventListener("statechange", () => { if (w.state === "installed") { if (r.waiting) webUpd.state = "ready"; watchWaiting(); } });
+        w.addEventListener("statechange", () => {
+          if (w.state === "installed") { webUpd.progress = null; if (r.waiting) webUpd.state = "ready"; watchWaiting(); }
+          // the new version couldn't be kept (Check now says so; otherwise the next check tries again)
+          else if (w.state === "redundant" && webUpd.state === "downloading") { webUpd.state = ""; webUpd.progress = null; }
+        });
       };
       if (r.waiting) { webUpd.state = "ready"; watchWaiting(); }
       track(r.installing);

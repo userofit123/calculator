@@ -24,9 +24,31 @@ const BASE = new URL("./", location.href).pathname;
 
 self.addEventListener("install", (e) => {
   if (DEV) { self.skipWaiting(); return; }
-  // "reload": straight from the server, never an older copy from the browser's own cache
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: "reload" })))));
+  e.waitUntil(precache());
 });
+
+/** Keeps every file of this version, a few at a time, telling the app's open windows how far it is ({ calcInstall: share
+ *  0-1 }, for the progress bar in Settings → App & updates). All or nothing, as cache.addAll was: a file that can't be
+ *  had fails the install and drops what was kept, so the next check starts again. */
+async function precache() {
+  const c = await caches.open(CACHE);
+  const todo = [...FILES];
+  let done = 0;
+  const tell = async () => {
+    for (const w of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) w.postMessage({ calcInstall: done / FILES.length });
+  };
+  const worker = async () => {
+    for (let f = todo.shift(); f !== undefined; f = todo.shift()) {
+      // "reload": straight from the server, never an older copy from the browser's own cache
+      const r = await fetch(new Request(f, { cache: "reload" }));
+      if (!r.ok) throw new Error("not kept: " + f);
+      await c.put(f, r);
+      done++;
+      void tell();
+    }
+  };
+  try { await Promise.all(Array.from({ length: 6 }, worker)); } catch (err) { await caches.delete(CACHE); throw err; }
+}
 
 self.addEventListener("message", (e) => {
   if (e.data !== "skip") return;
