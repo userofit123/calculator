@@ -112,7 +112,7 @@ function applyTheme() {
     ["--ol", "color-mix(in srgb,var(--tx) " + (d ? "13" : "11") + "%,transparent)"]] as [string, string][]).forEach(([p, v]) => r.setProperty(p, v));
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", a[3]!);
   // the tab icon is the app's logo tile in this look (index.html links the install icon only until this runs)
-  const fav = markIcon(a[0]!, a[4]!, a[5]!);
+  const fav = markIcon(a[0]!, a[4]!, a[5]!, String(theme.rad));
   document.querySelector('link[rel="icon"]')?.setAttribute("href", fav);
   try { window.calcApp?.setBars?.(a[3]!, d, a[0]!, a[5]!, getComputedStyle(h).getPropertyValue("--tx").trim()); } catch { /* the bars keep their colour */ }
   if (window.desktopFrame) { h.classList.add("dframe"); try { window.desktopFrame.setTitleBar(a[3]!, ex.tx || XDEF[k]!.tx!); } catch { /* keeps its colours */ } }
