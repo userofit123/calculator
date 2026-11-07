@@ -14,8 +14,7 @@
     "build": "node build.mjs",
     "start": "node build.mjs && electron .",
     "typecheck": "tsc --noEmit",
-    "dist": "pnpm run web && node build.mjs && electron-builder --publish never",
-    "dist:linux": "pnpm run web && node build.mjs && electron-builder --linux --publish never",
+    "dist:linux": "pnpm run web && node build.mjs && electron-builder --linux --publish never -c.productName=userofit123-calculator",
     "dist:win": "pnpm run web && node build.mjs && electron-builder --win --publish never"
   },
   "dependencies": {
@@ -31,8 +30,6 @@
   },
   "build": {
     "appId": "io.github.userofit123.calculator",
-    "productName": "userofit123-calculator",
-    "executableName": "userofit123-calculator",
     "artifactName": "calculator-${version}-${arch}.${ext}",
     "copyright": "userofit123",
     "directories": {
@@ -59,6 +56,7 @@
       "releaseType": "release"
     },
     "linux": {
+      "executableName": "userofit123-calculator",
       "target": [
         "AppImage",
         "deb",

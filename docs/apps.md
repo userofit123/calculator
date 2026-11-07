@@ -78,12 +78,21 @@ pnpm run dist:win     # release/calculator-*-setup.exe (on Windows, or Linux wit
 pnpm start            # runs it from the source (after `pnpm run web`)
 ```
 
-The app's own names are specific to it so it does not clash with another calculator: `userofit123-calculator` for the
-program, the package, the icon and the install folder (`/opt/userofit123-calculator` for the .deb and .rpm), and
-`io.github.userofit123.calculator` for the data folder under the user's config directory. The name people see is
-"Calculator". electron-builder takes the `/opt` folder from `build.productName` (there is no separate option), so that
-is set to `userofit123-calculator`, while the packaged `package.json` keeps `productName: "Calculator"` (the app's
-runtime name). Electron 45 takes the window's X11 WM_CLASS and Wayland app_id from `desktopName`
+The name people see is "Calculator" everywhere: the Windows installer's title, its install folder
+(`%LOCALAPPDATA%\Programs\Calculator`), the program (`Calculator.exe`, also the name in Task Manager), the Start menu
+shortcut and the uninstall entry, and on Linux the menu entry. electron-builder takes all of these from `productName`
+(top level of apps/desktop/package.json). A Windows copy installed before keeps its old folder on update: the installer
+reuses the folder it finds in the registry under the app id, so it updates in place.
+
+On Linux the app's own names stay specific to it so they do not clash with another calculator: `userofit123-calculator`
+for the program, the .deb / .rpm package, the icon and the install folder (`/opt/userofit123-calculator`), and
+`io.github.userofit123.calculator` for the data folder under the user's config directory (on every system). The /opt
+folder comes from `productName` too (there is no separate option), so every Linux build passes
+`-c.productName=userofit123-calculator` (`pnpm run dist:linux`, the release and CI workflows); the packaged
+`package.json` keeps `productName: "Calculator"` (the app's runtime name). The package name is kept rather than renamed
+to `calculator`: a renamed package would install beside the old one, and replacing it (Conflicts / Obsoletes) would run
+the old package's remove script after the new one is installed on rpm systems, deleting the `/usr/bin` link and the
+AppArmor profile they share. Electron 45 takes the window's X11 WM_CLASS and Wayland app_id from `desktopName`
 (`userofit123-calculator.desktop`), so they are `userofit123-calculator`, the same as the menu entry's file name and its
 `StartupWMClass`: that is how the dock, taskbar and alt-tab find the entry and its icon (without `desktopName` the
 window was `calculator` and matched nothing). The menu entry pins `Name` to "Calculator" and the Windows installer pins
@@ -101,7 +110,7 @@ Building the Linux packages in a container (needs no tools on the computer):
 
 ```sh
 docker run --rm -u 1000:1000 -v "$PWD":/repo -w /repo/apps/desktop -e HOME=/tmp \
-  electronuserland/builder:20 bash -c "node build.mjs && ./node_modules/.bin/electron-builder --linux --publish never"
+  electronuserland/builder:20 bash -c "node build.mjs && ./node_modules/.bin/electron-builder --linux --publish never -c.productName=userofit123-calculator"
 ```
 
 ## Android

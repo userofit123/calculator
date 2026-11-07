@@ -6,6 +6,9 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+- The Windows installer, its install folder and the program are called "Calculator" (they were
+  "userofit123-calculator"). An installed copy updates in place.
+
 ## [0.3.1] - 2026-11-07
 
 - The desktop `.deb` and `.rpm` update in the app like the AppImage: the update downloads with a progress bar in

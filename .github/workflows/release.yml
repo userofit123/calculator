@@ -82,8 +82,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: ubuntu-latest, target: --linux, files: "release/*.AppImage release/*.deb release/*.rpm", feed: release/latest-linux.yml }
-          - { os: windows-latest, target: --win, files: "release/*-setup.exe", feed: release/latest.yml }
+          # name: the Linux packages keep their own folder, /opt/userofit123-calculator (electron-builder names it after
+          # productName, which is "Calculator" everywhere else: the Windows installer, its folder and the program)
+          - { os: ubuntu-latest, target: --linux, name: -c.productName=userofit123-calculator, files: "release/*.AppImage release/*.deb release/*.rpm", feed: release/latest-linux.yml }
+          - { os: windows-latest, target: --win, name: "", files: "release/*-setup.exe", feed: release/latest.yml }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -103,7 +105,7 @@ jobs:
         run: |
           npm pkg set version=${{ needs.version.outputs.version }}
           node build.mjs
-          npx electron-builder ${{ matrix.target }} --publish never
+          npx electron-builder ${{ matrix.target }} --publish never ${{ matrix.name }}
           mkdir -p "$GITHUB_WORKSPACE/out"
           cp ${{ matrix.files }} "$GITHUB_WORKSPACE/out/"
           # the in-app updater's feed (electron-updater reads latest.yml / latest-linux.yml from the release: version,

@@ -58,4 +58,4 @@ jobs:
         working-directory: apps/desktop
         run: |
           node build.mjs
-          npx electron-builder --linux dir --publish never
+          npx electron-builder --linux dir --publish never -c.productName=userofit123-calculator
