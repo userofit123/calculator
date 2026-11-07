@@ -6,6 +6,8 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+- New app icon: a navy calculator with a light display, rounded keys and amber operator keys on a lime-to-teal tile.
+
 ## [0.2.0] - 2026-11-06
 
 - New app icon: a cleaner calculator on a mint-to-blue tile.
