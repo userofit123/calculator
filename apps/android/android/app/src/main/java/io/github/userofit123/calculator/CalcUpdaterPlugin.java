@@ -108,9 +108,12 @@ public class CalcUpdaterPlugin extends Plugin {
         } catch (Exception e) { return false; }
     }
 
-    private File dir() { File d = new File(getContext().getCacheDir(), "updates"); d.mkdirs(); return d; }
+    private File dir() { return dir(getContext()); }
     private File apk() { return new File(dir(), "update.apk"); }
-    private SharedPreferences prefs() { return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
+    private SharedPreferences prefs() { return prefs(getContext()); }
+    // the Context-taking forms are for the download thread: it must hold the application context, never the Activity
+    private static File dir(Context ctx) { File d = new File(ctx.getCacheDir(), "updates"); d.mkdirs(); return d; }
+    private static SharedPreferences prefs(Context ctx) { return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
 
     /** Opens a GET to GitHub, following redirects by hand so every hop is https to one of HOSTS. */
     private static HttpURLConnection open(String address) throws Exception {
@@ -214,18 +217,20 @@ public class CalcUpdaterPlugin extends Plugin {
 
     /** Why the downloaded file must not be installed, or null when it is this app, `version`, newer, and signed like this one. */
     @SuppressWarnings("deprecation")
-    private String refuse(File f, String version) {
+    private String refuse(File f, String version) { return refuse(getContext(), f, version); }
+
+    private static String refuse(Context ctx, File f, String version) {
         try {
-            PackageManager pm = getContext().getPackageManager();
+            PackageManager pm = ctx.getPackageManager();
             PackageInfo got = pm.getPackageArchiveInfo(f.getAbsolutePath(), sigFlags());
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && got != null && got.signingInfo == null) {
                 // some Android versions fill only the older field for a file that isn't installed
                 got = pm.getPackageArchiveInfo(f.getAbsolutePath(), PackageManager.GET_SIGNATURES);
             }
             if (got == null) return "The download is not an app";
-            if (!getContext().getPackageName().equals(got.packageName)) return "The download is not Calculator";
+            if (!ctx.getPackageName().equals(got.packageName)) return "The download is not Calculator";
             if (version != null && !version.equals(got.versionName)) return "The download is not version " + version;
-            PackageInfo mine = pm.getPackageInfo(getContext().getPackageName(), sigFlags());
+            PackageInfo mine = pm.getPackageInfo(ctx.getPackageName(), sigFlags());
             if (code(got) <= code(mine)) return "The download is not newer than this version";
             boolean[] gm = {false}, mm = {false};
             Set<String> a = signers(got, gm), b = signers(mine, mm);
@@ -252,9 +257,10 @@ public class CalcUpdaterPlugin extends Plugin {
         synchronized (Job.class) { job = me; }
         final Context ctx = getContext().getApplicationContext();
         channel(ctx, tx.channel);
-        final File part = new File(dir(), "update.apk.part"), out = apk();
+        final File part = new File(dir(ctx), "update.apk.part"), out = new File(dir(ctx), "update.apk");
+        final SharedPreferences store = prefs(ctx);
         part.delete(); out.delete();
-        prefs().edit().clear().apply();
+        store.edit().clear().apply();
         NotificationManagerCompat.from(ctx).cancel(DONE_ID);
         notice(ctx, tx.downloading, "0%", 0, true, false);
         // started here, from the person's tap (or an automatic download while the app is open): Android 12+ allows
@@ -263,6 +269,7 @@ public class CalcUpdaterPlugin extends Plugin {
         new Thread(() -> {
             HttpURLConnection c = null;
             String failed = null;
+            boolean ok = false;
             try {
                 c = open(url);
                 if (c.getResponseCode() != 200) throw new Exception("status");
@@ -284,28 +291,34 @@ public class CalcUpdaterPlugin extends Plugin {
                 }
                 if (done != size) throw new SecurityException("The download is incomplete");
                 if (!sha.equalsIgnoreCase(hex(md.digest()))) throw new SecurityException("The download is damaged (its checksum doesn't match)");
-                String why = refuse(part, version);
+                String why = refuse(ctx, part, version);
                 if (why != null) throw new SecurityException(why);
                 if (!part.renameTo(out)) throw new Exception("rename");
-                prefs().edit().putString(K_VERSION, version).putString(K_SHA, sha.toLowerCase()).apply();
+                store.edit().putString(K_VERSION, version).putString(K_SHA, sha.toLowerCase()).apply();
+                ok = true;
             } catch (SecurityException e) {
                 part.delete(); out.delete();
                 failed = e.getMessage();
             } catch (Exception e) {
                 part.delete(); out.delete();
                 failed = "The download didn't finish: try again";
+            } catch (Throwable e) {
+                // an Error (out of memory, ...) is not success either
+                failed = "The download didn't finish: try again";
             } finally {
+                if (!ok) { part.delete(); out.delete(); if (failed == null) failed = "The download didn't finish: try again"; }
                 if (c != null) c.disconnect();
                 PluginCall to;
                 synchronized (Job.class) { to = me.call; job = null; }
-                BUSY.set(false);
                 UpdateDownloadService.end();
                 running = null;
                 NotificationManagerCompat.from(ctx).cancel(NOTICE_ID);
                 // checked: the tap goes straight to Android's installer (through install()'s checks once more)
-                if (failed == null) notice(ctx, tx.ready, tx.readyText, 0, false, true);
+                if (ok) notice(ctx, tx.ready, tx.readyText, 0, false, true);
                 else notice(ctx, tx.failed, tx.failedText, 0, false, false);
-                if (to != null) { if (failed == null) to.resolve(); else to.reject(failed); }
+                // last, so a new download can't start while this one is still cleaning up
+                BUSY.set(false);
+                if (to != null) { if (ok) to.resolve(); else to.reject(failed); }
             }
         }).start();
     }
@@ -324,8 +337,15 @@ public class CalcUpdaterPlugin extends Plugin {
      *  download runs any more (the page then asks staged() again). */
     @PluginMethod
     public void attach(PluginCall call) {
+        PluginCall previous = null;
+        boolean following = false;
         synchronized (Job.class) {
-            if (job != null) { job.call = call; job.page = this; return; }
+            if (job != null) { previous = job.call; job.call = call; job.page = this; following = true; }
+        }
+        if (following) {
+            // the call being replaced would never settle: tell it the download is no longer followed through it
+            if (previous != null) { JSObject o = new JSObject(); o.put("idle", true); previous.resolve(o); }
+            return;
         }
         JSObject r = new JSObject();
         r.put("idle", true);
@@ -462,7 +482,11 @@ public class CalcUpdaterPlugin extends Plugin {
     static Notification runningNotice(Context ctx) {
         Notification n = running;
         if (n != null) return n;
-        channel(ctx, "App updates");
+        // only when missing: creating it again would rename a channel the app already named in the person's language
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null && nm.getNotificationChannel(CHANNEL) == null) channel(ctx, "App updates");
+        }
         return new NotificationCompat.Builder(ctx, CHANNEL).setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle("Downloading Calculator").setProgress(100, 0, true).setOngoing(true).setSilent(true).setShowWhen(false).build();
     }

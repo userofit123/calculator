@@ -60,7 +60,7 @@ public class UpdateDownloadService extends Service {
         stopSelf();
     }
 
-    /** Android 15+ ends a data-sync service after 6 hours: it stops (the download carries on as long as Android lets it). */
+    /** Android 15's 6-hour data-sync limit calls this, but only for apps targeting SDK 35+; harmless until then. It stops the service. */
     public void onTimeout(int startId, int fgsType) {
         synchronized (LOCK) { if (live == this) live = null; }
         quit();
