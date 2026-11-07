@@ -34,14 +34,22 @@ function place(animate: boolean) {
   anim = p.animate([{ transform: set(from) }, { transform: set(mid, 1.3), offset: 0.45 }, { transform: set(to) }], { duration: dur(3), easing: "cubic-bezier(.4,0,.2,1)" });
 }
 watch(page, () => nextTick(() => place(true)));
+// The pill is placed in pixels, so it is placed again whenever the bar or a tab changes size for any reason, not only
+// when the window does: the fixed dock narrows when the page gets a scrollbar (no resize event), and density, spacing,
+// fonts, labels and the screen's safe areas all move the icons. Direction and corner shape move or reshape the pill
+// without resizing anything, so those are watched as well.
 const onResize = () => place(false);
-let mo: MutationObserver | null = null;
+let ro: ResizeObserver | null = null, mo: MutationObserver | null = null;
 onMounted(() => {
-  nextTick(() => place(false)); addEventListener("resize", onResize);
-  mo = new MutationObserver(onResize); mo.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "data-rad", "data-fnt"] });
-  document.fonts?.ready.then(onResize);
+  nextTick(() => place(false));
+  const tb = bar.value;
+  if (tb && typeof ResizeObserver !== "undefined") {
+    ro = new ResizeObserver(onResize); ro.observe(tb);
+    tb.querySelectorAll<HTMLElement>("button, button .ic").forEach((e) => ro!.observe(e));
+  }
+  mo = new MutationObserver(onResize); mo.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "data-rad"] });
 });
-onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(); });
+onBeforeUnmount(() => { ro?.disconnect(); mo?.disconnect(); });
 // the desktop app: the page draws the title strip that drags the window (styles/layout.css, html.dframe)
 const dframe = typeof window !== "undefined" && !!window.desktopFrame;
 
