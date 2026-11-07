@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Alltagshelfer",
-  "every.tab.percent": "Prozent",
-  "every.tab.discount": "Rabatt",
-  "every.tab.tip": "Trinkgeld",
-  "every.tab.vat": "MwSt.",
   "every.result": "Ergebnis",
   "every.up": "Zunahme",
   "every.down": "Abnahme",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Angebotspreis",
   "every.save": "Ersparnis",
   "every.offAll": "Rabatt gesamt",
-  "every.withVat": "Mit MwSt.",
-  "every.withoutVat": "Ohne MwSt.",
-  "every.vat": "MwSt.",
   "every.copyRow": "{label} kopieren",
   "every.rounded": "Für die Anzeige gerundet",
   "every.inexact": "Aus einer ungenauen Eingabe",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "optional",
   "every.discNote": "Ein zweiter Rabatt wird vom bereits reduzierten Preis abgezogen: 20 % und dann 10 % sind 28 % Rabatt. Ein Nachlass kommt zuletzt.",
   "every.enterPrice": "Preis und Rabatt eingeben.",
-  "every.addVat": "MwSt. hinzufügen",
-  "every.removeVat": "MwSt. herausrechnen",
-  "every.amountWith": "Betrag mit MwSt.",
-  "every.amountWithout": "Betrag ohne MwSt.",
-  "every.rate": "MwSt.-Satz %",
-  "every.rateKept": "Der Satz wird für das nächste Mal gespeichert.",
-  "every.enterAmount": "Betrag und Satz eingeben.",
 };

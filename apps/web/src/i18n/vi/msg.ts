@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "Hóa đơn phải từ 0 trở lên",
   "msg.offNeg": "Số tiền giảm phải từ 0 trở lên",
   "msg.priceNeg": "Giá phải từ 0 trở lên",
-  "msg.rateNeg": "Tỷ lệ phải từ 0% trở lên",
   "msg.tipNeg": "Tiền boa phải từ 0% trở lên",
   "msg.notExact": "Không chính xác tuyệt đối, nên hiển thị dạng thập phân",
   "msg.denOver": "Mẫu số lớn hơn 1.000.000, nên hiển thị dạng thập phân",

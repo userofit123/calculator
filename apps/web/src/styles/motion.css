@@ -76,7 +76,7 @@ html:not(.phone) .sht, html:not(.phone) .scr.leaving .sht { animation-name: shpo
 .row-move { transition: transform var(--dur-3) var(--ease); }
 
 /* ---------- things that appear later on a page rise in ---------- */
-/* (a Date or Everyday tab's forms, Programming's bases and bits, the Update button, a note under the answer). Only
+/* (a Date tab's forms, Programming's bases and bits, the Update button, a note under the answer). Only
    elements put on the page after it was drawn: @starting-style applies to an element's first style only. */
 html.mo :is(.dgrid, .egrid, .pbases, .pbits, .updrow, .nb.upd, .cnote, .verr, .cvrates .s, .krow) {
   transition: opacity var(--dur-3) var(--ease), translate var(--dur-3) var(--ease);

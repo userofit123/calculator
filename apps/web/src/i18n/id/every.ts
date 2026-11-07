@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Bantuan sehari-hari",
-  "every.tab.percent": "Persen",
-  "every.tab.discount": "Diskon",
-  "every.tab.tip": "Tip & patungan",
-  "every.tab.vat": "PPN",
   "every.result": "Hasil",
   "every.up": "Kenaikan",
   "every.down": "Penurunan",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Harga diskon",
   "every.save": "Anda hemat",
   "every.offAll": "Total potongan",
-  "every.withVat": "Termasuk PPN",
-  "every.withoutVat": "Tanpa PPN",
-  "every.vat": "PPN",
   "every.copyRow": "Salin {label}",
   "every.rounded": "Dibulatkan untuk tampilan",
   "every.inexact": "Dari input yang tidak eksak",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "opsional",
   "every.discNote": "Diskon kedua dipotong dari harga yang sudah dikurangi: 20% lalu 10% berarti potongan 28%. Potongan nominal diterapkan terakhir.",
   "every.enterPrice": "Masukkan harga dan diskon.",
-  "every.addVat": "Tambah PPN",
-  "every.removeVat": "Hapus PPN",
-  "every.amountWith": "Jumlah termasuk PPN",
-  "every.amountWithout": "Jumlah tanpa PPN",
-  "every.rate": "Tarif PPN %",
-  "every.rateKept": "Tarif diingat untuk lain kali.",
-  "every.enterAmount": "Masukkan jumlah dan tarif.",
 };

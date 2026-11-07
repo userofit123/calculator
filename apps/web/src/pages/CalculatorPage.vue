@@ -8,9 +8,10 @@
 // Keyboard has no keys: earlier lines above one line to type whole sums in (KeyboardCalc: small, in the main bundle, as
 // a computer's first open starts in it).
 // Date has no display or keys: its forms (DateCalc, loaded when chosen) take their place, under the same mode switch.
-// Tip is a form the same way (TipCalc, loaded when chosen), always listed; Everyday's tip tab shows the same form.
+// Percent, Discount (PercentCalc) and Tip & Split (TipCalc) are forms the same way, loaded when chosen. Shortcuts to
+// chosen modes (Tip & Split, Discount and Percent unless changed in Settings) sit next to the mode menu (C-66).
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, chooseStartMode, formMode, answerNote, withUnit, modeLabel as modeName, modeHint } from "../core/calc";
+import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, shortcuts, chooseStartMode, formMode, answerNote, withUnit, modeLabel as modeName, modeHint } from "../core/calc";
 import { t, type Key } from "../core/i18n";
 import { tMsg } from "../core/msg";
 import { isPhone } from "../core/device";
@@ -31,8 +32,7 @@ const varsOpen = ref(false);
 const FinPad = defineAsyncComponent(() => import("../components/FinPad.vue"));
 const DateCalc = defineAsyncComponent(() => import("../components/DateCalc.vue"));
 const TipCalc = defineAsyncComponent(() => import("../components/TipCalc.vue"));
-// Everyday helpers (percent, discount, tip, VAT): forms like Date, only when switched on in Settings
-const EverydayCalc = defineAsyncComponent(() => import("../components/EverydayCalc.vue"));
+const PercentCalc = defineAsyncComponent(() => import("../components/PercentCalc.vue"));
 
 // kind: n = number, op = operator (accent tint), fn = function (quiet), eq = the one filled key
 type Kind = "n" | "op" | "fn" | "eq";
@@ -86,6 +86,7 @@ function fkey(k: string) {
 
 const modeItems = computed(() => MODES.map((m) => ({ label: modeName(m.id), hint: modeHint(m.id), checked: calc.mode === m.id, run: () => { calc.mode = m.id; } })));
 const modeLabel = computed(() => modeName(calc.mode));
+const shortcutModes = computed(() => (shortcuts.on ? shortcuts.modes : []));
 const adv = computed(() => calc.mode === "advanced");
 const progMode = computed(() => calc.mode === "programming");
 const fin = computed(() => calc.mode === "financial");
@@ -118,7 +119,7 @@ const bigShown = computed(() => (calc.error ? tMsg(calc.error) : big.value));
 const announce = ref("");
 watch(() => [calc.answer, calc.error, calc.unit] as const, ([a, e]) => {
   announce.value = "";
-  if (kbd.value || !a && !e) return; // Keyboard mode announces its own answers (KeyboardCalc); Date / Tip / Everyday forms are separate, their cards are live regions
+  if (kbd.value || !a && !e) return; // Keyboard mode announces its own answers (KeyboardCalc); Date / Percent / Discount / Tip & Split forms are separate, their cards are live regions
   const said = e ? t("calc.sayError", { e: tMsg(e) }) : t("calc.sayEquals", { x: speak(show(withUnit(a, calc.unit))) });
   setTimeout(() => { announce.value = said; }, 60);
 });
@@ -177,6 +178,8 @@ const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".c
 const onKeyUp = (e: KeyboardEvent) => { if (e.key === " " && onPadKey(e)) e.preventDefault(); };
 function onKey(e: KeyboardEvent) {
   if (busy(e) || dateMode.value || kbd.value) return; // Keyboard mode's line takes the keys (KeyboardCalc)
+  // Enter on a focused mode shortcut chooses it (it would otherwise be =)
+  if (e.key === "Enter" && (e.target as HTMLElement).closest?.(".cshort")) return;
   if (e.key === " " && !e.ctrlKey) {
     // on the keys, or with nothing focused, Space after a word types one (5km in mi); otherwise it is left alone
     if (onPadKey(e) || e.target === document.body) { e.preventDefault(); press(" "); }
@@ -220,9 +223,12 @@ async function copyAnswer() {
     <div class="sr" aria-live="polite" aria-atomic="true">{{ announce }}</div>
     <div class="calc-top">
       <Menu :items="modeItems" :text="modeLabel" :label="t('calc.mode')" align="start" />
+      <div v-if="shortcutModes.length" class="cshort" role="group" :aria-label="t('calc.shortcuts')">
+        <button v-for="m in shortcutModes" :key="m" type="button" class="cflag csc" :class="{ on: calc.mode === m }" :aria-pressed="calc.mode === m" :title="modeHint(m)" @click="calc.mode = m">{{ modeName(m) }}</button>
+      </div>
       <button v-if="adv || kbd" type="button" class="cvars" @click="varsOpen = true">{{ t("calc.vars") }}</button>
     </div>
-    <EverydayCalc v-if="calc.mode === 'everyday'" />
+    <PercentCalc v-if="calc.mode === 'percent' || calc.mode === 'discount'" :tool="calc.mode" />
     <TipCalc v-else-if="calc.mode === 'tip'" />
     <DateCalc v-else-if="dateMode" />
     <KeyboardCalc v-else-if="kbd" />

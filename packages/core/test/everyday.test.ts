@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  readNumber, round2, ceilQ, money, plain, percentOf, whatPercent, percentChange, addPercent, discount, tipSplit, vat, failed, type Q,
+  readNumber, round2, ceilQ, money, plain, percentOf, whatPercent, percentChange, addPercent, discount, tipSplit, failed, type Q,
 } from "../src";
 import { parseDecimal } from "../src/rational";
 
@@ -74,13 +74,4 @@ describe("tip and split", () => {
   it("rounding up a whole share adds nothing", () => expect(ok(tipSplit(D("90"), D("0"), D("3"), true)).extra).toEqual(D("0")));
   it("people must be a whole number", () => { expect(failed(tipSplit(D("10"), D("10"), D("2.5")))).toBe(true); expect(failed(tipSplit(D("10"), D("10"), D("0")))).toBe(true); });
   it("negative bill or tip is an error", () => { expect(failed(tipSplit(D("-10"), D("10")))).toBe(true); expect(failed(tipSplit(D("10"), D("-1")))).toBe(true); });
-});
-
-describe("VAT", () => {
-  it("add 20% to 100", () => expect(ok(vat(D("100"), D("20"), "add"))).toEqual({ net: D("100"), vat: D("20"), gross: D("120") }));
-  it("remove 20% from 120", () => expect(ok(vat(D("120"), D("20"), "remove"))).toEqual({ net: D("100"), vat: D("20"), gross: D("120") }));
-  it("remove 19% from 100 rounds for display", () => { const r = ok(vat(D("100"), D("19"), "remove")); expect(M(r.net)).toBe("84.03"); expect(M(r.vat)).toBe("15.97"); expect(money(r.net).rounded).toBe(true); });
-  it("net + VAT is always the gross exactly", () => { const r = ok(vat(D("59.99"), D("7.7"), "remove")); expect(r.gross).toEqual(D("59.99")); expect(M(r.net)).toBe("55.70"); });
-  it("0% rate", () => expect(ok(vat(D("10"), D("0"), "add")).vat).toEqual(D("0")));
-  it("a negative rate is an error", () => expect(failed(vat(D("10"), D("-5"), "add"))).toBe(true));
 });

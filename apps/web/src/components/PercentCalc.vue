@@ -1,40 +1,34 @@
 <script setup lang="ts">
-// Calculator's Everyday mode (loaded only when chosen, and listed only when switched on in Settings): percentages,
-// discounts, tip and splitting a bill, VAT. Results follow as you type. Every field takes an expression ("12.50 + 8.20")
-// in the user's decimal mark; the maths is in @calc/core (everyday.ts), exact, with money rounded to 2 decimals only
-// for display (a note says so). What was typed is remembered on this device, the VAT rate included.
+// The Calculator's Percent and Discount modes (loaded only when chosen; Everyday mode's tabs before C-66): percentages,
+// and a price after discounts. Results follow as you type. Every field takes an expression ("12.50 + 8.20") in the
+// user's decimal mark; the maths is in @calc/core (everyday.ts), exact, with money rounded to 2 decimals only for
+// display (a note says so). What was typed is remembered on this device.
 import { computed, reactive, watch } from "vue";
 import {
-  readNumber, money, plain, percentOf, whatPercent, percentChange, addPercent, discount, vat, formatDisplay, type Q, type Fail,
+  readNumber, money, plain, percentOf, whatPercent, percentChange, addPercent, discount, formatDisplay, type Q, type Fail,
 } from "@calc/core";
 import { settings } from "../core/calc";
 import { isPhone } from "../core/device";
-import { lower, t, type Key, useTexts } from "../core/i18n";
+import { lower, t, useTexts } from "../core/i18n";
 import { every as texts } from "../i18n/en/every";
 // this part loads lazily: its English texts come with it
 useTexts(texts);
 import { tMsg } from "../core/msg";
 import { readJson, writeJson } from "../core/prefs";
 import { toast } from "../core/toast";
-// the tip tab is the Tip mode's own form, so there is one tip calculator
-import TipCalc from "./TipCalc.vue";
-
-type Tab = "percent" | "discount" | "tip" | "vat";
-const TABS: [Tab, Key][] = [["percent", "every.tab.percent"], ["discount", "every.tab.discount"], ["tip", "every.tab.tip"], ["vat", "every.tab.vat"]];
+/** which mode's forms: Percent or Discount */
+defineProps<{ tool: "percent" | "discount" }>();
 
 interface Kept {
-  tab: Tab; ofX: string; ofY: string; whatX: string; whatY: string; chA: string; chB: string; pmA: string; pmX: string; pmSub: boolean;
+  ofX: string; ofY: string; whatX: string; whatY: string; chA: string; chB: string; pmA: string; pmX: string; pmSub: boolean;
   price: string; off1: string; off2: string; offAmt: string;
-  amount: string; rate: string; vatRemove: boolean;
 }
-const DEF: Kept = {
-  tab: "percent", ofX: "", ofY: "", whatX: "", whatY: "", chA: "", chB: "", pmA: "", pmX: "", pmSub: false,
-  price: "", off1: "", off2: "", offAmt: "", amount: "", rate: "20", vatRemove: false,
-};
+const DEF: Kept = { ofX: "", ofY: "", whatX: "", whatY: "", chA: "", chB: "", pmA: "", pmX: "", pmSub: false, price: "", off1: "", off2: "", offAmt: "" };
+// still the Everyday mode's key, so what was typed there is kept; its tab and the retired VAT fields aren't read, and go
+// with the next save (only DEF's keys are written)
 const saved = readJson<Partial<Kept>>("everydayCalc", {});
 // only values of the right type are taken back (an old or edited entry can't break the page)
 const st = reactive<Kept>(Object.fromEntries(Object.entries(DEF).map(([k, v]) => [k, typeof saved[k as keyof Kept] === typeof v ? saved[k as keyof Kept] : v])) as unknown as Kept);
-if (!TABS.some(([x]) => x === st.tab)) st.tab = "percent";
 watch(st, (v) => writeJson("everydayCalc", v), { deep: true });
 
 // ---- reading fields and showing results ----
@@ -101,15 +95,6 @@ const disc = computed(() => out([rd(st.price)], [rd(st.off1, true), rd(st.off2, 
   p.pct(t("every.offAll"), r.percent);
 }));
 
-// ---- VAT ----
-const vatRes = computed(() => out([rd(st.amount), rd(st.rate, true)], [], ([a, rate], _, p) => {
-  const r = vat(a!, rate!, st.vatRemove ? "remove" : "add");
-  if (isErr(r)) return r.error;
-  p.money(t(st.vatRemove ? "every.withoutVat" : "every.withVat"), st.vatRemove ? r.net : r.gross, true);
-  p.money(t("every.vat"), r.vat);
-  p.money(t(st.vatRemove ? "every.withVat" : "every.withoutVat"), st.vatRemove ? r.gross : r.net);
-}));
-
 async function copy(s: string) {
   if (!s) return;
   try { await navigator.clipboard.writeText(s); toast(t("c.copied")); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
@@ -121,11 +106,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
 
 <template>
   <div class="ecalc" :class="{ phone: isPhone }">
-    <div class="seg eseg" role="tablist" :aria-label="t('every.tabs')">
-      <button v-for="[x, l] in TABS" :key="x" type="button" role="tab" :data-t="x" :class="{ on: st.tab === x }" :aria-selected="st.tab === x" @click="st.tab = x">{{ t(l) }}</button>
-    </div>
-
-    <div v-if="st.tab === 'percent'" class="egrid">
+    <div v-if="tool === 'percent'" class="egrid">
       <div class="card ecard">
         <h3 class="eh" role="heading" aria-level="2">{{ t("every.hOf") }}</h3>
         <div class="epair">
@@ -177,7 +158,7 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
       </div>
     </div>
 
-    <div v-else-if="st.tab === 'discount'" class="egrid">
+    <div v-else class="egrid">
       <div class="card ecard">
         <div class="fld"><label for="e-price">{{ t("every.price") }}</label><input id="e-price" v-model="st.price" class="num" dir="ltr" type="text" inputmode="decimal" autocomplete="off" :placeholder="ph" /></div>
         <div class="epair">
@@ -196,33 +177,13 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
         </template>
       </div>
     </div>
-
-    <TipCalc v-else-if="st.tab === 'tip'" in-tab />
-
-    <div v-else class="egrid">
-      <div class="card ecard">
-        <div class="seg sm eseg2"><button type="button" :class="{ on: !st.vatRemove }" :aria-pressed="!st.vatRemove" @click="st.vatRemove = false">{{ t("every.addVat") }}</button><button type="button" :class="{ on: st.vatRemove }" :aria-pressed="st.vatRemove" @click="st.vatRemove = true">{{ t("every.removeVat") }}</button></div>
-        <div class="fld"><label for="e-amount">{{ t(st.vatRemove ? "every.amountWith" : "every.amountWithout") }}</label><input id="e-amount" v-model="st.amount" class="num" dir="ltr" type="text" inputmode="decimal" autocomplete="off" :placeholder="ph" /></div>
-        <div class="fld"><label for="e-rate">{{ t("every.rate") }}</label><input id="e-rate" v-model="st.rate" class="num" dir="ltr" type="text" inputmode="decimal" autocomplete="off" placeholder="20" /></div>
-        <div class="enote">{{ t("every.rateKept") }}</div>
-      </div>
-      <div class="card ecard" aria-live="polite">
-        <template v-for="o in [vatRes]" :key="'vat'">
-          <div v-for="r in o.rows" :key="r.label" class="erow" :class="{ big: r.big }"><span class="grow">{{ r.label }}</span><span class="ev num">{{ r.text }}</span><button type="button" class="ib sm plain" :title="copyTitle(r.label)" :aria-label="copyTitle(r.label)" @click="copy(r.copy)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg></button></div>
-          <div v-if="o.error" class="enote ewarn" role="alert">{{ tMsg(o.error) }}</div>
-          <div v-else-if="!o.rows.length" class="enote">{{ t("every.enterAmount") }}</div>
-          <div v-else-if="o.note" class="enote">{{ o.note }}</div>
-        </template>
-      </div>
-    </div>
   </div>
 </template>
 
 <style>
-/* Calculator's Everyday mode. Tokens only, like the rest of the calculator. Like Date mode, the page grows with its
+/* Calculator's Percent and Discount modes. Tokens only, like the rest of the calculator. Like Date mode, the page grows with its
    forms instead of the keypad's fixed height (.dmode in calc.css). */
 .ecalc { display: flex; flex-direction: column; gap: var(--spg); }
-.ecalc .eseg { margin: 0; }
 .ecalc .eseg2 { margin: 0 0 var(--hg); }
 .egrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--spg); align-items: start; }
 .ecalc.phone .egrid { grid-template-columns: minmax(0, 1fr); }
@@ -233,9 +194,6 @@ const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
 .epair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--hg); }
 .enote { font-size: var(--fs-sm); color: var(--tx2); margin-top: calc(var(--lpy) * .4); line-height: 1.4; }
 .ewarn { color: var(--neg); }
-.etg { padding-inline: 0; }
-.etg .t { font-size: var(--fs); }
-.etg .s { font-size: var(--fs-xs); color: var(--tx2); }
 .erow { display: flex; align-items: center; gap: var(--hg); padding-block: calc(var(--lpy) * .4); }
 .erow .ev { text-align: end; overflow-wrap: anywhere; min-width: 0; user-select: text; }
 .erow.big .ev { font-size: var(--fs-val); font-weight: 600; line-height: 1.2; color: var(--acc); }

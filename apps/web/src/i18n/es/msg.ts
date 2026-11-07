@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "Usa una cuenta de 0 o más",
   "msg.offNeg": "Usa un descuento de 0 o más",
   "msg.priceNeg": "Usa un precio de 0 o más",
-  "msg.rateNeg": "Usa una tasa de 0% o más",
   "msg.tipNeg": "Usa una propina de 0% o más",
   "msg.notExact": "No es exacto, se muestra como decimal",
   "msg.denOver": "Denominador mayor que 1 000 000, se muestra como decimal",

@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Бытовые расчёты",
-  "every.tab.percent": "Проценты",
-  "every.tab.discount": "Скидка",
-  "every.tab.tip": "Чаевые",
-  "every.tab.vat": "НДС",
   "every.result": "Результат",
   "every.up": "Рост",
   "every.down": "Снижение",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Цена со скидкой",
   "every.save": "Экономия",
   "every.offAll": "Общая скидка",
-  "every.withVat": "С НДС",
-  "every.withoutVat": "Без НДС",
-  "every.vat": "НДС",
   "every.copyRow": "Копировать: {label}",
   "every.rounded": "Округлено для показа",
   "every.inexact": "Из неточного значения",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "необязательно",
   "every.discNote": "Вторая скидка вычитается из уже сниженной цены: 20%, затем 10% - это скидка 28%. Скидка суммой вычитается последней.",
   "every.enterPrice": "Введите цену и скидку.",
-  "every.addVat": "Начислить НДС",
-  "every.removeVat": "Выделить НДС",
-  "every.amountWith": "Сумма с НДС",
-  "every.amountWithout": "Сумма без НДС",
-  "every.rate": "Ставка НДС, %",
-  "every.rateKept": "Ставка запоминается на следующий раз.",
-  "every.enterAmount": "Введите сумму и ставку.",
 };

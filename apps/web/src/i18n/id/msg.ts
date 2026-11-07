@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "Gunakan tagihan 0 atau lebih",
   "msg.offNeg": "Gunakan potongan 0 atau lebih",
   "msg.priceNeg": "Gunakan harga 0 atau lebih",
-  "msg.rateNeg": "Gunakan tarif 0% atau lebih",
   "msg.tipNeg": "Gunakan tip 0% atau lebih",
   "msg.notExact": "Tidak eksak, jadi ditampilkan sebagai desimal",
   "msg.denOver": "Penyebut lebih dari 1.000.000, jadi ditampilkan sebagai desimal",

@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Outils du quotidien",
-  "every.tab.percent": "Pourcentage",
-  "every.tab.discount": "Remise",
-  "every.tab.tip": "Pourboire",
-  "every.tab.vat": "TVA",
   "every.result": "Résultat",
   "every.up": "Hausse",
   "every.down": "Baisse",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Prix soldé",
   "every.save": "Économie",
   "every.offAll": "Remise totale",
-  "every.withVat": "TTC",
-  "every.withoutVat": "HT",
-  "every.vat": "TVA",
   "every.copyRow": "Copier {label}",
   "every.rounded": "Arrondi pour l'affichage",
   "every.inexact": "À partir d'une valeur inexacte",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "facultatif",
   "every.discNote": "Une deuxième remise s'applique au prix déjà réduit : 20% puis 10% font 28% de remise. Un montant de remise s'applique en dernier.",
   "every.enterPrice": "Saisissez un prix et une remise.",
-  "every.addVat": "Ajouter la TVA",
-  "every.removeVat": "Retirer la TVA",
-  "every.amountWith": "Montant TTC",
-  "every.amountWithout": "Montant HT",
-  "every.rate": "Taux de TVA %",
-  "every.rateKept": "Le taux est mémorisé pour la prochaine fois.",
-  "every.enterAmount": "Saisissez un montant et un taux.",
 };

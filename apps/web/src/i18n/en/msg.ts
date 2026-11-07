@@ -47,7 +47,6 @@ export const msg = {
   "msg.billNeg": "Use a bill of 0 or more",
   "msg.offNeg": "Use an amount off of 0 or more",
   "msg.priceNeg": "Use a price of 0 or more",
-  "msg.rateNeg": "Use a rate of 0% or more",
   "msg.tipNeg": "Use a tip of 0% or more",
   "msg.notExact": "Not exact, so shown as a decimal",
   "msg.denOver": "Denominator over 1,000,000, so shown as a decimal",

@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "החשבון צריך להיות 0 או יותר",
   "msg.offNeg": "סכום ההנחה צריך להיות 0 או יותר",
   "msg.priceNeg": "המחיר צריך להיות 0 או יותר",
-  "msg.rateNeg": "השיעור צריך להיות 0% או יותר",
   "msg.tipNeg": "הטיפ צריך להיות 0% או יותר",
   "msg.notExact": "לא מדויק, לכן מוצג כשבר עשרוני",
   "msg.denOver": "המכנה גדול מ-1,000,000, לכן מוצג כשבר עשרוני",

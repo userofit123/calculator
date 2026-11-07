@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The Calculator's Tip mode (loaded only when chosen; also Everyday's "Tip & split" tab, so there is one tip form):
+// The Calculator's Tip & Split mode (loaded only when chosen; before C-66 also Everyday's "Tip & split" tab):
 // the bill, a tip percent from the presets or your own, and the tip itself as the big answer with the total under it.
 // Splitting between people (each one's share, rounded up to a whole amount if wanted) is optional. The bill and the
 // percent take sums ("42.50 + 18") in the user's decimal mark; the maths is @calc/core's tipSplit (exact, money
@@ -16,9 +16,6 @@ import { tMsg } from "../core/msg";
 import { readJson, writeJson } from "../core/prefs";
 import { toast } from "../core/toast";
 import { play, vSwap } from "../core/motion";
-
-/** the form's own place in Tip mode; Everyday's tab shows it without the page-level autofocus */
-const props = defineProps<{ inTab?: boolean }>();
 
 const PRESETS = ["10", "12", "15", "18", "20", "25"];
 interface Kept { bill: string; pct: string; custom: boolean; customPct: string; split: boolean; people: string; roundUp: boolean }
@@ -106,8 +103,8 @@ async function copy(s: string) {
 /** "Copy tip" (English puts the row's name in lower case; Hebrew has no case) */
 const copyTitle = (k: Key) => t("tip.copyRow", { label: lower(t(k)) });
 const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));
-// in Tip mode on a computer the bill is ready to type into (on a phone the on-screen keyboard would cover the page)
-onMounted(() => { if (!props.inTab && !isPhone.value) billEl.value?.focus(); });
+// in Tip & Split mode on a computer the bill is ready to type into (on a phone the on-screen keyboard would cover the page)
+onMounted(() => { if (!isPhone.value) billEl.value?.focus(); });
 </script>
 
 <template>
@@ -171,7 +168,7 @@ onMounted(() => { if (!props.inTab && !isPhone.value) billEl.value?.focus(); });
 </template>
 
 <style>
-/* The tip form (Tip mode, and Everyday's tip tab). Tokens only, like the rest of the calculator; the page grows with
+/* The tip form (Tip & Split mode). Tokens only, like the rest of the calculator; the page grows with
    the form (.dmode in calc.css). A computer shows the bill and split on one side and the answer on the other; a phone
    (or a narrow window) puts the answer right under the bill and percent, where the thumb and eye already are. */
 .tipc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "in res" "split res"; gap: var(--spg); align-items: start; }

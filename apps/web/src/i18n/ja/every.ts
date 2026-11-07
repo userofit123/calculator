@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "日常の計算",
-  "every.tab.percent": "パーセント",
-  "every.tab.discount": "割引",
-  "every.tab.tip": "チップ・割り勘",
-  "every.tab.vat": "消費税",
   "every.result": "結果",
   "every.up": "増加",
   "every.down": "減少",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "割引後の価格",
   "every.save": "割引額",
   "every.offAll": "合計の割引率",
-  "every.withVat": "税込",
-  "every.withoutVat": "税抜",
-  "every.vat": "消費税",
   "every.copyRow": "{label}をコピー",
   "every.rounded": "表示用に丸めた値",
   "every.inexact": "正確でない入力からの値",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "省略可",
   "every.discNote": "2つ目の割引は、割引後の価格から引きます。20%のあと10%なら合計28%引きです。値引き額は最後に引きます。",
   "every.enterPrice": "価格と割引を入力してください。",
-  "every.addVat": "税を加える",
-  "every.removeVat": "税を除く",
-  "every.amountWith": "税込金額",
-  "every.amountWithout": "税抜金額",
-  "every.rate": "税率 %",
-  "every.rateKept": "税率は次回のために保存されます。",
-  "every.enterAmount": "金額と税率を入力してください。",
 };

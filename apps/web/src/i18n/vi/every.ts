@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Tiện ích hằng ngày",
-  "every.tab.percent": "Phần trăm",
-  "every.tab.discount": "Giảm giá",
-  "every.tab.tip": "Boa & chia",
-  "every.tab.vat": "VAT",
   "every.result": "Kết quả",
   "every.up": "Tăng",
   "every.down": "Giảm",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Giá sau giảm",
   "every.save": "Tiết kiệm",
   "every.offAll": "Tổng mức giảm",
-  "every.withVat": "Đã gồm VAT",
-  "every.withoutVat": "Chưa gồm VAT",
-  "every.vat": "VAT",
   "every.copyRow": "Sao chép {label}",
   "every.rounded": "Đã làm tròn để hiển thị",
   "every.inexact": "Từ một giá trị nhập không chính xác",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "không bắt buộc",
   "every.discNote": "Mức giảm thứ hai được tính trên giá đã giảm: 20% rồi 10% là giảm 28%. Số tiền giảm được trừ sau cùng.",
   "every.enterPrice": "Hãy nhập giá và mức giảm.",
-  "every.addVat": "Cộng VAT",
-  "every.removeVat": "Tách VAT",
-  "every.amountWith": "Số tiền đã gồm VAT",
-  "every.amountWithout": "Số tiền chưa gồm VAT",
-  "every.rate": "Thuế suất VAT %",
-  "every.rateKept": "Thuế suất được ghi nhớ cho lần sau.",
-  "every.enterAmount": "Hãy nhập số tiền và thuế suất.",
 };

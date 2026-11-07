@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "Rachunek musi wynosić 0 lub więcej",
   "msg.offNeg": "Kwota rabatu musi wynosić 0 lub więcej",
   "msg.priceNeg": "Cena musi wynosić 0 lub więcej",
-  "msg.rateNeg": "Stawka musi wynosić 0% lub więcej",
   "msg.tipNeg": "Napiwek musi wynosić 0% lub więcej",
   "msg.notExact": "Wynik niedokładny, więc pokazany jako ułamek dziesiętny",
   "msg.denOver": "Mianownik większy niż 1 000 000, więc pokazany jako ułamek dziesiętny",

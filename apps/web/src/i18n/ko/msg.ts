@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "청구 금액은 0 이상이어야 합니다",
   "msg.offNeg": "할인 금액은 0 이상이어야 합니다",
   "msg.priceNeg": "가격은 0 이상이어야 합니다",
-  "msg.rateNeg": "세율은 0% 이상이어야 합니다",
   "msg.tipNeg": "팁은 0% 이상이어야 합니다",
   "msg.notExact": "정확하지 않아 소수로 표시합니다",
   "msg.denOver": "분모가 1,000,000을 넘어 소수로 표시합니다",

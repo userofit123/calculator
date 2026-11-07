@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "账单金额不能小于 0",
   "msg.offNeg": "减免金额不能小于 0",
   "msg.priceNeg": "价格不能小于 0",
-  "msg.rateNeg": "税率不能小于 0%",
   "msg.tipNeg": "小费比例不能小于 0%",
   "msg.notExact": "无法精确表示，因此以小数显示",
   "msg.denOver": "分母超过 1,000,000，因此以小数显示",

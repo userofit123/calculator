@@ -15,7 +15,7 @@ import { tMsg } from "./msg";
 import { startMode, deviceHints, isFirstOpen } from "./keyboard";
 import { unitOptions, waiting, ready } from "./unitCalc";
 
-export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date" | "tip" | "everyday";
+export type Mode = "basic" | "advanced" | "financial" | "programming" | "keyboard" | "date" | "percent" | "discount" | "tip";
 // label and hint are English; shown through modeLabel / modeHint (the texts mode.* and modeHint.*)
 export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "basic", label: "Basic", hint: "Everyday sums" },
@@ -26,15 +26,17 @@ export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "keyboard", label: "Keyboard", hint: "Type whole sums, no keypad" },
   // not a keypad: its own forms in place of the display and keys (DateCalc, loaded when chosen)
   { id: "date", label: "Date", hint: "Days between dates, adding to a date, age, times" },
-  // forms like Date (TipCalc): always listed, as people look for a tip calculator by name
-  { id: "tip", label: "Tip", hint: "Tip on a bill, and splitting it" },
-  // forms like Date (EverydayCalc): always listed (C-59: not a setting)
-  { id: "everyday", label: "Everyday", hint: "Percent, discount, tip and split, VAT" },
+  // forms like Date (PercentCalc, TipCalc, loaded when chosen). C-66: these were Everyday mode's tabs; each is its own
+  // mode now, so it can be a shortcut next to the mode menu
+  { id: "percent", label: "Percent", hint: "Percent of a number, percent change, adding a percent" },
+  { id: "discount", label: "Discount", hint: "Sale price after one or two discounts" },
+  { id: "tip", label: "Tip & Split", hint: "Tip on a bill, and splitting it" },
 ];
 export const modeLabel = (m: Mode) => tr(("mode." + m) as Key);
 export const modeHint = (m: Mode) => tr(("modeHint." + m) as Key);
 /** modes with their own forms in place of the display and keys */
-export const formMode = (m: Mode) => m === "date" || m === "tip" || m === "everyday";
+export const formMode = (m: Mode) => m === "date" || m === "percent" || m === "discount" || m === "tip";
+const isMode = (m: unknown): m is Mode => MODES.some((x) => x.id === m);
 
 export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | "," }
 const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;
@@ -47,6 +49,28 @@ watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
 // C-65: grouping is on by default now. Installs saved before that have thousands: false stored, so it is switched on once
 // (the marker means a user who turns it off later keeps it off). Set after the watch so the change is saved too.
 if (!readJson<boolean>("calcThousandsOn", false)) { if (hadSettings) settings.thousands = true; writeJson("calcThousandsOn", true); }
+/** C-66: shortcuts to modes next to the mode menu (Settings > Calculator). `on` hides them all and keeps the choice;
+ *  `modes` in the order they were picked. */
+export interface ModeShortcuts { on: boolean; modes: Mode[] }
+export const SHORTCUT_DEFAULT: Mode[] = ["tip", "discount", "percent"];
+const savedShortcuts = readJson<Partial<ModeShortcuts>>("calcShortcuts", {});
+export const shortcuts = reactive<ModeShortcuts>({
+  on: typeof savedShortcuts.on === "boolean" ? savedShortcuts.on : true,
+  // an edited entry, or a mode a later version dropped, can't break the bar
+  modes: Array.isArray(savedShortcuts.modes) ? [...new Set(savedShortcuts.modes.filter(isMode))] : [...SHORTCUT_DEFAULT],
+});
+watch(shortcuts, (v) => writeJson("calcShortcuts", v), { deep: true });
+/** Adds a mode to the shortcuts (at the end) or takes it away */
+export function toggleShortcut(m: Mode) {
+  const i = shortcuts.modes.indexOf(m);
+  if (i < 0) shortcuts.modes.push(m); else shortcuts.modes.splice(i, 1);
+}
+/** Moves a shortcut one place earlier (-1) or later (1) */
+export function moveShortcut(m: Mode, by: -1 | 1) {
+  const i = shortcuts.modes.indexOf(m), j = i + by;
+  if (i < 0 || j < 0 || j >= shortcuts.modes.length) return;
+  shortcuts.modes.splice(i, 1); shortcuts.modes.splice(j, 0, m);
+}
 /** The number formats: label for Settings and the display's menu, short label for the display's chip */
 export const FORMATS: { id: NumberFormat; label: string; short: string; hint: string }[] = [
   { id: "auto", label: "Auto", short: "Auto", hint: "Decimal, ×10ⁿ for very large or small numbers" },
@@ -68,7 +92,20 @@ export function cycleFormat() { const i = CYCLE.indexOf(settings.format); settin
 export function answerNote(exact: string): string { return exact ? tMsg(fractionNote(parseStored(exact), settings.format)) : ""; }
 export const ANGLES: { id: AngleUnit; label: string }[] = [{ id: "deg", label: "DEG" }, { id: "rad", label: "RAD" }, { id: "grad", label: "GRAD" }];
 
-const savedMode = readJson<Mode | null>("calcMode", null);
+/** The saved mode. Everyday mode (before C-66) opens on the tool its last tab was (its VAT tab is gone: Percent); a
+ *  mode this version doesn't have opens on Basic */
+function readMode(): Mode | null {
+  const m = readJson<unknown>("calcMode", null);
+  if (m === "everyday") {
+    const tab = readJson<{ tab?: unknown }>("everydayCalc", {}).tab;
+    const to: Mode = tab === "discount" || tab === "tip" ? tab : "percent";
+    // saved now: the Percent form's next save drops the tab, which would send a Discount user to Percent next time
+    writeJson("calcMode", to);
+    return to;
+  }
+  return m === null ? null : isMode(m) ? m : "basic";
+}
+const savedMode = readMode();
 export const calc = reactive({
   mode: savedMode ?? "basic",
   expr: "",

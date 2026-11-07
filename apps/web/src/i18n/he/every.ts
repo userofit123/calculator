@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "עזרים יומיומיים",
-  "every.tab.percent": "אחוזים",
-  "every.tab.discount": "הנחה",
-  "every.tab.tip": "טיפ וחלוקה",
-  "every.tab.vat": "מע\"מ",
   "every.result": "תוצאה",
   "every.up": "עלייה",
   "every.down": "ירידה",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "מחיר אחרי הנחה",
   "every.save": "חוסכים",
   "every.offAll": "הנחה כוללת",
-  "every.withVat": "כולל מע\"מ",
-  "every.withoutVat": "לפני מע\"מ",
-  "every.vat": "מע\"מ",
   "every.copyRow": "העתקת {label}",
   "every.rounded": "מעוגל לתצוגה",
   "every.inexact": "הקלט אינו מדויק",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "רשות",
   "every.discNote": "הנחה שנייה מחושבת מהמחיר שכבר הוזל: 20% ואחריה 10% הן 28% הנחה. סכום הנחה יורד בסוף.",
   "every.enterPrice": "הקלידו מחיר והנחה.",
-  "every.addVat": "הוספת מע\"מ",
-  "every.removeVat": "הורדת מע\"מ",
-  "every.amountWith": "סכום כולל מע\"מ",
-  "every.amountWithout": "סכום לפני מע\"מ",
-  "every.rate": "שיעור מע\"מ %",
-  "every.rateKept": "השיעור יישמר לפעם הבאה.",
-  "every.enterAmount": "הקלידו סכום ושיעור.",
 };

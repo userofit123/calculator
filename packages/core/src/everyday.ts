@@ -1,5 +1,5 @@
-// Everyday helpers (Calculator's Everyday mode, loaded only when chosen and switched on in Settings): percentages,
-// discounts, tips and splitting a bill, VAT. Everything is worked out exactly (rationals, so 19.99 × 3 is 59.97, never
+// Everyday helpers (the Calculator's Percent, Discount and Tip & Split modes, loaded only when chosen): percentages,
+// discounts, tips and splitting a bill. Everything is worked out exactly (rationals, so 19.99 × 3 is 59.97, never
 // 59.970000000000006); only the text shown is rounded, money to 2 decimals, with `rounded` saying when that hid digits.
 // Fields take whole expressions ("12.50 + 8.20"), read with the user's decimal mark like a paste into the calculator.
 import { type Q, q, add, sub, mul, div, neg, cmp, isInt, floor, toFixed, parseDecimal, ZERO, ONE } from "./rational";
@@ -103,13 +103,4 @@ export function tipSplit(bill: Q, tipPercent: Q, people: Q = ONE, roundUp = fals
   if (roundUp) { per = ceilQ(per); t = mul(per, people); extra = sub(t, total); }
   const gap = sub(mul(round2(per), people), round2(t));
   return { tip: sub(t, bill), total: t, perPerson: per, extra, uneven: isNeg(gap) ? neg(gap) : gap, over: cmp(gap, ZERO) > 0 };
-}
-
-// ---- VAT ----
-/** VAT at `rate`%: "add" reads the amount as net (before VAT), "remove" as gross (VAT included) */
-export function vat(amount: Q, rate: Q, mode: "add" | "remove"): Res<{ net: Q; vat: Q; gross: Q }> {
-  if (isNeg(rate)) return { error: "Use a rate of 0% or more" };
-  const f = add(ONE, pct(rate));
-  const net = mode === "add" ? amount : div(amount, f), gross = mode === "add" ? mul(amount, f) : amount;
-  return { net, vat: sub(gross, net), gross };
 }

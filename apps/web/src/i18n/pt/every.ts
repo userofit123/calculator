@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Ajudas do dia a dia",
-  "every.tab.percent": "Porcentagem",
-  "every.tab.discount": "Desconto",
-  "every.tab.tip": "Gorjeta e divisão",
-  "every.tab.vat": "IVA",
   "every.result": "Resultado",
   "every.up": "Aumento",
   "every.down": "Redução",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Preço com desconto",
   "every.save": "Você economiza",
   "every.offAll": "Desconto total",
-  "every.withVat": "Com IVA",
-  "every.withoutVat": "Sem IVA",
-  "every.vat": "IVA",
   "every.copyRow": "Copiar {label}",
   "every.rounded": "Arredondado para exibição",
   "every.inexact": "De uma entrada inexata",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "opcional",
   "every.discNote": "Um segundo desconto é aplicado sobre o preço já reduzido: 20% e depois 10% dá 28% de desconto. Um valor de desconto vem por último.",
   "every.enterPrice": "Digite um preço e um desconto.",
-  "every.addVat": "Somar IVA",
-  "every.removeVat": "Tirar IVA",
-  "every.amountWith": "Valor com IVA",
-  "every.amountWithout": "Valor sem IVA",
-  "every.rate": "Alíquota do IVA %",
-  "every.rateKept": "A alíquota fica guardada para a próxima vez.",
-  "every.enterAmount": "Digite um valor e uma alíquota.",
 };

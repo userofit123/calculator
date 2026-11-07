@@ -28,9 +28,9 @@ export {
   parseDuration, sumDurations, parseTime, formatDuration, describeDuration, timeBetween, addToTime, MIN_YEAR, MAX_YEAR,
   type YMD, type Period, type DateResult, type YMDiff, type Age,
 } from "./dates";
-// Everyday helpers: percent, discount, tip and split, VAT (Calculator's Everyday mode, loaded only when chosen)
+// Everyday helpers: percent, discount, tip and split (Calculator's Percent, Discount and Tip & Split modes, loaded only when chosen)
 export {
-  readNumber, round2, ceilQ, money, plain, percentOf, whatPercent, percentChange, addPercent, discount, tipSplit, vat, failed,
+  readNumber, round2, ceilQ, money, plain, percentOf, whatPercent, percentChange, addPercent, discount, tipSplit, failed,
   type Fail, type Res, type TipSplit,
 } from "./everyday";
 export { type Q } from "./rational";

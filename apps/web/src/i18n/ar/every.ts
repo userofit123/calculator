@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "أدوات يومية",
-  "every.tab.percent": "النسبة",
-  "every.tab.discount": "الخصم",
-  "every.tab.tip": "بقشيش وتقسيم",
-  "every.tab.vat": "الضريبة",
   "every.result": "النتيجة",
   "every.up": "الزيادة",
   "every.down": "النقص",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "السعر بعد الخصم",
   "every.save": "توفّر",
   "every.offAll": "إجمالي الخصم",
-  "every.withVat": "شامل الضريبة",
-  "every.withoutVat": "دون الضريبة",
-  "every.vat": "ضريبة القيمة المضافة",
   "every.copyRow": "نسخ {label}",
   "every.rounded": "مقرّب للعرض",
   "every.inexact": "من مُدخل غير دقيق",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "اختياري",
   "every.discNote": "يُطبّق الخصم الثاني على السعر المخفّض أصلًا: 20% ثم 10% يساوي خصم 28%. ويُطرح مبلغ الخصم في النهاية.",
   "every.enterPrice": "أدخل سعرًا وخصمًا.",
-  "every.addVat": "إضافة الضريبة",
-  "every.removeVat": "إزالة الضريبة",
-  "every.amountWith": "المبلغ شامل الضريبة",
-  "every.amountWithout": "المبلغ دون الضريبة",
-  "every.rate": "نسبة الضريبة %",
-  "every.rateKept": "تُحفظ النسبة للمرة القادمة.",
-  "every.enterAmount": "أدخل مبلغًا ونسبة.",
 };

@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "0 veya daha büyük bir hesap tutarı girin",
   "msg.offNeg": "0 veya daha büyük bir indirim tutarı girin",
   "msg.priceNeg": "0 veya daha büyük bir fiyat girin",
-  "msg.rateNeg": "%0 veya daha büyük bir oran girin",
   "msg.tipNeg": "%0 veya daha büyük bir bahşiş girin",
   "msg.notExact": "Tam değil, bu yüzden ondalık gösteriliyor",
   "msg.denOver": "Payda 1.000.000'dan büyük, bu yüzden ondalık gösteriliyor",

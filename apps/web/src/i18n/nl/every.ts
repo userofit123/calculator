@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Dagelijkse hulpjes",
-  "every.tab.percent": "Procent",
-  "every.tab.discount": "Korting",
-  "every.tab.tip": "Fooi & delen",
-  "every.tab.vat": "Btw",
   "every.result": "Resultaat",
   "every.up": "Stijging",
   "every.down": "Daling",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Verkoopprijs",
   "every.save": "Je bespaart",
   "every.offAll": "Totale korting",
-  "every.withVat": "Incl. btw",
-  "every.withoutVat": "Excl. btw",
-  "every.vat": "Btw",
   "every.copyRow": "Kopiëren: {label}",
   "every.rounded": "Afgerond voor weergave",
   "every.inexact": "Uit een onnauwkeurige invoer",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "optioneel",
   "every.discNote": "Een tweede korting gaat van de al verlaagde prijs af: 20% en dan 10% is 28% korting. Een kortingsbedrag gaat er als laatste af.",
   "every.enterPrice": "Voer een prijs en een korting in.",
-  "every.addVat": "Btw toevoegen",
-  "every.removeVat": "Btw eraf halen",
-  "every.amountWith": "Bedrag incl. btw",
-  "every.amountWithout": "Bedrag excl. btw",
-  "every.rate": "Btw-tarief %",
-  "every.rateKept": "Het tarief wordt onthouden voor de volgende keer.",
-  "every.enterAmount": "Voer een bedrag en een tarief in.",
 };

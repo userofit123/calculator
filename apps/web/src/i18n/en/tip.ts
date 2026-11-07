@@ -1,4 +1,4 @@
-// The Calculator's Tip mode (TipCalc, loaded when chosen; also Everyday's "Tip & split" tab)
+// The Calculator's Tip & Split mode (TipCalc, loaded when chosen)
 export const tip = {
   "tip.form": "Tip calculator",
   "tip.bill": "Bill",

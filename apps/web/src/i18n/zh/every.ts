@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "日常工具",
-  "every.tab.percent": "百分比",
-  "every.tab.discount": "折扣",
-  "every.tab.tip": "小费分摊",
-  "every.tab.vat": "增值税",
   "every.result": "结果",
   "every.up": "增加",
   "every.down": "减少",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "折后价",
   "every.save": "节省",
   "every.offAll": "共减",
-  "every.withVat": "含税",
-  "every.withoutVat": "不含税",
-  "every.vat": "增值税",
   "every.copyRow": "复制{label}",
   "every.rounded": "显示时已舍入",
   "every.inexact": "来自不精确的输入",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "可选",
   "every.discNote": "第二次折扣在已打折的价格上计算：先减 20% 再减 10%，共减 28%。立减金额最后扣除。",
   "every.enterPrice": "请输入价格和折扣。",
-  "every.addVat": "加税",
-  "every.removeVat": "去税",
-  "every.amountWith": "含税金额",
-  "every.amountWithout": "不含税金额",
-  "every.rate": "税率 %",
-  "every.rateKept": "税率会保留到下次使用。",
-  "every.enterAmount": "请输入金额和税率。",
 };

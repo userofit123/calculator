@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "रोज़मर्रा के टूल",
-  "every.tab.percent": "प्रतिशत",
-  "every.tab.discount": "छूट",
-  "every.tab.tip": "टिप और बंटवारा",
-  "every.tab.vat": "VAT",
   "every.result": "परिणाम",
   "every.up": "बढ़त",
   "every.down": "कमी",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "सेल कीमत",
   "every.save": "आपकी बचत",
   "every.offAll": "कुल छूट",
-  "every.withVat": "VAT सहित",
-  "every.withoutVat": "VAT के बिना",
-  "every.vat": "VAT",
   "every.copyRow": "{label} कॉपी करें",
   "every.rounded": "दिखाने के लिए पूर्णांकित",
   "every.inexact": "असटीक इनपुट से",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "वैकल्पिक",
   "every.discNote": "दूसरी छूट पहले से घटी कीमत पर लगती है: 20% फिर 10% मतलब 28% छूट। छूट की राशि सबसे आखिर में घटती है।",
   "every.enterPrice": "कीमत और छूट डालें।",
-  "every.addVat": "VAT जोड़ें",
-  "every.removeVat": "VAT हटाएं",
-  "every.amountWith": "VAT सहित राशि",
-  "every.amountWithout": "VAT के बिना राशि",
-  "every.rate": "VAT दर %",
-  "every.rateKept": "अगली बार के लिए दर याद रखी जाती है।",
-  "every.enterAmount": "राशि और दर डालें।",
 };

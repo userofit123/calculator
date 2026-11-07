@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Günlük yardımcılar",
-  "every.tab.percent": "Yüzde",
-  "every.tab.discount": "İndirim",
-  "every.tab.tip": "Bahşiş ve bölüşme",
-  "every.tab.vat": "KDV",
   "every.result": "Sonuç",
   "every.up": "Artış",
   "every.down": "Azalış",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Ödenecek fiyat",
   "every.save": "Kazancınız",
   "every.offAll": "Toplam indirim",
-  "every.withVat": "KDV dahil",
-  "every.withoutVat": "KDV hariç",
-  "every.vat": "KDV",
   "every.copyRow": "Kopyala: {label}",
   "every.rounded": "Gösterim için yuvarlandı",
   "every.inexact": "Kesin olmayan bir girdiden",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "isteğe bağlı",
   "every.discNote": "İkinci indirim zaten indirilmiş fiyattan düşülür: %20 ve ardından %10, toplam %28 indirim eder. İndirim tutarı en son düşülür.",
   "every.enterPrice": "Bir fiyat ve indirim girin.",
-  "every.addVat": "KDV ekle",
-  "every.removeVat": "KDV çıkar",
-  "every.amountWith": "KDV dahil tutar",
-  "every.amountWithout": "KDV hariç tutar",
-  "every.rate": "KDV oranı %",
-  "every.rateKept": "Oran bir sonraki sefer için hatırlanır.",
-  "every.enterAmount": "Bir tutar ve oran girin.",
 };

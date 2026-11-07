@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "생활 계산 도구",
-  "every.tab.percent": "퍼센트",
-  "every.tab.discount": "할인",
-  "every.tab.tip": "팁·나눠 내기",
-  "every.tab.vat": "부가세",
   "every.result": "결과",
   "every.up": "증가",
   "every.down": "감소",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "할인가",
   "every.save": "절약 금액",
   "every.offAll": "총 할인",
-  "every.withVat": "부가세 포함",
-  "every.withoutVat": "부가세 제외",
-  "every.vat": "부가세",
   "every.copyRow": "{label} 복사",
   "every.rounded": "표시용으로 반올림됨",
   "every.inexact": "정확하지 않은 입력값 기준",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "선택 사항",
   "every.discNote": "두 번째 할인은 이미 할인된 가격에 적용됩니다: 20% 후 10%는 28% 할인입니다. 할인 금액은 마지막에 적용됩니다.",
   "every.enterPrice": "가격과 할인을 입력하세요.",
-  "every.addVat": "부가세 더하기",
-  "every.removeVat": "부가세 빼기",
-  "every.amountWith": "부가세 포함 금액",
-  "every.amountWithout": "부가세 제외 금액",
-  "every.rate": "부가세율 %",
-  "every.rateKept": "세율은 다음에도 기억됩니다.",
-  "every.enterAmount": "금액과 세율을 입력하세요.",
 };

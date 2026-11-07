@@ -1,11 +1,6 @@
 import type { every as EN } from "../en/every";
 
 export const every: Record<keyof typeof EN, string> = {
-  "every.tabs": "Codzienne narzędzia",
-  "every.tab.percent": "Procenty",
-  "every.tab.discount": "Rabat",
-  "every.tab.tip": "Napiwek i podział",
-  "every.tab.vat": "VAT",
   "every.result": "Wynik",
   "every.up": "Wzrost",
   "every.down": "Spadek",
@@ -16,9 +11,6 @@ export const every: Record<keyof typeof EN, string> = {
   "every.sale": "Cena po rabacie",
   "every.save": "Oszczędzasz",
   "every.offAll": "Łączny rabat",
-  "every.withVat": "Z VAT",
-  "every.withoutVat": "Bez VAT",
-  "every.vat": "VAT",
   "every.copyRow": "Kopiuj: {label}",
   "every.rounded": "Zaokrąglono do wyświetlenia",
   "every.inexact": "Z niedokładnej wartości",
@@ -38,11 +30,4 @@ export const every: Record<keyof typeof EN, string> = {
   "every.optional": "opcjonalnie",
   "every.discNote": "Drugi rabat liczony jest od już obniżonej ceny: 20%, a potem 10% to łącznie 28% rabatu. Kwota rabatu odejmowana jest na końcu.",
   "every.enterPrice": "Wpisz cenę i rabat.",
-  "every.addVat": "Dolicz VAT",
-  "every.removeVat": "Odlicz VAT",
-  "every.amountWith": "Kwota z VAT",
-  "every.amountWithout": "Kwota bez VAT",
-  "every.rate": "Stawka VAT %",
-  "every.rateKept": "Stawka zostanie zapamiętana na następny raz.",
-  "every.enterAmount": "Wpisz kwotę i stawkę.",
 };

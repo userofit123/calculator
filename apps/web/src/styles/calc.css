@@ -14,6 +14,13 @@ html[data-ksh="round"] { --kr: 999px; }
 .calc { display: flex; flex-direction: column; gap: var(--hg); max-width: 28.75rem; }
 .calc-top { flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; row-gap: 4px; min-height: 36px; }
 .cflag { white-space: nowrap; }
+/* C-66: shortcuts to modes next to the mode menu. They take the space left on its line and scroll sideways when there
+   are more than fit (a narrow phone), so the line never wraps or overflows the page. */
+.cshort { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: calc(var(--hg) / 2); overflow-x: auto; scrollbar-width: none; padding-block: 2px; }
+.cshort::-webkit-scrollbar { display: none; }
+.csc { flex: none; cursor: pointer; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); padding: calc(var(--lpy) * .25) var(--hg); }
+.csc:hover { color: var(--acc); }
+.csc.on { background: var(--acc); color: var(--on); }
 
 /* the mode switch: a quiet button with the mode's name, like the GNOME calculator's mode menu */
 .mnub { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--tx); font-size: 17px; font-weight: 600; letter-spacing: -.2px; padding: 6px 8px 6px 10px; margin-inline-start: -10px; border-radius: var(--pill); cursor: pointer; transition: background .2s; }
@@ -137,7 +144,7 @@ html:not(.phone) .calc.adv { max-width: 56.25rem; }
 html:not(.phone) .calc.adv .cpad { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); gap: calc(var(--kg) * 2); align-items: end; }
 html:not(.phone) .calc.adv .fkeys { grid-auto-rows: minmax(var(--kh), auto); }
 @media (max-width: 760px) { html:not(.phone) .calc.adv .cpad { display: flex; } }
-/* the form modes (Date, Tip, Everyday): no keypad, so the page grows with its forms instead of the keypad's fixed
+/* the form modes (Date, Percent, Discount, Tip & Split): no keypad, so the page grows with its forms instead of the keypad's fixed
    height (here rather than in each form's lazy styles, so a form coming in never shows a keypad-sized page first) */
 html.phone .calc.dmode, .calc.dmode { height: auto; min-height: 0; }
 html:not(.phone) .calc.dmode { max-width: 900px; }

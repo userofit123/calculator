@@ -1,9 +1,4 @@
 export const every = {
-  "every.tabs": "Everyday helpers",
-  "every.tab.percent": "Percent",
-  "every.tab.discount": "Discount",
-  "every.tab.tip": "Tip & split",
-  "every.tab.vat": "VAT",
   // row names (also put into "Copy {label}", lower-cased in English)
   "every.result": "Result",
   "every.up": "Increase",
@@ -15,9 +10,6 @@ export const every = {
   "every.sale": "Sale price",
   "every.save": "You save",
   "every.offAll": "Off in all",
-  "every.withVat": "With VAT",
-  "every.withoutVat": "Without VAT",
-  "every.vat": "VAT",
   "every.copyRow": "Copy {label}",
   "every.rounded": "Rounded for display",
   "every.inexact": "From an inexact input",
@@ -37,11 +29,4 @@ export const every = {
   "every.optional": "optional",
   "every.discNote": "A second discount is taken off the already reduced price: 20% then 10% is 28% off. An amount off comes last.",
   "every.enterPrice": "Enter a price and a discount.",
-  "every.addVat": "Add VAT",
-  "every.removeVat": "Remove VAT",
-  "every.amountWith": "Amount with VAT",
-  "every.amountWithout": "Amount without VAT",
-  "every.rate": "VAT rate %",
-  "every.rateKept": "The rate is remembered for next time.",
-  "every.enterAmount": "Enter an amount and a rate.",
 } as const;

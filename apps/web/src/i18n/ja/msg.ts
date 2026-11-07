@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "金額は0以上にしてください",
   "msg.offNeg": "値引き額は0以上にしてください",
   "msg.priceNeg": "価格は0以上にしてください",
-  "msg.rateNeg": "税率は0%以上にしてください",
   "msg.tipNeg": "チップは0%以上にしてください",
   "msg.notExact": "正確な値ではないため、小数で表示しています",
   "msg.denOver": "分母が1,000,000を超えるため、小数で表示しています",

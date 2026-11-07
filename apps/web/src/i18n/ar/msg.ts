@@ -47,7 +47,6 @@ export const msg: Record<keyof typeof EN, string> = {
   "msg.billNeg": "يجب أن تكون الفاتورة 0 أو أكثر",
   "msg.offNeg": "يجب أن يكون مبلغ الخصم 0 أو أكثر",
   "msg.priceNeg": "يجب أن يكون السعر 0 أو أكثر",
-  "msg.rateNeg": "يجب أن تكون النسبة 0% أو أكثر",
   "msg.tipNeg": "يجب أن يكون البقشيش 0% أو أكثر",
   "msg.notExact": "غير دقيق، لذا يُعرض كعدد عشري",
   "msg.denOver": "المقام أكبر من 1,000,000، لذا يُعرض كعدد عشري",
