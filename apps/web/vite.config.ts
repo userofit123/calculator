@@ -15,7 +15,7 @@ const base = ("/" + (process.env.CALC_BASE ?? "/") + "/").replace(/\/{2,}/g, "/"
 const version = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 // Fills in public/sw.js after a build: the list of every built file (so the worker keeps the whole app when it installs)
-// and a version made from their contents (so every build that changes anything gets a new cache; the old one is
+// and a version made from their contents and the worker's own code (so every build that changes anything gets a new cache; the old one is
 // dropped once no open page uses it any more). The development server serves sw.js as it is, which the worker takes as "cache nothing".
 function precache(): Plugin {
   let outDir = "", root = "/";
@@ -30,6 +30,9 @@ function precache(): Plugin {
       for (const f of files) h.update(f).update(readFileSync(join(outDir, f)));
       const sw = join(outDir, "sw.js"), src = readFileSync(sw, "utf8");
       if (!src.includes("__CALC_VERSION__") || !src.includes("/* __CALC_FILES__ */ []")) throw new Error("sw.js: the build's placeholders are missing");
+      // the worker's own code counts too: a release that changes only sw.js still gets a new cache, so a failed install
+      // can never drop the cache the active worker serves from
+      h.update("/sw.js").update(src);
       // the page is kept as "/" (what the app's addresses are answered with), not "/index.html": a host that redirects
       // /index.html to / would otherwise leave the worker holding a redirect instead of the page
       // (under a sub-path the page is that path, "/calculator/", and every file sits below it)

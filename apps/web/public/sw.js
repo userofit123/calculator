@@ -2,7 +2,7 @@
 // works with no connection from the very first time on.
 //
 // VERSION and FILES are filled in by the build (the "precache" plugin in vite.config.ts): VERSION is a hash of every
-// built file, FILES the list of them (scripts, styles, fonts, icons, manifest, and the app's base address, usually "/", for the
+// built file and of this file itself, FILES the list of them (scripts, styles, fonts, icons, manifest, and the app's base address, usually "/", for the
 // page itself). A new build
 // changes VERSION, so the browser installs the new worker, which keeps the new files in a new cache.
 //
@@ -31,23 +31,39 @@ self.addEventListener("install", (e) => {
  *  0-1 }, for the progress bar in Settings → App & updates). All or nothing, as cache.addAll was: a file that can't be
  *  had fails the install and drops what was kept, so the next check starts again. */
 async function precache() {
+  // a cache by this name can only exist already if an earlier install of this same version was cut off; it is never
+  // dropped on failure then, in case it is one the active worker serves from
+  const fresh = !(await caches.has(CACHE));
   const c = await caches.open(CACHE);
   const todo = [...FILES];
-  let done = 0;
+  let done = 0, failed = false;
+  // after a failure nothing more is told: the page has already given up on this worker, and a late share would show
+  // "Downloading" again
   const tell = async () => {
-    for (const w of await self.clients.matchAll({ type: "window", includeUncontrolled: true })) w.postMessage({ calcInstall: done / FILES.length });
+    if (failed) return;
+    const ws = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    if (failed) return;
+    for (const w of ws) w.postMessage({ calcInstall: done / FILES.length });
   };
   const worker = async () => {
-    for (let f = todo.shift(); f !== undefined; f = todo.shift()) {
-      // "reload": straight from the server, never an older copy from the browser's own cache
-      const r = await fetch(new Request(f, { cache: "reload" }));
-      if (!r.ok) throw new Error("not kept: " + f);
-      await c.put(f, r);
+    // the first failure stops every downloader from taking another file
+    for (let f = failed ? undefined : todo.shift(); f !== undefined; f = failed ? undefined : todo.shift()) {
+      try {
+        // "reload": straight from the server, never an older copy from the browser's own cache
+        const r = await fetch(new Request(f, { cache: "reload" }));
+        if (!r.ok) throw new Error("not kept: " + f);
+        if (failed) return;
+        await c.put(f, r);
+      } catch (err) { failed = true; throw err; }
       done++;
       void tell();
     }
   };
-  try { await Promise.all(Array.from({ length: 6 }, worker)); } catch (err) { await caches.delete(CACHE); throw err; }
+  try { await Promise.all(Array.from({ length: 6 }, worker)); } catch (err) {
+    failed = true;
+    if (fresh) await caches.delete(CACHE);
+    throw err;
+  }
 }
 
 self.addEventListener("message", (e) => {

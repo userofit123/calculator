@@ -126,6 +126,8 @@ export function startUpdates(url: string) {
   // very first install (no worker controls this page yet), and only a sensible share
   sw.addEventListener("message", (e) => {
     const p = (e.data as { calcInstall?: unknown } | null)?.calcInstall;
+    // only from the worker installing right now: a failed one may still post a late share after the page gave up on it
+    if (!reg || e.source !== reg.installing) return;
     if (!sw.controller || webUpd.state === "ready" || typeof p !== "number" || !Number.isFinite(p) || p < 0 || p > 1) return;
     webUpd.state = "downloading"; webUpd.progress = p;
   });
@@ -153,7 +155,7 @@ export function startUpdates(url: string) {
         w.addEventListener("statechange", () => {
           if (w.state === "installed") { webUpd.progress = null; if (r.waiting) webUpd.state = "ready"; watchWaiting(); }
           // the new version couldn't be kept (Check now says so; otherwise the next check tries again)
-          else if (w.state === "redundant" && webUpd.state === "downloading") { webUpd.state = ""; webUpd.progress = null; }
+          else if (w.state === "redundant") { webUpd.progress = null; if (webUpd.state === "downloading") webUpd.state = ""; }
         });
       };
       if (r.waiting) { webUpd.state = "ready"; watchWaiting(); }

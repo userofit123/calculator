@@ -190,9 +190,19 @@ function quietUpdater() {
   // RpmUpdater.doInstall first runs `which zypper`, and spawnSyncLog throws when a command ends with an error, as `which`
   // does when it finds nothing (Fedora has dnf, no zypper): every .rpm install would fail. A `which` that finds nothing
   // answers "" instead, so it goes on to `which dnf || which yum` as intended.
-  const u = autoUpdater as unknown as { spawnSyncLog(cmd: string, args?: string[], env?: object): string };
-  const run = u.spawnSyncLog.bind(u);
-  u.spawnSyncLog = (cmd, args = [], env = {}) => { try { return run(cmd, args, env); } catch (e) { if (/^which /.test(cmd)) return ""; throw e; } };
+  // (marked, so it is never wrapped twice even if this runs again)
+  type Spawn = ((cmd: string, args?: string[], env?: object) => string) & { calcQuiet?: true };
+  const u = autoUpdater as unknown as { spawnSyncLog: Spawn };
+  if (!u.spawnSyncLog.calcQuiet) {
+    const run = u.spawnSyncLog.bind(u);
+    const quiet: Spawn = (cmd, args = [], env = {}) => { try { return run(cmd, args, env); } catch (e) { if (/^which /.test(cmd)) return ""; throw e; } };
+    quiet.calcQuiet = true;
+    u.spawnSyncLog = quiet;
+  }
+  // an "error" event with no listener throws, which Electron shows as a main-process error dialog: an install on quit
+  // that fails (an AppImage in a folder it can't write to) has nobody to tell, so it is let go quietly here (the
+  // download and install handlers still catch their own errors)
+  autoUpdater.on("error", () => { /* nothing to show: the next check or Install tries again */ });
 }
 /** Installs a ready download when the app is closed (AppImage, Windows; never a .deb / .rpm, whose install asks for the
  *  password). electron-updater adds its quit handler only when a download finishes while this is already on, and it is
