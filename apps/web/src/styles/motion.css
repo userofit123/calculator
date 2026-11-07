@@ -81,8 +81,10 @@ html:not(.phone) .sht, html:not(.phone) .scr.leaving .sht { animation-name: shpo
 html.mo :is(.dgrid, .egrid, .pbases, .pbits, .updrow, .nb.upd, .cnote, .verr, .cvrates .s, .krow) {
   transition: opacity var(--dur-3) var(--ease), translate var(--dur-3) var(--ease);
 }
+/* (not while the calculator changes mode, .msw: the whole mode slides in sideways then, and rising as well made it come
+   in diagonally) */
 @starting-style {
-  html.mo :is(.dgrid, .egrid, .pbases, .pbits, .updrow, .nb.upd, .cnote, .verr, .cvrates .s, .krow) { opacity: 0; translate: 0 6px; }
+  html.mo :is(.dgrid, .egrid, .pbases, .pbits, .updrow, .nb.upd, .cnote, .verr, .cvrates .s, .krow):not(.msw *) { opacity: 0; translate: 0 6px; }
 }
 
 /* ---------- controls ---------- */

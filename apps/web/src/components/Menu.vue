@@ -59,7 +59,7 @@ onBeforeUnmount(() => close(false));
 </script>
 
 <template>
-  <button v-if="text" ref="btn" class="mnub" :class="{ off: inactive }" :aria-label="label" :aria-pressed="pressed" :aria-haspopup="inactive ? undefined : 'menu'" :aria-expanded="inactive ? undefined : open" @click.stop="toggle"><span>{{ text }}</span><Icon name="down" :size="16" /></button>
+  <button v-if="text" ref="btn" class="mnub" :class="{ off: inactive, on: pressed }" :aria-label="label" :aria-pressed="pressed" :aria-haspopup="inactive ? undefined : 'menu'" :aria-expanded="inactive ? undefined : open" @click.stop="toggle"><span>{{ text }}</span><Icon name="down" :size="16" /></button>
   <button v-else ref="btn" class="ib sm plain" :aria-label="label ?? t('c.more')" aria-haspopup="menu" :aria-expanded="open" @click.stop="toggle"><Icon :name="icon ?? 'more'" /></button>
   <Teleport to="body">
     <Transition name="pop" @before-leave="leaving"><div v-if="open" ref="el" class="mnu" :style="{ top: pos.top + 'px', left: pos.left + 'px' }" role="menu" :aria-label="label ?? text ?? t('c.more')" @keydown="key">

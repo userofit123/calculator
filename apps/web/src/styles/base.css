@@ -214,7 +214,7 @@ body::after {
     outline: 2px solid Highlight;
     outline-offset: -3px;
   }
-  .ctabs .mnub:not(.off) { border-color: Highlight; outline: 2px solid Highlight; outline-offset: -3px; }
+  .ctabs .mnub.on { border-color: Highlight; outline: 2px solid Highlight; outline-offset: -3px; }
   .k-eq { border-width: 2px; }
   :focus-visible { outline: 3px solid Highlight; outline-offset: 2px; }
   :is(.key, button):disabled { border-color: GrayText; color: GrayText; }

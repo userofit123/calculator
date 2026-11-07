@@ -19,12 +19,26 @@ html[data-ksh="round"] { --kr: 999px; }
 /* C-66: the tabs: the calculator (named after its type, with the type menu) and a tab per tool, on one line over a thin
    rule, the chosen one underlined in the accent. All the same size, so the calculator's tab reads as one of them. When
    they don't fit (a narrow phone, a long language) the row scrolls sideways instead of wrapping or squeezing; the
-   padding keeps the focus ring inside the scrolled box, and the rule sits at the tabs' foot. */
-.ctabs { flex: 1 1 0; min-width: 0; display: flex; align-items: stretch; overflow-x: auto; scrollbar-width: none; padding: 4px 4px 0; margin: -4px -4px 0; box-shadow: inset 0 -1px var(--ol); }
+   padding keeps the focus ring inside the scrolled box, and the rule (on .ctabw, under the chevrons too) sits at the
+   tabs' foot. */
+.ctabw { flex: 1 1 0; min-width: 0; display: flex; align-items: stretch; box-shadow: inset 0 -1px var(--ol); }
+.ctabs { flex: 1 1 0; min-width: 0; position: relative; display: flex; align-items: stretch; overflow-x: auto; scrollbar-width: none; padding: 4px 4px 0; margin: -4px -4px 0; }
 .ctabs::-webkit-scrollbar { display: none; }
-.ctab, .ctabs .mnub { flex: none; display: inline-flex; align-items: center; gap: 2px; border: 0; margin: 0; background: none; font-family: inherit; font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--tx2); white-space: nowrap; padding: calc(var(--lpy) * .8) var(--hg); border-radius: var(--r-sm) var(--r-sm) 0 0; cursor: pointer; transition: color .2s, background .2s, box-shadow .2s; }
-.ctab:hover, .ctabs .mnub:hover, .ctabs .mnub[aria-expanded="true"] { background: var(--s2); color: var(--tx); }
-.ctab.on, .ctabs .mnub:not(.off) { color: var(--tx); box-shadow: inset 0 -2px var(--acc); }
+.ctabs > button { position: relative; z-index: 1; }
+.ctab, .ctabs .mnub { flex: none; display: inline-flex; align-items: center; gap: 2px; border: 0; margin: 0; background: none; font-family: inherit; font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--tx2); white-space: nowrap; padding: calc(var(--lpy) * .8) var(--hg); border-radius: 0; cursor: pointer; transition: color .2s; }
+/* hover darkens the text only, as the rail and the phone's tabs do: a filled tab covered the rule under the row */
+.ctab:hover, .ctabs .mnub:hover, .ctabs .mnub[aria-expanded="true"] { background: none; color: var(--tx); }
+.ctab.on, .ctabs .mnub.on { color: var(--tx); }
+/* the chosen tab's accent line glides from tab to tab (core/segSlide.ts draws it as .segi once the row is laid out,
+   then the row is .sl); until then, on the first paint, the tab carries its own */
+.ctabs:not(.sl) :is(.ctab.on, .mnub.on) { box-shadow: inset 0 -2px var(--acc); }
+.ctabs .segi b { background: none; box-shadow: inset 0 -2px var(--acc); border-radius: 0; }
+/* more tabs past the row's ends: a chevron at that end (kept in place, unseen, when there is nothing more that way, so
+   the row doesn't shift as it scrolls); the start one points back */
+.ctabm { flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--tx2); padding: 0 calc(var(--hg) / 4); cursor: pointer; transition: color .2s; }
+.ctabm:hover { color: var(--tx); }
+.ctabm.off { visibility: hidden; }
+.ctabm.st .ico { scale: -1 1; }
 .ctabs .mnub.off .ico { opacity: .6; }
 .ctab:focus-visible, .ctabs .mnub:focus-visible { outline-offset: -2px; }
 .calc-top .cvars { flex: none; margin-inline-start: calc(var(--hg) / 2); }

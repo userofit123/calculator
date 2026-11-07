@@ -107,6 +107,21 @@ export async function flipMove(sel: string, change: () => void) {
   });
 }
 
+/**
+ * A box whose size changed (the calculator's page going from Basic to Advanced, C-66): call with its box from before the
+ * change, once the change is on screen; it grows or shrinks from that size to its new one instead of jumping. Its
+ * content is clipped to the size on the way, so new keys are uncovered rather than spilling out. (Width and height,
+ * not a scale: the keys inside must not stretch.)
+ */
+export function resizeFrom(el: HTMLElement | null | undefined, from: DOMRect | null) {
+  if (!el || !from || !canMove()) return;
+  el.getAnimations().forEach((a) => { if ((a as Animation & { id: string }).id === "mo-size") a.cancel(); });
+  const to = el.getBoundingClientRect();
+  if (Math.abs(to.width - from.width) < 1 && Math.abs(to.height - from.height) < 1) return;
+  const t = tokens(), box = (r: DOMRect): Keyframe => ({ width: r.width + "px", height: r.height + "px", maxWidth: "none", minHeight: "0", overflow: "clip" });
+  el.animate([box(from), box(to)], { duration: t.d3, easing: t.ease }).id = "mo-size";
+}
+
 /** a popover on its way out (a Transition's before-leave): no longer there for a screen reader, the keyboard or a click */
 export const leaving = (el: Element) => { el.setAttribute("aria-hidden", "true"); (el as HTMLElement).inert = true; };
 

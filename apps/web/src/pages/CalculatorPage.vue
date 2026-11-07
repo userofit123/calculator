@@ -11,7 +11,7 @@
 // Percent, Discount (PercentCalc) and Tip & Split (TipCalc) are forms the same way, loaded when chosen.
 // C-66: the top is a row of tabs. The first is the calculator, named after its type, with the types (Basic, Advanced,
 // Financial, Programming, Keyboard) in its menu; the tools (Tip & Split, Discount, Percent, Date) are a tab each.
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, CALC_TYPES, TOOLS, lastType, ANGLES, chooseStartMode, formMode, answerNote, withUnit, modeLabel as modeName, modeHint } from "../core/calc";
 import { t, type Key } from "../core/i18n";
 import { tMsg } from "../core/msg";
@@ -23,7 +23,8 @@ import ProgPad from "../components/ProgPad.vue";
 import KeyboardCalc from "../components/KeyboardCalc.vue";
 import NumFormat from "../components/NumFormat.vue";
 import { speak } from "../core/speak";
-import { play, flipChanged, vSwap } from "../core/motion";
+import { play, flipChanged, vSwap, canMove, dirSign, resizeFrom } from "../core/motion";
+import { refreshSeg } from "../core/segSlide";
 
 // a first-ever open picks its mode before the first paint: Keyboard on a computer with no touch screen, else Basic
 chooseStartMode(isPhone.value);
@@ -125,16 +126,61 @@ watch(() => [calc.answer, calc.error, calc.unit] as const, ([a, e]) => {
 });
 
 // Motion (core/motion.ts): played after the change is on screen, so nothing ever waits for it.
-// Another mode: its keys (or forms) come in from the side that mode is on in the mode list.
+// Another mode: its keys (or forms) come in sideways from the side that mode is on in the tab row, the way the phone's
+// pages slide (motion.css .tnx/.tpv: 40px; "slide" moves 16px a step). Meanwhile the parts that otherwise rise in on
+// their own (motion.css: a Date tab's forms, Keyboard's lines, Programming's bits) stay put (.msw), or the two moves
+// added up to a diagonal, the tabs seeming to come in from a corner. On a computer the page also grows or shrinks to
+// the new mode's size (Basic is narrow, Advanced wide) instead of jumping; the phone's is always the screen's.
 const pageEl = ref<HTMLElement | null>(null), resEl = ref<HTMLElement | null>(null);
+const SLIDE = ":scope > :not(.calc-top, .sr, .scr), .calc-top .pbar";
+const switching = ref(false);
+let swBy = 1, swT: ReturnType<typeof setTimeout> | undefined;
 watch(() => calc.mode, (to, from) => {
-  const by = MODES.findIndex((m) => m.id === to) >= MODES.findIndex((m) => m.id === from) ? 1 : -1;
-  nextTick(() => pageEl.value?.querySelectorAll(":scope > :not(.calc-top, .sr, .scr), .calc-top .pbar").forEach((e) => play(e, "slide", by)));
+  swBy = (MODES.findIndex((m) => m.id === to) >= MODES.findIndex((m) => m.id === from) ? 1 : -1) * 2.5;
+  const el = pageEl.value, was = el && !isPhone.value && canMove() ? el.getBoundingClientRect() : null;
+  switching.value = true; clearTimeout(swT); swT = setTimeout(() => (switching.value = false), 1500);
+  nextTick(() => { el?.querySelectorAll(SLIDE).forEach((e) => play(e, "slide", swBy)); resizeFrom(el, was); });
 });
-// a tab chosen while scrolled out of a narrow row (or open on start) is brought into view
-const showTab = () => pageEl.value?.querySelector(".ctab.on, .ctabs .mnub:not(.off)")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+// a form chosen for the first time loads a moment later (FinPad, DateCalc...): it slides in the same way when it arrives
+const late = typeof MutationObserver === "undefined" ? null : new MutationObserver((ms) => {
+  if (!switching.value) return;
+  for (const m of ms) for (const n of m.addedNodes) {
+    if (n instanceof HTMLElement && (n.parentElement === pageEl.value || n.parentElement?.classList.contains("cpad")) && !n.matches(".calc-top, .sr, .scr")) play(n, "slide", swBy);
+  }
+});
+onMounted(() => { if (pageEl.value) late?.observe(pageEl.value, { childList: true, subtree: true }); });
+onBeforeUnmount(() => { late?.disconnect(); clearTimeout(swT); });
+
+// The tab row: a tab chosen while scrolled out of a narrow row (or open on start) is brought into view. When the row
+// doesn't fit, a chevron at either end shows there is more that way and scrolls it (the tabs themselves stay reachable
+// with Tab, so the chevrons are for the mouse and the finger only).
+const tabsEl = ref<HTMLElement | null>(null), tabWrap = ref<HTMLElement | null>(null);
+const showTab = () => tabsEl.value?.querySelector(".ctab.on, .mnub.on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
 watch(() => calc.mode, () => nextTick(showTab));
 onMounted(showTab);
+const more = reactive({ over: false, start: false, end: false });
+function tabEdges() {
+  const r = tabsEl.value, w = tabWrap.value;
+  if (!r || !w) return;
+  // the row reaches 4px past its box either side (room for the focus ring), so it fits up to the wrapper's width + 8px.
+  // Measured against the wrapper, whose width the chevrons don't change, so showing them never flips this back
+  more.over = r.scrollWidth > w.clientWidth + 9;
+  // right to left, scrollLeft runs from 0 down to minus the overflow
+  const x = Math.abs(r.scrollLeft), max = r.scrollWidth - r.clientWidth;
+  more.start = x > 1; more.end = x < max - 1;
+}
+const scrollTabs = (by: 1 | -1) => tabsEl.value?.scrollBy({ left: by * dirSign() * tabsEl.value.clientWidth * 0.6, behavior: canMove() ? "smooth" : "auto" });
+// the row or a tab changing size (the window, a longer type name, another language) can change what fits
+const tabObs = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => tabEdges());
+onMounted(() => {
+  const r = tabsEl.value;
+  if (r) [r, ...r.querySelectorAll(":scope > button")].forEach((e) => tabObs?.observe(e));
+  if (tabWrap.value) tabObs?.observe(tabWrap.value);
+  tabEdges();
+});
+onBeforeUnmount(() => tabObs?.disconnect());
+// another type in the calculator's tab (Basic to Advanced): the accent line under it glides to the new name's width
+watch(typeLabel, () => nextTick(() => refreshSeg(tabsEl.value)));
 // 2nd, hyp and the angle unit: the keys that now say something else turn over
 watch(() => [calc.second, calc.hyp, settings.angle], () => flipChanged(".calc .fkeys .key", nextTick));
 // =: the answer comes up into place; a preview (nothing shown before) fades in; an error shakes
@@ -223,14 +269,18 @@ async function copyAnswer() {
 </script>
 
 <template>
-  <div ref="pageEl" class="page calc" :class="{ phone: isPhone, adv, prog: progMode, fin, dmode: dateMode, kbd }">
+  <div ref="pageEl" class="page calc" :class="{ phone: isPhone, adv, prog: progMode, fin, dmode: dateMode, kbd, msw: switching }">
     <h1 class="sr">{{ t("nav.calc") }}</h1>
     <div class="sr" aria-live="polite" aria-atomic="true">{{ announce }}</div>
     <div class="calc-top">
-      <div class="ctabs" role="group" :aria-label="t('calc.tabs')">
+      <div ref="tabWrap" class="ctabw">
+      <button v-if="more.over" type="button" class="ctabm st" :class="{ off: !more.start }" tabindex="-1" aria-hidden="true" @click="scrollTabs(-1)"><Icon name="right" :size="18" /></button>
+      <div id="ctabs" ref="tabsEl" class="ctabs" role="group" :aria-label="t('calc.tabs')" @scroll.passive="tabEdges">
         <!-- on a tool, the calculator's tab goes back to the calculator; on the calculator it opens the type menu -->
         <Menu :items="modeItems" :text="typeLabel" :label="dateMode ? t('calc.backTo', { mode: typeLabel }) : t('calc.modeNamed', { mode: typeLabel })" :pressed="!dateMode" :inactive="dateMode" align="start" @activate="calc.mode = lastType" />
         <button v-for="m in TOOLS" :key="m.id" type="button" class="ctab" :class="{ on: calc.mode === m.id }" :aria-pressed="calc.mode === m.id" :title="modeHint(m.id)" @click="calc.mode = m.id">{{ modeName(m.id) }}</button>
+      </div>
+      <button v-if="more.over" type="button" class="ctabm" :class="{ off: !more.end }" tabindex="-1" aria-hidden="true" @click="scrollTabs(1)"><Icon name="right" :size="18" /></button>
       </div>
       <button v-if="adv || kbd" type="button" class="cvars" @click="varsOpen = true">{{ t("calc.vars") }}</button>
     </div>
