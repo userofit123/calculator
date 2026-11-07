@@ -1,7 +1,9 @@
 // The app's motion in one place: small animations played with the Web Animations API on things that change in place
 // (the answer after =, an error, a chip's new value, a bit flipping, the keypad of another mode), with the same
 // durations and curves as the CSS ones (the --dur-* / --ease tokens in tokens.css, read from there).
-// Rules: transform and opacity only (no layout work per frame); nothing ever waits for an animation (they are played
+// Rules: transform and opacity only (no layout work per frame), with two deliberate exceptions that animate size:
+// resizeFrom (a page whose box changes size, where a scale would stretch the keys inside) and collapse (a section
+// opening or closing inside a card, which has to push what is below it); nothing ever waits for an animation (they are played
 // after the change is already on screen, so typing and = are never held up); nothing moves on the first paint
 // (html.mo is set only after the app has drawn itself); with reduced motion nothing moves at all.
 import { nextTick, type Directive } from "vue";
@@ -133,10 +135,12 @@ export function resizeFrom(el: HTMLElement | null | undefined, from: DOMRect | n
 export const sizing = (el: HTMLElement | null | undefined) => el?.getAnimations().find((a) => (a as Animation & { id: string }).id === "mo-size" && a.playState === "running");
 
 /**
- * A part of a card that opens and closes (the tip split's people section): <Transition :css="false" v-bind="collapse">.
- * Its height grows from nothing (and back) with a fade, content clipped on the way, so what is below it glides down
- * instead of jumping. Height is animated here on purpose: a section opening has to push the rest of the card. With
- * reduced motion (or before the first paint) it simply appears and goes.
+ * A part of a card that opens and closes (the tip split's people section): <Transition v-bind="collapse"> (it already
+ * turns Vue's CSS classes off). Its height grows from nothing (and back) with a fade, content clipped on the way, so
+ * what is below it glides down instead of jumping. Height is animated here on purpose: a section opening has to push
+ * the rest of the card. A quick toggle back on the way turns round from where the section is (its height and fade at
+ * that moment), never from nothing or from full. With reduced motion (or before the first paint) it simply appears
+ * and goes.
  */
 export const collapse = {
   css: false,
@@ -144,11 +148,34 @@ export const collapse = {
   onLeave(el: Element, done: () => void) { collapseRun(el as HTMLElement, false, done); },
   onBeforeLeave(el: Element) { leaving(el); },
 };
+// a section closing, by the box it sits in: with v-if, opening it again while it closes makes Vue drop the closing
+// element at once and add a new one, so the new one looks here for how far the old one had shut
+const closing = new WeakMap<Element, { a: Animation; h: number; o: number }>();
 function collapseRun(el: HTMLElement, open: boolean, done: () => void) {
   if (!canMove() || typeof el.animate !== "function") { done(); return; }
-  const t = tokens(), h = el.offsetHeight + "px";
-  const shut: Keyframe = { height: "0px", opacity: 0, overflow: "clip" }, full: Keyframe = { height: h, opacity: 1, overflow: "clip" };
-  const a = el.animate(open ? [shut, full] : [full, shut], { duration: t.d3, easing: open ? t.ease : t.easeIn, fill: open ? "none" : "forwards" });
+  const t = tokens(), full = el.offsetHeight;
+  // where it is now (0 shut, 1 open): the run already playing on this element (opened, then closed quickly), or the
+  // closing one it replaces (closed, then opened quickly); that run stops here and this one goes on from there
+  let h = open ? 0 : full, o = open ? 0 : 1;
+  const cur = el.getAnimations().find((a) => (a as Animation & { id: string }).id === "mo-collapse");
+  if (cur) {
+    const cs = getComputedStyle(el);
+    h = parseFloat(cs.height) || 0; o = parseFloat(cs.opacity); cur.cancel();
+  } else if (open && el.parentElement) {
+    const c = closing.get(el.parentElement);
+    if (c && c.a.playState === "running") {
+      const p = c.a.effect?.getComputedTiming().progress ?? 1;
+      h = c.h * (1 - p); o = c.o * (1 - p); c.a.cancel();
+    }
+  }
+  if (!Number.isFinite(o)) o = open ? 0 : 1;
+  const left = open ? 1 - Math.min(1, h / (full || 1)) : Math.min(1, h / (full || 1));
+  const from: Keyframe = { height: h + "px", opacity: o, overflow: "clip" };
+  const to: Keyframe = open ? { height: full + "px", opacity: 1, overflow: "clip" } : { height: "0px", opacity: 0, overflow: "clip" };
+  // the part of the way still to go takes its share of the time, so a turn round keeps the same speed
+  const a = el.animate([from, to], { duration: t.d3 * Math.max(0.2, left), easing: open ? t.ease : t.easeIn, fill: open ? "none" : "forwards" });
+  a.id = "mo-collapse";
+  if (!open && el.parentElement) closing.set(el.parentElement, { a, h, o });
   a.onfinish = () => done();
   a.oncancel = () => done();
 }

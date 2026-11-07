@@ -145,7 +145,7 @@ onMounted(() => { if (!isPhone.value) billEl.value?.focus(); });
         <div class="grow"><div class="t">{{ t("tip.split") }}</div><div class="s">{{ t("tip.splitHint") }}</div></div>
         <input v-model="st.split" type="checkbox" />
       </label>
-      <Transition v-bind="collapse"><div v-if="st.split">
+      <Transition v-bind="collapse"><div v-if="st.split" class="tpeople">
         <div class="fld">
           <label for="t-people">{{ t("tip.people") }}</label>
           <div class="tstep">
@@ -194,8 +194,14 @@ onMounted(() => { if (!isPhone.value) billEl.value?.focus(); });
 .ttg { padding-inline: 0; }
 .ttg .t { font-size: var(--fs); }
 .ttg .s { font-size: var(--fs-xs); color: var(--tx2); }
-/* the people field sits right under the split switch's divider line: give its label the same density-scaled room a list row has above its text */
-.tsplit .ttg + div > .fld:first-child { padding-top: var(--lpy); }
+/* The split switch keeps the look of a card's only row (the card's padding below it, no divider) whether the people
+   section is open or not; the rest of a row's room and its divider line belong to the section instead, so they open
+   and close with it (clipped by the collapse animation) rather than snapping in or out when Vue adds or removes it.
+   Open, it adds up to what a first row has: --lpy below the text, then the line. */
+.card.tsplit > .li.ttg:first-child { padding-bottom: 4px; border-bottom: 0; min-height: calc(var(--lmh) - 2 * var(--lpy) + 8px); }
+.tpeople::before { content: ""; display: block; box-sizing: content-box; height: calc(var(--lpy) - 4px); border-bottom: 1px solid var(--ol); }
+/* the people field sits right under that line: its label gets the same density-scaled room a list row has above its text */
+.tpeople > .fld:first-child { padding-top: var(--lpy); }
 .tstep { display: flex; align-items: center; gap: var(--hg); }
 .tstep input { flex: 1; text-align: center; }
 </style>
