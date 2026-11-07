@@ -11,6 +11,6 @@ const click = () => { if (props.shuffle) doShuffle(el.value); };
 
 <template>
   <div ref="el" class="logo" :class="{ click: shuffle }" :title="shuffle ? t('nav.shuffle') : undefined" @click="click">
-    <svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" :d="MARK" /></svg>
+    <svg viewBox="0 0 24 24"><path fill="currentColor" :d="MARK" /></svg>
   </div>
 </template>

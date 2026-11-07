@@ -10,7 +10,8 @@ docs/apps.md, Releases.
   Programming, Keyboard, chosen from its menu), then Tip & Split, Discount, Percent and Date, one tap each.
 - Everyday is gone: its Percent, Discount and Tip & Split are tabs of their own. VAT is no longer in the calculator.
   A calculator last left in Everyday opens on the tool it was showing.
-- New app icon: a navy calculator with a light display, rounded keys and amber operator keys on a lime-to-teal tile.
+- New app icon: the four operators (+ − × ÷) in navy, the plus in amber, on a lime-to-teal tile. The logo in the app and
+  the browser tab show the same signs in the colours of the chosen look.
 
 ## [0.2.0] - 2026-11-06
 
