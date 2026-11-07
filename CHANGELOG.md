@@ -6,6 +6,8 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+## [0.3.1] - 2026-11-07
+
 - The desktop `.deb` and `.rpm` update in the app like the AppImage: the update downloads with a progress bar in
   Settings, and Install asks for your password, installs it and opens the new version (never on closing the app). A
   cancelled password prompt or a failed install says so and Install can be tapped again. The web app shows its new
