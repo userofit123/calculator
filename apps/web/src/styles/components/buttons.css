@@ -1,8 +1,8 @@
 /* Buttons: .btn (filled, outline .o, red .r, small .s, running with a spinner), round icon buttons .ib and close buttons. */
 
 .ib {
-  width: 44px;
-  height: 44px;
+  width: var(--ib);
+  height: var(--ib);
   border-radius: 50%;
   border: 1px solid var(--ol);
   background: var(--s1);

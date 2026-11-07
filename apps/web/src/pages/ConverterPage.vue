@@ -170,7 +170,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
               enterkeyhint="done" :aria-label="t('conv.amountIn', { unit: name(unit(from)) })" :placeholder="t('conv.amount')" />
             <div class="cvu"><UnitPicker v-model="from" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
           </div>
-          <!-- the swap button sits on the seam: the "To" panel starts at its middle and a ring of the card colour keeps the gap round it -->
+          <!-- the swap button sits on the seam: the "To" panel starts at its middle, with a round cut-out that leaves the same gap round the button as round the panel -->
           <div class="cvsw">
             <button type="button" class="ib" :title="t('conv.swap')" :aria-label="t('conv.swap')" @click="swap(); play(($event.currentTarget as HTMLElement).firstElementChild, 'spin')"><Icon name="convert" /></button>
           </div>
@@ -226,22 +226,29 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
 .cvchip:hover { background: var(--s2); }
 .cvchip.on { background: var(--acc); border-color: var(--acc); color: var(--on); font-weight: 600; }
 .cvg { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--spg); align-items: start; }
-.cvcard { display: flex; flex-direction: column; gap: var(--hg); }
 .cvl { font-size: var(--fs-sm); font-weight: 600; color: var(--tx2); }
 .cvrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 46%); gap: var(--hg); align-items: center; }
 .cvin { width: 100%; font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
 .cvout { display: block; min-width: 0; font-size: var(--fs-val); font-weight: 600; line-height: 1.2; color: var(--acc); overflow-wrap: anywhere; user-select: text; font-variant-numeric: tabular-nums; }
 .cvout.err { font-size: var(--fs); font-weight: 400; color: var(--neg); }
-/* the swap button is a 44px circle on the seam; the "To" panel starts at its middle, inset from the card edges, and a ring of the card colour (the block gap) separates button and panel */
+/* the swap button sits on the seam and the "To" panel starts at its middle. One gap (--cvgap) is kept everywhere round the
+   panel: to the card's sides, to its bottom when nothing follows, and round the button, where the panel's colour is cut
+   away in a circle so the card itself (solid or see-through) shows in the gap. The colour is on a layer behind the
+   content so the mask never clips the panel's text or the pickers' menus. */
+.cvcard { display: flex; flex-direction: column; gap: var(--hg); --cvgap: var(--hg); --cvcut: calc(var(--ib) / 2 + var(--cvgap)); }
 .cvsw { display: flex; justify-content: center; position: relative; z-index: 1; }
-.cvsw .ib { box-shadow: 0 0 0 var(--hg) var(--s1); }
 .cvsw .ib :deep(svg) { transform: rotate(90deg); }
-.cvto { display: flex; flex-direction: column; gap: var(--hg); margin-top: calc(-22px - var(--hg)); padding: calc(22px + var(--hg)) var(--hg) var(--hg); border-radius: var(--r-md); background: color-mix(in srgb, var(--acc) 9%, var(--s2)); }
-.cvto .ib { background: var(--s1); }
+.cvto { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: var(--hg); margin: calc(-1 * (var(--ib) / 2 + var(--hg))) calc(var(--cvgap) - var(--cpx)) 0; padding: var(--cvcut) var(--hg) var(--hg); }
+.cvto:last-child { margin-bottom: calc(var(--cvgap) - var(--cpy)); }
+/* the mask only sets what is kept (opaque) and what is cut (clear); it paints no colour. Half a pixel each side keeps the edge smooth */
+.cvto::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: var(--r-md); background: color-mix(in srgb, var(--acc) 9%, var(--s2));
+  -webkit-mask: radial-gradient(circle var(--cvcut) at 50% 0, transparent calc(var(--cvcut) - .5px), #000 calc(var(--cvcut) + .5px));
+  mask: radial-gradient(circle var(--cvcut) at 50% 0, transparent calc(var(--cvcut) - .5px), #000 calc(var(--cvcut) + .5px)); }
 .cvact { display: flex; align-items: center; gap: var(--hg); }
 .cvsum { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--tx2); overflow-wrap: anywhere; }
 .cvact .ib:disabled { opacity: .4; cursor: default; }
-.cvrates { border-top: 1px solid var(--ol); padding-top: var(--hg); display: flex; flex-direction: column; gap: 4px; }
+/* the panel above already marks where the rates start: no line of its own */
+.cvrates { display: flex; flex-direction: column; gap: 4px; }
 .cvrates .t { font-size: var(--fs-sm); font-weight: 600; }
 .cvrates .s { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-sm); color: var(--tx2); }
 .lnk { font: inherit; background: none; border: 0; padding: 0; color: var(--acc); cursor: pointer; text-decoration: underline; }

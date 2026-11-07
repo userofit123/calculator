@@ -105,6 +105,8 @@ html {
   --cpx: 16px;
   --lpy: 10px;
   --lmh: 48px;
+  /* a round icon button (.ib); layouts that sit round one (the converter's swap seam) size from it */
+  --ib: 44px;
 }
 
 /* ===== background textures: a layer of its own, with its own density ===== */
