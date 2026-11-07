@@ -170,22 +170,24 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
               enterkeyhint="done" :aria-label="t('conv.amountIn', { unit: name(unit(from)) })" :placeholder="t('conv.amount')" />
             <div class="cvu"><UnitPicker v-model="from" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
           </div>
-          <!-- the "To" label shares the swap button's row, so the button sits halfway between the two fields -->
+          <!-- the swap button sits on the seam: the "To" panel starts at its middle and a ring of the card colour keeps the gap round it -->
           <div class="cvsw">
-            <span class="cvl">{{ t("c.to") }}</span>
             <button type="button" class="ib" :title="t('conv.swap')" :aria-label="t('conv.swap')" @click="swap(); play(($event.currentTarget as HTMLElement).firstElementChild, 'spin')"><Icon name="convert" /></button>
           </div>
-          <div class="cvrow">
-            <output v-swap:tick="errText || text(result)" class="cvout" :class="errText ? 'err' : 'num'" for="cv-amount" aria-live="polite" :title="full !== text(result) ? full : undefined">
-              {{ errText || text(result) || "0" }}
-            </output>
-            <div class="cvu"><UnitPicker v-model="to" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
-          </div>
-          <div class="cvact">
-            <span class="cvsum num">{{ text(result) ? `${show(typed)} ${label(unit(from))} = ${text(result)} ${label(unit(to))}` : "" }}</span>
-            <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" :disabled="!text(result)" @click="copy(full || text(result))">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
-            </button>
+          <div class="cvto">
+            <span class="cvl">{{ t("c.to") }}</span>
+            <div class="cvrow">
+              <output v-swap:tick="errText || text(result)" class="cvout" :class="errText ? 'err' : 'num'" for="cv-amount" aria-live="polite" :title="full !== text(result) ? full : undefined">
+                {{ errText || text(result) || "0" }}
+              </output>
+              <div class="cvu"><UnitPicker v-model="to" :options="options" :title="isCurrency ? t('conv.currency') : t('conv.unit')" /></div>
+            </div>
+            <div class="cvact">
+              <span class="cvsum num">{{ text(result) ? `${show(typed)} ${label(unit(from))} = ${text(result)} ${label(unit(to))}` : "" }}</span>
+              <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" :disabled="!text(result)" @click="copy(full || text(result))">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
+              </button>
+            </div>
           </div>
           <div v-if="isCurrency" class="cvrates">
             <div class="t">{{ ratesLine }}</div>
@@ -230,9 +232,12 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
 .cvin { width: 100%; font-size: var(--fs-lg); font-variant-numeric: tabular-nums; }
 .cvout { display: block; min-width: 0; font-size: var(--fs-val); font-weight: 600; line-height: 1.2; color: var(--acc); overflow-wrap: anywhere; user-select: text; font-variant-numeric: tabular-nums; }
 .cvout.err { font-size: var(--fs); font-weight: 400; color: var(--neg); }
-.cvsw { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; }
-.cvsw .cvl { align-self: end; }
+/* the swap button is a 44px circle on the seam; the "To" panel starts at its middle, inset from the card edges, and a ring of the card colour (the block gap) separates button and panel */
+.cvsw { display: flex; justify-content: center; position: relative; z-index: 1; }
+.cvsw .ib { box-shadow: 0 0 0 var(--hg) var(--s1); }
 .cvsw .ib :deep(svg) { transform: rotate(90deg); }
+.cvto { display: flex; flex-direction: column; gap: var(--hg); margin-top: calc(-22px - var(--hg)); padding: calc(22px + var(--hg)) var(--hg) var(--hg); border-radius: var(--r-md); background: color-mix(in srgb, var(--acc) 9%, var(--s2)); }
+.cvto .ib { background: var(--s1); }
 .cvact { display: flex; align-items: center; gap: var(--hg); }
 .cvsum { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--tx2); overflow-wrap: anywhere; }
 .cvact .ib:disabled { opacity: .4; cursor: default; }
