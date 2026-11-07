@@ -188,18 +188,18 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
               </button>
             </div>
-          </div>
-          <div v-if="isCurrency" class="cvrates">
-            <div class="t">{{ ratesLine }}</div>
-            <div v-if="olderLine" class="s">{{ olderLine }}</div>
-            <div v-for="n in unreachedNotes" :key="n" class="s">{{ n }}</div>
-            <div class="s">
-              <span>{{ ratesState }}</span>
-              <!-- one v-if / v-else pair: a v-else after the spinner's v-if would belong to the spinner and show "off" while on -->
-              <template v-if="rates.online">
-                <button type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">{{ t("conv.refresh") }}</button><span v-if="rates.loading" class="spin" aria-hidden="true" />
-              </template>
-              <button v-else type="button" class="lnk" @click="go('settings')">{{ t("conv.onlineOff") }}</button>
+            <div v-if="isCurrency" class="cvrates">
+              <div class="t">{{ ratesLine }}</div>
+              <div v-if="olderLine" class="s">{{ olderLine }}</div>
+              <div v-for="n in unreachedNotes" :key="n" class="s">{{ n }}</div>
+              <div class="s">
+                <span>{{ ratesState }}</span>
+                <!-- one v-if / v-else pair: a v-else after the spinner's v-if would belong to the spinner and show "off" while on -->
+                <template v-if="rates.online">
+                  <button type="button" class="lnk" :disabled="rates.loading" @click="refreshRates()">{{ t("conv.refresh") }}</button><span v-if="rates.loading" class="spin" aria-hidden="true" />
+                </template>
+                <button v-else type="button" class="lnk" @click="go('settings')">{{ t("conv.onlineOff") }}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -232,24 +232,30 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
 .cvout { display: block; min-width: 0; font-size: var(--fs-val); font-weight: 600; line-height: 1.2; color: var(--acc); overflow-wrap: anywhere; user-select: text; font-variant-numeric: tabular-nums; }
 .cvout.err { font-size: var(--fs); font-weight: 400; color: var(--neg); }
 /* the swap button sits on the seam and the "To" panel starts at its middle. One gap (--cvgap) is kept everywhere round the
-   panel: to the card's sides, to its bottom when nothing follows, and round the button, where the panel's colour is cut
+   panel: to the card's sides, to its bottom, and round the button, where the panel's colour is cut
    away in a circle so the card itself (solid or see-through) shows in the gap. The colour is on a layer behind the
    content so the mask never clips the panel's text or the pickers' menus. */
 .cvcard { display: flex; flex-direction: column; gap: var(--hg); --cvgap: var(--hg); --cvcut: calc(var(--ib) / 2 + var(--cvgap)); }
 .cvsw { display: flex; justify-content: center; position: relative; z-index: 1; }
 .cvsw .ib :deep(svg) { transform: rotate(90deg); }
-.cvto { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: var(--hg); margin: calc(-1 * (var(--ib) / 2 + var(--hg))) calc(var(--cvgap) - var(--cpx)) 0; padding: var(--cvcut) var(--hg) var(--hg); }
-.cvto:last-child { margin-bottom: calc(var(--cvgap) - var(--cpy)); }
-/* the mask only sets what is kept (opaque) and what is cut (clear); it paints no colour. Half a pixel each side keeps the edge smooth */
-.cvto::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: var(--r-md); background: color-mix(in srgb, var(--acc) 9%, var(--s2));
+/* the panel is always the card's last child (the rates footer lives inside it), so it always ends one gap above the
+   card's bottom. Its inner space is the card's own (density) less the gap, so the To content lines up with the From
+   content above; at Compact that would leave only a couple of pixels, so it never drops below half the card's space */
+.cvto { --cvpx: max(calc(var(--cpx) - var(--cvgap)), calc(var(--cpx) / 2)); --cvpy: max(calc(var(--cpy) - var(--cvgap)), calc(var(--cpy) / 2));
+  position: relative; isolation: isolate; display: flex; flex-direction: column; gap: var(--hg);
+  margin: calc(-1 * (var(--ib) / 2 + var(--hg))) calc(var(--cvgap) - var(--cpx)) calc(var(--cvgap) - var(--cpy));
+  padding: var(--cvcut) var(--cvpx) var(--cvpy); }
+/* the corners run parallel to the card's (its radius less the gap), never square when the card's corners are small.
+   The mask only sets what is kept (opaque) and what is cut (clear); it paints no colour. Half a pixel each side keeps the edge smooth */
+.cvto::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: max(calc(var(--r) - var(--cvgap)), calc(var(--r-sm) / 2)); background: color-mix(in srgb, var(--acc) 9%, var(--s2));
   -webkit-mask: radial-gradient(circle var(--cvcut) at 50% 0, transparent calc(var(--cvcut) - .5px), #000 calc(var(--cvcut) + .5px));
   mask: radial-gradient(circle var(--cvcut) at 50% 0, transparent calc(var(--cvcut) - .5px), #000 calc(var(--cvcut) + .5px)); }
 .cvact { display: flex; align-items: center; gap: var(--hg); }
 .cvsum { flex: 1; min-width: 0; font-size: var(--fs-sm); color: var(--tx2); overflow-wrap: anywhere; }
 .cvact .ib:disabled { opacity: .4; cursor: default; }
-/* the panel above already marks where the rates start: no line of its own */
+/* the rates footer ends the To panel, under the result it explains; the panel gap above it is its separation, no line */
 .cvrates { display: flex; flex-direction: column; gap: 4px; }
-.cvrates .t { font-size: var(--fs-sm); font-weight: 600; }
+.cvrates .t { font-size: var(--fs-sm); font-weight: 600; color: var(--tx); }
 .cvrates .s { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: var(--fs-sm); color: var(--tx2); }
 .lnk { font: inherit; background: none; border: 0; padding: 0; color: var(--acc); cursor: pointer; text-decoration: underline; }
 .lnk:disabled { opacity: .5; cursor: default; }
