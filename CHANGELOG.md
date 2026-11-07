@@ -6,12 +6,23 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+## [0.3.0] - 2026-11-07
+
 - The top of the calculator is a row of tabs: the calculator, named after its type (Basic, Advanced, Financial,
   Programming, Keyboard, chosen from its menu), then Tip & Split, Discount, Percent and Date, one tap each.
 - Everyday is gone: its Percent, Discount and Tip & Split are tabs of their own. VAT is no longer in the calculator.
   A calculator last left in Everyday opens on the tool it was showing.
 - New app icon: the four operators (+ − × ÷) in navy, the plus in amber, on a lime-to-teal tile. The logo in the app and
   the browser tab show the same signs in the colours of the chosen look.
+- The calculator's tabs: the underline slides to the chosen tab, arrows at the ends scroll the row when it doesn't fit,
+  modes slide in from the side, and on a computer the calculator grows or shrinks smoothly to its new size.
+- Converter: the card is split at the swap button, with the result in a tinted panel below and an even gap around it
+  and around the button. For currencies the rates line sits inside that panel.
+- Settings sits at the bottom of the desktop sidebar, under Appearance.
+- Group thousands is on by default (1,000,000); turning it off still sticks.
+- The converter's swap icon turns smoothly through its whole half turn, even with quick repeated taps.
+- Copy with nothing to copy does nothing, the same on every screen.
+- The license is stated in the app's packages and the README: free for non-commercial use.
 
 ## [0.2.0] - 2026-11-06
 
