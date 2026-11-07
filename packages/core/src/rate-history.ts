@@ -4,7 +4,7 @@
 // both sides have are drawn (weekends, holidays and a bank's missing days are simply not there). The National Bank of
 // Ukraine's history can only be read one day per request (its range answer doesn't allow other sites), so the hryvnia
 // has no graph. These numbers are only drawn and summed up to a few digits, so plain floating point is fine here.
-import { FIXED_EURO_RATES, USD_PEGS } from "./currency";
+import { FIXED_EURO_RATES, USD_PEGS, isDay, ecbCsvRows } from "./currency";
 
 /** one source's history of one currency: day (YYYY-MM-DD) → units per euro, as published */
 export type DayRates = Record<string, string>;
@@ -12,12 +12,6 @@ export interface RatePoint { day: string; value: number }
 export type GraphPeriod = "1M" | "3M" | "1Y";
 export const GRAPH_PERIODS: GraphPeriod[] = ["1M", "3M", "1Y"];
 
-/** a real calendar day "2026-11-06" (31 Feb doesn't pass) */
-const isDay = (d: string) => {
-  if (!/^\d{4}-\d\d-\d\d$/.test(d)) return false;
-  const [y, m, day] = d.split("-").map(Number), t = new Date(Date.UTC(y!, m! - 1, day!));
-  return t.getUTCFullYear() === y && t.getUTCMonth() === m! - 1 && t.getUTCDate() === day;
-};
 const okRate = (v: string) => /^\d+(\.\d+)?$/.test(v) && Number(v) > 0;
 
 /** The first day of a period ending today (UTC): one month, three months or a year back */
@@ -50,13 +44,9 @@ export const bcraHistoryUrl = (start: string, end: string) =>
 /** Reads the ECB's CSV of several days: per currency its days. A row without a value (a day the ECB didn't fix that
  *  currency), with a bad day or a bad number is left out; an answer that isn't the ECB's throws. */
 export function parseEcbHistoryCsv(text: string): Record<string, DayRates> {
-  const lines = text.trim().split(/\r?\n/).map((l) => l.split(","));
-  const head = lines.shift() ?? [];
-  const [C, D, V] = ["CURRENCY", "TIME_PERIOD", "OBS_VALUE"].map((n) => head.indexOf(n));
-  if (C! < 0 || D! < 0 || V! < 0) throw new Error("Not the ECB's rate data");
   const out: Record<string, DayRates> = {};
-  for (const r of lines) {
-    const c = (r[C!] ?? "").trim(), d = (r[D!] ?? "").trim(), v = (r[V!] ?? "").trim();
+  for (const r of ecbCsvRows(text)) {
+    const [c, d, v] = r.map((x) => x.trim()) as [string, string, string];
     if (/^[A-Z]{3}$/.test(c) && isDay(d) && okRate(v)) (out[c] ??= {})[d] = v;
   }
   return out;

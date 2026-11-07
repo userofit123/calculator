@@ -14,7 +14,7 @@ import { tip as texts } from "../i18n/en/tip";
 useTexts(texts);
 import { tMsg } from "../core/msg";
 import { readJson, writeJson } from "../core/prefs";
-import { toast } from "../core/toast";
+import { copyToClipboard as copy } from "../core/toast";
 import { play, vSwap } from "../core/motion";
 
 const PRESETS = ["10", "12", "15", "18", "20", "25"];
@@ -97,9 +97,6 @@ watch(() => st.split, (on) => { if (on) nextTick(() => play(splitEl.value, "in")
 const peopleN = computed(() => (/^\s*\d+\s*$/.test(st.people) ? Number(st.people) : null));
 function step(by: number) { st.people = String(Math.max(1, (peopleN.value ?? 1) + by)); }
 
-async function copy(s: string) {
-  try { await navigator.clipboard.writeText(s); toast(t("c.copied")); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
-}
 /** "Copy tip" (English puts the row's name in lower case; Hebrew has no case) */
 const copyTitle = (k: Key) => t("tip.copyRow", { label: lower(t(k)) });
 const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));

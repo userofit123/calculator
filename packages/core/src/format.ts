@@ -30,7 +30,7 @@ export type NumberFormat = "auto" | "fixed" | "sci" | "eng" | "fraction" | "mixe
 /** The largest denominator shown as a fraction */
 export const MAX_DENOMINATOR = 1_000_000n;
 /** The largest whole part (or numerator of a proper fraction) a fraction is shown with: past it ×10ⁿ reads better */
-export const MAX_FRACTION_WHOLE = 10n ** 15n;
+const MAX_FRACTION_WHOLE = 10n ** 15n;
 
 /** An exact non-whole value as a fraction: improper "-7/4" or mixed "-1 3/4" (a proper one is "3/4" either way), with a
  *  plain "/" (it can be typed and pasted back; the Unicode fraction slash needs font support and can't be typed) and a
@@ -62,7 +62,7 @@ export interface FormatOptions {
 }
 
 const SUP: Record<string, string> = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻" };
-export const toSuperscript = (s: string) => [...s].map((c) => SUP[c] ?? c).join("");
+const toSuperscript = (s: string) => [...s].map((c) => SUP[c] ?? c).join("");
 
 /** A double as an exact fraction of its 15 significant digits (the digits that are not noise) */
 export function cleanFloat(x: number): Q {
@@ -141,7 +141,7 @@ export function exactText(v: Value): string {
   return isInt(v.q) ? v.q.n.toString() : `${v.q.n}/${v.q.d}`;
 }
 /** x rounded to p significant digits, marked approximate: "≈1.41421356237309504880168872421e500" */
-export function approxText(x: Q, p: number): string {
+function approxText(x: Q, p: number): string {
   const r = roundSig(x, p), e = exponent10(r), k = e - p + 1;
   // the p digits, trailing zeros kept: they say how many digits are trustworthy when read back
   const R = (r.n < 0n ? -r.n : r.n) * (k < 0 ? 10n ** BigInt(-k) : 1n) / (r.d * (k > 0 ? 10n ** BigInt(k) : 1n));

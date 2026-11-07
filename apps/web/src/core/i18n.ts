@@ -14,7 +14,7 @@ import { readStr, writeStr } from "./prefs";
 export type { Key } from "../i18n/en";
 export type { Lang, Unit } from "../i18n/langs";
 export type LangChoice = "auto" | Lang;
-export const LANG_KEY = "calcLang";
+const LANG_KEY = "calcLang";
 
 const browserLangs = (): readonly string[] => {
   const n = globalThis.navigator;

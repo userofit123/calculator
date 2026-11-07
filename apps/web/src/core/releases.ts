@@ -2,7 +2,7 @@
 // says before anything is downloaded, and the SHA-256 comparison. No DOM, no network: tested in test/releases.test.ts.
 // The desktop app's main process and the Android plugin make the requests; this only judges the answers.
 
-export const REPO = "userofit123/calculator";
+const REPO = "userofit123/calculator";
 export const REPO_URL = `https://github.com/${REPO}`;
 export const RELEASES_API = `https://api.github.com/repos/${REPO}/releases/latest`;
 /** Every file the updater may download sits under this address (GitHub then redirects to its file host). */

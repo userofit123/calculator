@@ -11,7 +11,7 @@ import PickerPop from "./PickerPop.vue";
 import { t } from "../core/i18n";
 
 // `lang`: the label is in another language than the page (a language picker), so a screen reader says it right
-export interface SelectOption<V = string | number> { value: V; label: string; hint?: string; group?: string; disabled?: boolean; lang?: string }
+interface SelectOption<V = string | number> { value: V; label: string; hint?: string; group?: string; disabled?: boolean; lang?: string }
 defineOptions({ inheritAttrs: false });
 const props = defineProps<{ modelValue: T; options: (Extract<T, string> | SelectOption<T>)[]; placeholder?: string; disabled?: boolean; title?: string }>();
 const emit = defineEmits<{ "update:modelValue": [v: T]; change: [v: T] }>();

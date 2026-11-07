@@ -10,7 +10,7 @@ import { BASES } from "@calc/core";
 import { go } from "../shell/nav";
 import { flipMove } from "../core/motion";
 const rowKey = (h: HistItem) => `${h.t}:${h.e}:${h.r}`;
-import { toast } from "../core/toast";
+import { toast, copyToClipboard as copy } from "../core/toast";
 import { t, tMaybe, useTexts } from "../core/i18n";
 import { history as texts } from "../i18n/en/history";
 // this part loads lazily: its English texts come with it
@@ -46,9 +46,6 @@ function del(h: HistItem) {
   const old = history.map((x) => ({ ...x }));
   removeEntry(h);
   toast(t("hist.deleted"), { action: { label: t("c.undo"), run: () => restoreHistory(old) } });
-}
-async function copy(s: string, msg = t("c.copied")) {
-  try { await navigator.clipboard.writeText(s); toast(msg); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
 }
 // A download made in the page (Blob + link). The Android app's web view doesn't save such downloads, so there the
 // history is copied instead; the desktop app (Electron) saves them through its normal save dialog.

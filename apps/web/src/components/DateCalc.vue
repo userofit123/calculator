@@ -15,7 +15,7 @@ import { date as texts } from "../i18n/en/date";
 useTexts(texts);
 import { tMsg } from "../core/msg";
 import { readJson, writeJson } from "../core/prefs";
-import { toast } from "../core/toast";
+import { copyToClipboard as copy } from "../core/toast";
 
 type Tab = "between" | "add" | "age" | "time";
 const TABS: [Tab, Key][] = [["between", "date.tab.between"], ["add", "date.tab.add"], ["age", "date.tab.age"], ["time", "date.tab.time"]];
@@ -109,10 +109,6 @@ const copyText = computed(() => {
   if (st.tab === "age") return ageText.value;
   return "";
 });
-async function copy(s: string) {
-  if (!s) return;
-  try { await navigator.clipboard.writeText(s); toast(t("c.copied")); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
-}
 </script>
 
 <template>

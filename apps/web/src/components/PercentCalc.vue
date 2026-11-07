@@ -15,7 +15,7 @@ import { every as texts } from "../i18n/en/every";
 useTexts(texts);
 import { tMsg } from "../core/msg";
 import { readJson, writeJson } from "../core/prefs";
-import { toast } from "../core/toast";
+import { copyToClipboard as copy } from "../core/toast";
 /** which mode's forms: Percent or Discount */
 defineProps<{ tool: "percent" | "discount" }>();
 
@@ -95,10 +95,6 @@ const disc = computed(() => out([rd(st.price)], [rd(st.off1, true), rd(st.off2, 
   p.pct(t("every.offAll"), r.percent);
 }));
 
-async function copy(s: string) {
-  if (!s) return;
-  try { await navigator.clipboard.writeText(s); toast(t("c.copied")); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
-}
 /** "Copy sale price" (English puts the row's name in lower case; Hebrew has no case) */
 const copyTitle = (label: string) => t("every.copyRow", { label: lower(label) });
 const ph = computed(() => (settings.decimalMark === "," ? "0,00" : "0.00"));

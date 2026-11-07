@@ -114,7 +114,7 @@ export function powInt(a: Q, k: bigint): Q {
 }
 
 /** The whole k-th root of a ≥ 0 if a is a perfect k-th power, else null */
-export function irootExact(a: bigint, k: number): bigint | null {
+function irootExact(a: bigint, k: number): bigint | null {
   if (a < 0n) return null;
   const x = iroot(a, k);
   return x ** BigInt(k) === a ? x : null;
@@ -241,13 +241,6 @@ export function powNum(a: Q, y: Q): { f: number } | { l10: number } {
     if (Number.isFinite(r) && Math.abs(r) >= 1e-300) return { f: r };
   }
   return { l10: (Number(M) + F + yf * Math.log2(m)) * LOG10_2 };
-}
-
-/** 10^l as a fraction of 15 significant digits: a power beyond a double's range worked out by logarithms */
-export function fromLog10(l: number): Q {
-  if (!Number.isFinite(l) || Math.abs(l) > MAX_BITS * LOG10_2) throw tooLarge();
-  const e = Math.floor(l), m = BigInt(Math.round(10 ** (l - e) * 1e14)), k = e - 14;
-  return k >= 0 ? q(m * 10n ** BigInt(k)) : q(m, 10n ** BigInt(-k));
 }
 
 /** a rounded to `digits` significant digits (half away from zero) */

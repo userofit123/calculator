@@ -126,16 +126,28 @@ export function rateSourceLine(rs: RateSet, code: string): string {
 export const currencyFlag = (code: string) =>
   /^[A-Z]{3}$/.test(code) ? String.fromCodePoint(...[...code.slice(0, 2)].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)) : "";
 
-/** Reads the ECB Data Portal's CSV: per currency its newest row (the newest day can lack some currencies), each with its
- *  own date; rows far older than the newest day (RUB, ...) are dropped. */
-export function parseEcbCsv(text: string): RateSet {
+/** a real calendar day "2026-11-06" (31 Feb doesn't pass: the date is rebuilt from its parts and compared back) */
+export const isDay = (d: string) => {
+  if (!/^\d{4}-\d\d-\d\d$/.test(d)) return false;
+  const [y, m, day] = d.split("-").map(Number), t = new Date(Date.UTC(y!, m! - 1, day!));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m! - 1 && t.getUTCDate() === day;
+};
+
+/** The rows of an ECB Data Portal CSV (the latest rates and the rate graph's history read the same format) as
+ *  [currency, day, value], found by the header's column names; an answer that isn't the ECB's throws. */
+export function ecbCsvRows(text: string): [string, string, string][] {
   const lines = text.trim().split(/\r?\n/).map((l) => l.split(","));
   const head = lines.shift() ?? [];
   const [C, D, V] = ["CURRENCY", "TIME_PERIOD", "OBS_VALUE"].map((n) => head.indexOf(n));
   if (C! < 0 || D! < 0 || V! < 0) throw new Error("Not the ECB's rate data");
+  return lines.map((r) => [r[C!] ?? "", r[D!] ?? "", r[V!] ?? ""]);
+}
+
+/** Reads the ECB Data Portal's CSV: per currency its newest row (the newest day can lack some currencies), each with its
+ *  own date; rows far older than the newest day (RUB, ...) are dropped. */
+export function parseEcbCsv(text: string): RateSet {
   const rates: Record<string, string> = {}, dates: Record<string, string> = {};
-  for (const r of lines) {
-    const c = r[C!] ?? "", v = r[V!] ?? "", d = r[D!] ?? "";
+  for (const [c, d, v] of ecbCsvRows(text)) {
     if (validDay(d) && /^[A-Z]{3}$/.test(c) && /^\d+(\.\d+)?$/.test(v) && Number(v) > 0 && d >= (dates[c] ?? "")) { rates[c] = v; dates[c] = d; }
   }
   const date = Object.values(dates).reduce((m, d) => (d > m ? d : m), "");

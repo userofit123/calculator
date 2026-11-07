@@ -11,7 +11,7 @@ import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
 import { readJson, writeJson } from "../core/prefs";
 import { rates, rateDate, refreshRates, autoRefresh } from "../core/rates";
-import { toast } from "../core/toast";
+import { copyToClipboard as copy } from "../core/toast";
 import { t, tMaybe, lang, listOf, locale, unitName, currencyName, type Key, useTexts } from "../core/i18n";
 import { convert as texts } from "../i18n/en/convert";
 // this part loads lazily: its English texts come with it
@@ -93,10 +93,6 @@ const full = computed(() => (result.value && "value" in result.value ? text(conv
 const errText = computed(() => (result.value && "error" in result.value ? (noRate.value.length ? result.value.error : tMsg(result.value.error)) : ""));
 const label = (u: Unit) => u.symbol;
 
-async function copy(s: string) {
-  if (!s) return;
-  try { await navigator.clipboard.writeText(s); toast(t("c.copied")); } catch { toast(t("c.couldntCopy"), { kind: "err" }); }
-}
 function pickTo(u: Unit) { if (u.id !== from.value) to.value = u.id; }
 
 /** the ECB's day: most currencies come from it */

@@ -62,7 +62,7 @@ export function splitPinned(items: HistItem[]): { pinned: HistItem[]; rest: Hist
   return { pinned: items.filter((h) => h.p), rest: items.filter((h) => !h.p) };
 }
 /** The mode of an entry: stored, or programming when it carries a base */
-export const modeOf = (h: HistItem) => h.m ?? (h.b ? "programming" : "");
+const modeOf = (h: HistItem) => h.m ?? (h.b ? "programming" : "");
 const BASE_NAMES: Record<number, string> = { 2: "BIN", 8: "OCT", 10: "DEC", 16: "HEX" };
 /** The extra info of a programming-mode entry, e.g. "HEX, 32-bit, signed" */
 export function progInfo(h: HistItem): string {
@@ -80,7 +80,7 @@ export function csvCell(v: string): string {
   const s = /^[=+\-@\t\r]/.test(v) && !PLAIN_NUMBER.test(v) ? "'" + v : v;
   return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
-export const CSV_HEAD = ["date_time", "mode", "base", "word_size", "signed", "expression", "result"];
+const CSV_HEAD = ["date_time", "mode", "base", "word_size", "signed", "expression", "result"];
 export function toCsv(items: HistItem[]): string {
   const rows = items.map((h) => [
     h.t ? new Date(h.t).toISOString() : "", modeOf(h), h.b ? String(h.b) : "", h.w ? String(h.w) : "", h.s == null ? "" : h.s ? "yes" : "no", h.e, h.r,

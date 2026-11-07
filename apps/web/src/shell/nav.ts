@@ -33,7 +33,7 @@ export const PAGES: Record<PageName, Component> = {
 // app, the address bar shows them after BASE_URL ("/" for the desktop and Android apps and a copy at the root).
 const BASE = import.meta.env.BASE_URL;
 /** The full address of a page, e.g. "/calculator/converter". */
-export const href = (name: PageName) => BASE + NAV.find((n) => n.name === name)!.path.slice(1);
+const href = (name: PageName) => BASE + NAV.find((n) => n.name === name)!.path.slice(1);
 const fromPath = (full: string): PageName => {
   const p = full.startsWith(BASE) ? "/" + full.slice(BASE.length) : full;
   return NAV.find((n) => n.path !== "/" && (p === n.path || p.startsWith(n.path + "/")))?.name ?? "calc";
