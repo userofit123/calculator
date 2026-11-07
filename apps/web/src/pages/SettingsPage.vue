@@ -137,12 +137,14 @@ const LANG_OPTIONS = computed(() => [
           </label>
           <template v-if="shortcuts.on">
             <div v-for="(m, i) in shortcuts.modes" :key="m" class="li scli">
+              <Icon name="calc" class="scgap" aria-hidden="true" />
               <div class="grow"><div class="t">{{ modeLabel(m) }}</div><div class="s">{{ modeHint(m) }}</div></div>
               <button type="button" class="ib sm plain" :disabled="i === 0" :title="t('set.scEarlier', { x: modeLabel(m) })" :aria-label="t('set.scEarlier', { x: modeLabel(m) })" @click="moveShortcut(m, -1)"><Icon name="up" /></button>
               <button type="button" class="ib sm plain" :disabled="i === shortcuts.modes.length - 1" :title="t('set.scLater', { x: modeLabel(m) })" :aria-label="t('set.scLater', { x: modeLabel(m) })" @click="moveShortcut(m, 1)"><Icon name="down" /></button>
               <button type="button" class="ib sm plain" :title="t('set.scRemove', { x: modeLabel(m) })" :aria-label="t('set.scRemove', { x: modeLabel(m) })" @click="toggleShortcut(m)"><Icon name="close" /></button>
             </div>
             <div v-if="notShortcut.length" class="li scli scadd">
+              <Icon name="calc" class="scgap" aria-hidden="true" />
               <div class="grow"><div class="t">{{ t("set.scAdd") }}</div><div class="s">{{ t(shortcuts.modes.length ? "set.scAddHint" : "set.scNone") }}</div></div>
               <div class="scpick" role="group" :aria-label="t('set.scAdd')">
                 <button v-for="m in notShortcut" :key="m.id" type="button" class="btn s" :title="modeHint(m.id)" :aria-label="t('set.scAddOne', { x: modeLabel(m.id) })" @click="toggleShortcut(m.id)">+ {{ modeLabel(m.id) }}</button>
@@ -282,7 +284,8 @@ const LANG_OPTIONS = computed(() => [
 #updates > .card + .card { margin-top: var(--spg); }
 /* C-66: the shortcut rows sit under their switch, lined up with its text (past the icon); the modes to add wrap under
    their heading on a narrow screen */
-.scli { padding-inline-start: calc(20px + 12px + 4px); }
+/* an invisible copy of the toggle rows' icon, so these rows line up through the same icon slot and gap */
+.scgap { visibility: hidden; }
 .scli .ib:disabled { opacity: .35; }
 .scadd { flex-wrap: wrap; }
 .scpick { display: flex; flex-wrap: wrap; gap: calc(var(--hg) / 2); }

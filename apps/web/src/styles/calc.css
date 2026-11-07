@@ -16,10 +16,9 @@ html[data-ksh="round"] { --kr: 999px; }
 .cflag { white-space: nowrap; }
 /* C-66: shortcuts to modes next to the mode menu. They take the space left on its line and scroll sideways when there
    are more than fit (a narrow phone), so the line never wraps or overflows the page. */
-.cshort { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: calc(var(--hg) / 2); overflow-x: auto; scrollbar-width: none; padding-block: 2px; }
+.cshort { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: calc(var(--hg) / 2); overflow-x: auto; scrollbar-width: none; padding: 4px; margin: -4px; }
 .cshort::-webkit-scrollbar { display: none; }
-.csc { flex: none; cursor: pointer; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); padding: calc(var(--lpy) * .25) var(--hg); }
-.csc:hover { color: var(--acc); }
+.csc { flex: none; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); padding: calc(var(--lpy) * .25) var(--hg); }
 .csc.on { background: var(--acc); color: var(--on); }
 
 /* the mode switch: a quiet button with the mode's name, like the GNOME calculator's mode menu */

@@ -42,7 +42,7 @@ export interface CalcSettings { angle: AngleUnit; decimals: number; format: Numb
 const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;
 // On a first run (no settings saved yet) the decimal mark follows the language: a comma in German, French, Russian, …
 const firstMark = (): "." | "," => (!hadSettings && LANG_INFO[resolveLang(langChoice.value)].comma ? "," : ".");
-// "everyday" was a switch before C-59 (Everyday mode is always there now): an old saved one is dropped
+// "everyday" was a switch before C-59 (it is gone since the mode shortcuts replaced Everyday): an old saved value is dropped
 const { everyday: _oldEveryday, ...savedSettings } = readJson<Partial<CalcSettings> & { everyday?: unknown }>("calcSettings", {});
 export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: true, decimalMark: firstMark(), ...savedSettings });
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
