@@ -34,8 +34,9 @@ html[data-ksh="round"] { --kr: 999px; }
 .ctabs:not(.sl) :is(.ctab.on, .mnub.on) { box-shadow: inset 0 -2px var(--acc); }
 .ctabs .segi b { background: none; box-shadow: inset 0 -2px var(--acc); border-radius: 0; }
 /* more tabs past the row's ends: a chevron at that end (kept in place, unseen, when there is nothing more that way, so
-   the row doesn't shift as it scrolls); the start one points back */
-.ctabm { flex: none; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--tx2); padding: 0 calc(var(--hg) / 4); cursor: pointer; transition: color .2s; }
+   the row doesn't shift as it scrolls); the start one points back. The row reaches 4px under each chevron (its focus ring
+   room), so the chevrons sit above it and take the whole of their clicks; a hidden one lets them through to the row */
+.ctabm { flex: none; position: relative; z-index: 2; display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--tx2); padding: 0 calc(var(--lpy) / 4); cursor: pointer; transition: color .2s; }
 .ctabm:hover { color: var(--tx); }
 .ctabm.off { visibility: hidden; }
 .ctabm.st .ico { scale: -1 1; }

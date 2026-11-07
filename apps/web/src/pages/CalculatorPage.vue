@@ -11,7 +11,7 @@
 // Percent, Discount (PercentCalc) and Tip & Split (TipCalc) are forms the same way, loaded when chosen.
 // C-66: the top is a row of tabs. The first is the calculator, named after its type, with the types (Basic, Advanced,
 // Financial, Programming, Keyboard) in its menu; the tools (Tip & Split, Discount, Percent, Date) are a tab each.
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, defineAsyncComponent, type Component, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, CALC_TYPES, TOOLS, lastType, ANGLES, chooseStartMode, formMode, answerNote, withUnit, modeLabel as modeName, modeHint } from "../core/calc";
 import { t, type Key } from "../core/i18n";
 import { tMsg } from "../core/msg";
@@ -23,7 +23,7 @@ import ProgPad from "../components/ProgPad.vue";
 import KeyboardCalc from "../components/KeyboardCalc.vue";
 import NumFormat from "../components/NumFormat.vue";
 import { speak } from "../core/speak";
-import { play, flipChanged, vSwap, canMove, dirSign, resizeFrom } from "../core/motion";
+import { play, flipChanged, vSwap, canMove, dirSign, resizeFrom, sizing } from "../core/motion";
 import { refreshSeg } from "../core/segSlide";
 
 // a first-ever open picks its mode before the first paint: Keyboard on a computer with no touch screen, else Basic
@@ -31,10 +31,15 @@ chooseStartMode(isPhone.value);
 
 const VariablesSheet = defineAsyncComponent(() => import("../components/VariablesSheet.vue"));
 const varsOpen = ref(false);
-const FinPad = defineAsyncComponent(() => import("../components/FinPad.vue"));
-const DateCalc = defineAsyncComponent(() => import("../components/DateCalc.vue"));
-const TipCalc = defineAsyncComponent(() => import("../components/TipCalc.vue"));
-const PercentCalc = defineAsyncComponent(() => import("../components/PercentCalc.vue"));
+// the modes whose form loads when first chosen, and which of those forms have arrived (a switch to one still on its way
+// waits for it to slide in and to size the page: see `late` below)
+const LAZY: Partial<Record<string, string>> = { financial: "fin", date: "date", tip: "tip", percent: "pct", discount: "pct" };
+const loaded = new Set<string>();
+const lazy = (name: string, load: () => Promise<{ default: Component }>) => defineAsyncComponent(() => load().then((m) => { loaded.add(name); return m; }));
+const FinPad = lazy("fin", () => import("../components/FinPad.vue"));
+const DateCalc = lazy("date", () => import("../components/DateCalc.vue"));
+const TipCalc = lazy("tip", () => import("../components/TipCalc.vue"));
+const PercentCalc = lazy("pct", () => import("../components/PercentCalc.vue"));
 
 // kind: n = number, op = operator (accent tint), fn = function (quiet), eq = the one filled key
 type Kind = "n" | "op" | "fn" | "eq";
@@ -135,17 +140,29 @@ const pageEl = ref<HTMLElement | null>(null), resEl = ref<HTMLElement | null>(nu
 const SLIDE = ":scope > :not(.calc-top, .sr, .scr), .calc-top .pbar";
 const switching = ref(false);
 let swBy = 1, swT: ReturnType<typeof setTimeout> | undefined;
+// the size the page is growing or shrinking to, and whether the new mode's form is still loading
+let sizeTo: DOMRect | null = null, lateWait = false;
 watch(() => calc.mode, (to, from) => {
+  const lz = LAZY[to];
+  lateWait = !!lz && !loaded.has(lz);
   swBy = (MODES.findIndex((m) => m.id === to) >= MODES.findIndex((m) => m.id === from) ? 1 : -1) * 2.5;
   const el = pageEl.value, was = el && !isPhone.value && canMove() ? el.getBoundingClientRect() : null;
   switching.value = true; clearTimeout(swT); swT = setTimeout(() => (switching.value = false), 1500);
-  nextTick(() => { el?.querySelectorAll(SLIDE).forEach((e) => play(e, "slide", swBy)); resizeFrom(el, was); });
+  nextTick(() => { el?.querySelectorAll(SLIDE).forEach((e) => play(e, "slide", swBy)); sizeTo = resizeFrom(el, was); });
 });
-// a form chosen for the first time loads a moment later (FinPad, DateCalc...): it slides in the same way when it arrives
+// a form chosen for the first time loads a moment later (FinPad, DateCalc...): it slides in the same way when it arrives,
+// and the page, which had started towards its size without the form, carries on from where it is to the real size.
+// Only that form's arrival counts (its root, once), so rows that come and go with a key never slide
+const LATE = ".finkeys, .dcalc, .tipc, .ecalc";
 const late = typeof MutationObserver === "undefined" ? null : new MutationObserver((ms) => {
-  if (!switching.value) return;
+  if (!lateWait) return;
   for (const m of ms) for (const n of m.addedNodes) {
-    if (n instanceof HTMLElement && (n.parentElement === pageEl.value || n.parentElement?.classList.contains("cpad")) && !n.matches(".calc-top, .sr, .scr")) play(n, "slide", swBy);
+    if (!(n instanceof HTMLElement) || !n.matches(LATE)) continue;
+    lateWait = false;
+    if (switching.value) play(n, "slide", swBy);
+    const el = pageEl.value;
+    if (el && sizeTo) sizeTo = resizeFrom(el, sizing(el) ? el.getBoundingClientRect() : sizeTo);
+    return;
   }
 });
 onMounted(() => { if (pageEl.value) late?.observe(pageEl.value, { childList: true, subtree: true }); });
@@ -201,10 +218,16 @@ function fit() {
 watch(() => [big.value, calc.mode, isPhone.value], () => nextTick(fit), { flush: "post" });
 // re-fit whenever the line's width changes, not only the window's (a panel opening beside it, the layout switching).
 // Only a width change counts: fit() changes the font size, which must not set it off again
+// While the page grows or shrinks to another mode's size the width changes every frame: fit once it has got there
 let fitW = 0;
+const fitAfter = new WeakSet<Animation>();
 const fitObs = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(([e]) => {
   const w = e?.contentRect.width ?? 0;
-  if (w !== fitW) { fitW = w; fit(); }
+  if (w === fitW) return;
+  fitW = w;
+  const a = sizing(pageEl.value);
+  if (!a) fit();
+  else if (!fitAfter.has(a)) { fitAfter.add(a); a.finished.then(fit, () => {}); }
 });
 watch(resEl, (el, old) => { if (old) fitObs?.unobserve(old); if (el) fitObs?.observe(el); }, { flush: "post" });
 onMounted(fit);

@@ -49,6 +49,7 @@ function sync(sg: HTMLElement) {
   const ul = sg.classList.contains("ctabs"), lo = Math.min(...bs.map((x) => x.offsetLeft)), hi = Math.max(...bs.map((x) => x.offsetLeft + x.offsetWidth)), rd = ul ? "0" : bs.length < 2 ? R + "px" : rad(R, M, g.l <= lo + 1, g.r >= hi - 1);
   const e = pill.firstElementChild as HTMLElement, p = pill;
   const old = st.get(k);
+  ro?.observe(sg);
   if (!old) { const s: Slide = { idx, anim: null, cur: { l: g.l, r: g.r, rd }, g }; st.set(k, s); put(p, g, g.l, g.r, rd); return; }
   const s = old;
   const rest = () => { if (s.anim) { s.anim.cancel(); s.anim = null; } put(p, g, g.l, g.r, rd); s.cur = { l: g.l, r: g.r, rd }; s.g = g; };
@@ -72,6 +73,19 @@ function sync(sg: HTMLElement) {
   s.anim.onfinish = () => { if (!s.anim) return; s.anim.cancel(); s.anim = null; put(p, g, g.l, g.r, rd); s.cur = { l: g.l, r: g.r, rd }; };
   s.cur = { l: g.l, r: g.r, rd }; s.g = g; put(p, g, g.l, g.r, rd);
 }
+// A row changing size without a tab being picked (the calculator's page growing to another mode's width): in a right to
+// left row the tabs move with its end, so the pill follows its tab at once (no glide). Only a tab that has moved counts,
+// so a row whose tabs stay where they were (left to right, or any other row) keeps a glide that is on its way. A row
+// taken off the page is let go.
+const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver((es) => {
+  for (const { target } of es) {
+    const sg = target as HTMLElement;
+    if (!sg.isConnected) { ro?.unobserve(sg); continue; }
+    const s = st.get(keyOf(sg)), b = sg.querySelector<HTMLElement>(":scope>button.on");
+    if (!s?.g || !b || !sg.offsetWidth || [...sg.querySelectorAll(":scope>button")].indexOf(b) !== s.idx) continue;
+    if (Math.abs(b.offsetLeft - s.g.l) > 0.5 || Math.abs(b.offsetLeft + b.offsetWidth - s.g.r) > 0.5) { s.snap = true; sync(sg); }
+  }
+});
 const flush = () => { raf = 0; const l = [...todo]; todo.clear(); l.forEach(sync); };
 const q = (sg: HTMLElement | null) => { if (sg) todo.add(sg); if (!raf) raf = requestAnimationFrame(flush); };
 const all = () => { document.querySelectorAll<HTMLElement>(ROWS).forEach((x) => todo.add(x)); if (!raf) raf = requestAnimationFrame(flush); };
