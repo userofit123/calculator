@@ -28,17 +28,28 @@ function target(): Spot | null {
   return { x: b.offsetLeft + ic.offsetLeft, y: b.offsetTop + ic.offsetTop, w: ic.offsetWidth, h: ic.offsetHeight, r: getComputedStyle(ic).borderTopLeftRadius };
 }
 const set = (x: number, y: number, sx = 1) => `translate(${x}px,${y}px) scale(${sx},1)`;
-function place(animate: boolean) {
+/** `fix` is a correction while a glide is on its way: it carries on from where the pill is drawn to the new spot in the
+ *  time that glide had left, without a second stretch, so it reads as one movement rather than a restart */
+function place(animate: boolean, fix = false) {
   const tb = bar.value, p = pill.value; if (!tb || !p) return;
   const to = target();
   if (!to) { anim?.cancel(); anim = null; p.style.display = "none"; tb.classList.remove("pld"); at = null; return; }
   // a glide still on its way starts the next one from where the pill is drawn now, not from where it was heading
-  const m = anim?.playState === "running" ? new DOMMatrixReadOnly(getComputedStyle(p).transform) : null;
+  const run = anim?.playState === "running" ? anim : null;
+  const m = run ? new DOMMatrixReadOnly(getComputedStyle(p).transform) : null;
   const from = m ? { x: m.e, y: m.f, sx: m.a } : at && { x: at.x, y: at.y, sx: 1 };
+  const left = run ? Number(run.effect?.getComputedTiming().endTime ?? 0) - Number(run.currentTime ?? 0) : 0;
   at = to; anim?.cancel(); anim = null;
   p.style.display = ""; p.style.width = to.w + "px"; p.style.height = to.h + "px"; p.style.borderRadius = to.r; tb.classList.add("pld");
   p.style.transform = set(to.x, to.y);
-  if (!animate || !from || Math.abs(from.x - to.x) < 0.5 || !canMove()) return;
+  if (!animate || !from || !canMove()) return;
+  if (fix) {
+    // nothing was gliding (or under a frame of it was left): the pill just moves, as nothing on screen led up to it
+    if (left < 16 || (Math.abs(from.x - to.x) < 0.5 && Math.abs(from.y - to.y) < 0.5 && Math.abs(from.sx - 1) < 0.01)) return;
+    anim = p.animate([{ transform: set(from.x, from.y, from.sx) }, { transform: set(to.x, to.y) }], { duration: left, easing: "cubic-bezier(0,0,.2,1)" });
+    return;
+  }
+  if (Math.abs(from.x - to.x) < 0.5) return;
   const mid = (from.x + to.x) / 2 - to.w * 0.15;
   anim = p.animate([{ transform: set(from.x, from.y, from.sx) }, { transform: set(mid, to.y, 1.3), offset: 0.45 }, { transform: set(to.x, to.y) }], { duration: dur(3), easing: "cubic-bezier(.4,0,.2,1)" });
 }
@@ -48,12 +59,15 @@ watch(page, () => nextTick(() => place(true)));
 // when a long page gives way to a short one (or the other way) the bar widens or narrows by the scrollbar's width and
 // every icon moves sideways, with no resize event. The pill is placed when the tab is picked, while the old page is
 // still leaving, so the new page's scrollbar change came after it and left the pill off to the side of its icon. The
-// screen's side safe areas and the window size resize the bar the same way; the direction moves the icons and the
-// corner shape reshapes them without resizing anything. Only a real change counts, so a glide on its way is kept.
+// screen's side safe areas and the window size resize the bar the same way; the direction moves the icons, and the
+// corner shape and the font (a switch, or a late font file) reshape or lift them without resizing anything, as the
+// labels set the button's height inside a bar of fixed height. Only a real change counts. The old page leaves faster
+// than the glide runs, so the scrollbar change usually lands while the pill is still gliding: then the glide is
+// steered to the corrected spot instead of being cut short with a jump.
 function follow() {
   const to = target();
   if (!to || !at) { if (!to !== !at) place(false); return; }
-  if (Math.abs(to.x - at.x) > 0.5 || Math.abs(to.y - at.y) > 0.5 || to.w !== at.w || to.h !== at.h || to.r !== at.r) place(false);
+  if (Math.abs(to.x - at.x) > 0.5 || Math.abs(to.y - at.y) > 0.5 || to.w !== at.w || to.h !== at.h || to.r !== at.r) place(true, true);
 }
 let ro: ResizeObserver | null = null, mo: MutationObserver | null = null;
 onMounted(() => {
@@ -62,7 +76,8 @@ onMounted(() => {
   // (the template's @after-enter) is checked either way, as that is when the new page's scrollbar has settled
   if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(follow); if (bar.value) ro.observe(bar.value); }
   else addEventListener("resize", follow);
-  mo = new MutationObserver(follow); mo.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "data-rad"] });
+  mo = new MutationObserver(follow); mo.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "data-rad", "data-fnt"] });
+  document.fonts?.ready.then(follow);
 });
 onBeforeUnmount(() => { ro?.disconnect(); removeEventListener("resize", follow); mo?.disconnect(); anim?.cancel(); });
 // the desktop app: the page draws the title strip that drags the window (styles/layout.css, html.dframe)
