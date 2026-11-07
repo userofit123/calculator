@@ -11,6 +11,10 @@ const csv = (cs: string[]) => "CURRENCY,TIME_PERIOD,OBS_VALUE\n" + cs.map((c) =>
 
 describe("ensureHistory", () => {
   it("runs the latest request made during a fetch, once, after it", async () => {
+    // The app keeps a year at most, counted from today, so a fixed date in the request drifts out of range as the real
+    // clock moves on. Pin only Date (the fetch gates are promises, no timers needed) so the test never depends on today.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-07T12:00:00Z"));
     const urls: string[] = [];
     const gates: (() => void)[] = [];
     vi.stubGlobal("fetch", (url: string) => {
@@ -21,7 +25,7 @@ describe("ensureHistory", () => {
     const first = ensureHistory(["USD"], "2026-10-06");
     expect(history.loading).toBe(true);
     void ensureHistory(["GBP"], "2026-10-06"); // superseded
-    void ensureHistory(["CHF"], "2025-11-06"); // the latest wins
+    void ensureHistory(["CHF"], "2026-01-06"); // the latest wins
     expect(urls.length).toBe(1);
     gates[0]!();
     await vi.waitFor(() => expect(urls.length).toBe(2));
@@ -31,9 +35,10 @@ describe("ensureHistory", () => {
     await first;
     expect(history.loading).toBe(false);
     expect(history.held.USD).toBeTruthy();
-    expect(history.held.CHF!.from).toBe("2025-11-06");
+    expect(history.held.CHF!.from).toBe("2026-01-06");
     expect(history.held.GBP).toBeUndefined();
     expect(urls.length).toBe(2);
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 });
