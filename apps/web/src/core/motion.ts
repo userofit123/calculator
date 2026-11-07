@@ -132,6 +132,27 @@ export function resizeFrom(el: HTMLElement | null | undefined, from: DOMRect | n
 /** the size change resizeFrom is playing on this box right now, if any */
 export const sizing = (el: HTMLElement | null | undefined) => el?.getAnimations().find((a) => (a as Animation & { id: string }).id === "mo-size" && a.playState === "running");
 
+/**
+ * A part of a card that opens and closes (the tip split's people section): <Transition :css="false" v-bind="collapse">.
+ * Its height grows from nothing (and back) with a fade, content clipped on the way, so what is below it glides down
+ * instead of jumping. Height is animated here on purpose: a section opening has to push the rest of the card. With
+ * reduced motion (or before the first paint) it simply appears and goes.
+ */
+export const collapse = {
+  css: false,
+  onEnter(el: Element, done: () => void) { collapseRun(el as HTMLElement, true, done); },
+  onLeave(el: Element, done: () => void) { collapseRun(el as HTMLElement, false, done); },
+  onBeforeLeave(el: Element) { leaving(el); },
+};
+function collapseRun(el: HTMLElement, open: boolean, done: () => void) {
+  if (!canMove() || typeof el.animate !== "function") { done(); return; }
+  const t = tokens(), h = el.offsetHeight + "px";
+  const shut: Keyframe = { height: "0px", opacity: 0, overflow: "clip" }, full: Keyframe = { height: h, opacity: 1, overflow: "clip" };
+  const a = el.animate(open ? [shut, full] : [full, shut], { duration: t.d3, easing: open ? t.ease : t.easeIn, fill: open ? "none" : "forwards" });
+  a.onfinish = () => done();
+  a.oncancel = () => done();
+}
+
 /** a popover on its way out (a Transition's before-leave): no longer there for a screen reader, the keyboard or a click */
 export const leaving = (el: Element) => { el.setAttribute("aria-hidden", "true"); (el as HTMLElement).inert = true; };
 

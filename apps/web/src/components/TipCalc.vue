@@ -15,7 +15,7 @@ useTexts(texts);
 import { tMsg } from "../core/msg";
 import { readJson, writeJson } from "../core/prefs";
 import { copyToClipboard as copy } from "../core/toast";
-import { play, vSwap } from "../core/motion";
+import { collapse, play, vSwap } from "../core/motion";
 
 const PRESETS = ["10", "12", "15", "18", "20", "25"];
 interface Kept { bill: string; pct: string; custom: boolean; customPct: string; split: boolean; people: string; roundUp: boolean }
@@ -84,7 +84,7 @@ const rows = computed(() => ([["tip.total", res.value.total], ["tip.each", res.v
   .flatMap(([k, v]) => (v ? [{ k, v }] : [])));
 
 // ---- choosing ----
-const customEl = ref<HTMLInputElement | null>(null), billEl = ref<HTMLInputElement | null>(null), splitEl = ref<HTMLElement | null>(null);
+const customEl = ref<HTMLInputElement | null>(null), billEl = ref<HTMLInputElement | null>(null);
 function pick(p: string) { st.custom = false; st.pct = p; }
 function pickCustom() {
   st.custom = true;
@@ -92,7 +92,6 @@ function pickCustom() {
 }
 // the custom field and the split's fields come in the way other new parts of the calculator do (core/motion.ts)
 watch(() => st.custom, (on) => { if (on) nextTick(() => play(customEl.value, "in")); });
-watch(() => st.split, (on) => { if (on) nextTick(() => play(splitEl.value, "in")); });
 /** people as a whole number for the - and + buttons, or null while what is typed isn't one */
 const peopleN = computed(() => (/^\s*\d+\s*$/.test(st.people) ? Number(st.people) : null));
 function step(by: number) { st.people = String(Math.max(1, (peopleN.value ?? 1) + by)); }
@@ -146,7 +145,7 @@ onMounted(() => { if (!isPhone.value) billEl.value?.focus(); });
         <div class="grow"><div class="t">{{ t("tip.split") }}</div><div class="s">{{ t("tip.splitHint") }}</div></div>
         <input v-model="st.split" type="checkbox" />
       </label>
-      <div v-if="st.split" ref="splitEl">
+      <Transition v-bind="collapse"><div v-if="st.split">
         <div class="fld">
           <label for="t-people">{{ t("tip.people") }}</label>
           <div class="tstep">
@@ -159,7 +158,7 @@ onMounted(() => { if (!isPhone.value) billEl.value?.focus(); });
           <div class="grow"><div class="t">{{ t("tip.roundUp") }}</div><div class="s">{{ t("tip.roundUpHint") }}</div></div>
           <input v-model="st.roundUp" type="checkbox" />
         </label>
-      </div>
+      </div></Transition>
     </div>
   </div>
 </template>
