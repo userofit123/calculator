@@ -12,14 +12,22 @@ html[data-ksh="round"] { --kr: 999px; }
 
 /* widths in rem (460px at the usual text size): larger text widens the calculator with its labels */
 .calc { display: flex; flex-direction: column; gap: var(--hg); max-width: 28.75rem; }
-.calc-top { flex: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; row-gap: 4px; min-height: 36px; }
+/* the tabs, then Variables (Advanced and Keyboard) at the end; Programming's word size and sign get a line under them */
+.calc-top { flex: none; display: flex; flex-wrap: wrap; align-items: center; row-gap: var(--kg); min-height: 36px; }
+.calc-top .pbar { flex: 1 0 100%; }
 .cflag { white-space: nowrap; }
-/* C-66: shortcuts to modes next to the mode menu. They take the space left on its line and scroll sideways when there
-   are more than fit (a narrow phone), so the line never wraps or overflows the page. */
-.cshort { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: calc(var(--hg) / 2); overflow-x: auto; scrollbar-width: none; padding: 4px; margin: -4px; }
-.cshort::-webkit-scrollbar { display: none; }
-.csc { flex: none; text-transform: none; letter-spacing: 0; font-size: var(--fs-sm); padding: calc(var(--lpy) * .25) var(--hg); }
-.csc.on { background: var(--acc); color: var(--on); }
+/* C-66: the tabs: the calculator (named after its type, with the type menu) and a tab per tool, on one line over a thin
+   rule, the chosen one underlined in the accent. All the same size, so the calculator's tab reads as one of them. When
+   they don't fit (a narrow phone, a long language) the row scrolls sideways instead of wrapping or squeezing; the
+   padding keeps the focus ring inside the scrolled box, and the rule sits at the tabs' foot. */
+.ctabs { flex: 1 1 0; min-width: 0; display: flex; align-items: stretch; overflow-x: auto; scrollbar-width: none; padding: 4px 4px 0; margin: -4px -4px 0; box-shadow: inset 0 -1px var(--ol); }
+.ctabs::-webkit-scrollbar { display: none; }
+.ctab, .ctabs .mnub { flex: none; display: inline-flex; align-items: center; gap: 2px; border: 0; margin: 0; background: none; font-family: inherit; font-size: 15px; font-weight: 600; letter-spacing: 0; color: var(--tx2); white-space: nowrap; padding: calc(var(--lpy) * .8) var(--hg); border-radius: var(--r-sm) var(--r-sm) 0 0; cursor: pointer; transition: color .2s, background .2s, box-shadow .2s; }
+.ctab:hover, .ctabs .mnub:hover, .ctabs .mnub[aria-expanded="true"] { background: var(--s2); color: var(--tx); }
+.ctab.on, .ctabs .mnub:not(.off) { color: var(--tx); box-shadow: inset 0 -2px var(--acc); }
+.ctabs .mnub.off .ico { opacity: .6; }
+.ctab:focus-visible, .ctabs .mnub:focus-visible { outline-offset: -2px; }
+.calc-top .cvars { flex: none; margin-inline-start: calc(var(--hg) / 2); }
 
 /* the mode switch: a quiet button with the mode's name, like the GNOME calculator's mode menu */
 .mnub { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--tx); font-size: 17px; font-weight: 600; letter-spacing: -.2px; padding: 6px 8px 6px 10px; margin-inline-start: -10px; border-radius: var(--pill); cursor: pointer; transition: background .2s; }

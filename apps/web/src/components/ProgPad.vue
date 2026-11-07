@@ -79,7 +79,7 @@ const off = (k: string) => k.length === 1 && DIGITS.includes(k) && DIGITS.indexO
 </script>
 
 <template>
-  <!-- word size, sign and (phone) the bases/bits switch sit on the mode menu's line, so the keys get the height -->
+  <!-- word size, sign and (phone) the bases/bits switch sit with the tabs, under them, so the keys get the height -->
   <Teleport defer to=".calc-top">
     <div class="pbar">
       <button v-swap="prog.wordSize" type="button" class="cflag" :title="t('prog.wordSize')" :aria-label="t('prog.wordSizeAria', { n: prog.wordSize })" @click="cycleWord">{{ t("prog.bit", { n: prog.wordSize }) }}</button>

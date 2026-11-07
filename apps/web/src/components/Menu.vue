@@ -11,12 +11,15 @@ import { leaving } from "../core/motion";
 interface MenuItem { label: string; hint?: string; icon?: string; run: () => void; danger?: boolean; sep?: boolean; hidden?: boolean; checked?: boolean }
 // align "start": the menu opens from the button's left edge (as far as the screen allows), for a button that isn't the
 // last thing in its row; otherwise its right edge lines up with the button's. Right to left it is the mirror image.
-const props = defineProps<{ items: MenuItem[]; icon?: string; label?: string; text?: string; align?: "start" | "end" }>();
+// inactive: a tab (the calculator's, C-66) whose first tap only selects it ("activate"); once selected it opens the menu
+const props = defineProps<{ items: MenuItem[]; icon?: string; label?: string; text?: string; align?: "start" | "end"; inactive?: boolean }>();
+const emit = defineEmits<{ activate: [] }>();
 const open = ref(false), pos = ref({ top: 0, left: 0 }), btn = ref<HTMLElement | null>(null), el = ref<HTMLElement | null>(null);
 // on the phone the menu is a bottom sheet over a scrim, so the page stays still behind it; on a computer it is a small popover with
 // no scrim, and locking would shift fixed elements (the add button, minibars) by the scrollbar width on every open
 let unlock = () => {};
 async function toggle() {
+  if (props.inactive && !open.value) { emit("activate"); return; }
   open.value = !open.value;
   if (!open.value) { unlock(); unlock = () => {}; return; }
   if (isPhone.value) unlock = lockScroll();
@@ -54,7 +57,7 @@ onBeforeUnmount(() => close(false));
 </script>
 
 <template>
-  <button v-if="text" ref="btn" class="mnub" :aria-label="label" aria-haspopup="menu" :aria-expanded="open" @click.stop="toggle"><span>{{ text }}</span><Icon name="down" :size="16" /></button>
+  <button v-if="text" ref="btn" class="mnub" :class="{ off: inactive }" :aria-label="label" :aria-haspopup="inactive ? undefined : 'menu'" :aria-expanded="inactive ? undefined : open" @click.stop="toggle"><span>{{ text }}</span><Icon name="down" :size="16" /></button>
   <button v-else ref="btn" class="ib sm plain" :aria-label="label ?? t('c.more')" aria-haspopup="menu" :aria-expanded="open" @click.stop="toggle"><Icon :name="icon ?? 'more'" /></button>
   <Teleport to="body">
     <Transition name="pop" @before-leave="leaving"><div v-if="open" ref="el" class="mnu" :style="{ top: pos.top + 'px', left: pos.left + 'px' }" role="menu" :aria-label="label ?? text ?? t('c.more')" @keydown="key">

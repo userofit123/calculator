@@ -1,10 +1,10 @@
 <script setup lang="ts">
 // Settings: Appearance (the panel, and phone or computer layout), the calculator's own options (angles, decimals,
-// number format, decimal mark, grouping, the mode shortcuts; later units), and
+// number format, decimal mark, grouping; later units), and
 // About with the privacy promise.
 import { appearanceOpen } from "../core/ui";
 import { layoutChoice, setLayout } from "../core/device";
-import { settings, ANGLES, FORMATS, fmtLabel, fmtHint, MODES, modeLabel, modeHint, shortcuts, toggleShortcut, moveShortcut } from "../core/calc";
+import { settings, ANGLES, FORMATS, fmtLabel, fmtHint } from "../core/calc";
 import { t, lang, locale, langChoice, setLang, resolveLang, type LangChoice, useTexts } from "../core/i18n";
 import { LANGS, LANG_INFO } from "../i18n/langs";
 import { settings as texts } from "../i18n/en/settings";
@@ -71,8 +71,6 @@ const version = import.meta.env.VITE_VERSION || "dev";
 const DECIMALS = Array.from({ length: 16 }, (_, i) => ({ value: i, label: String(i) }));
 const FORMAT_OPTIONS = computed(() => FORMATS.map((f) => ({ value: f.id, label: fmtLabel(f.id) })));
 const MARKS = [".", ","] as const;
-/** C-66: the modes not yet a shortcut, in the mode menu's order */
-const notShortcut = computed(() => MODES.filter((m) => !shortcuts.modes.includes(m.id)));
 const LAYOUTS = [["auto", "set.layout.auto"], ["phone", "set.layout.phone"], ["desktop", "set.layout.desktop"]] as const satisfies readonly [typeof layoutChoice.value, string][];
 // Each language by its own name (lang= so a screen reader says it right), with its name in the language shown under it
 // (typing its first letters jumps to it); Auto shows which one it means now.
@@ -131,26 +129,6 @@ const LANG_OPTIONS = computed(() => [
             <Icon name="calc" /><div class="grow"><div class="t">{{ t("set.thousands") }}</div><div class="s num">{{ settings.decimalMark === "," ? "1.000.000" : "1,000,000" }}</div></div>
             <input v-model="settings.thousands" type="checkbox" />
           </label>
-          <label class="li tg">
-            <Icon name="calc" /><div class="grow"><div class="t">{{ t("set.shortcuts") }}</div><div class="s">{{ t("set.shortcutsHint") }}</div></div>
-            <input v-model="shortcuts.on" type="checkbox" />
-          </label>
-          <template v-if="shortcuts.on">
-            <div v-for="(m, i) in shortcuts.modes" :key="m" class="li scli">
-              <Icon name="calc" class="scgap" aria-hidden="true" />
-              <div class="grow"><div class="t">{{ modeLabel(m) }}</div><div class="s">{{ modeHint(m) }}</div></div>
-              <button type="button" class="ib sm plain" :disabled="i === 0" :title="t('set.scEarlier', { x: modeLabel(m) })" :aria-label="t('set.scEarlier', { x: modeLabel(m) })" @click="moveShortcut(m, -1)"><Icon name="up" /></button>
-              <button type="button" class="ib sm plain" :disabled="i === shortcuts.modes.length - 1" :title="t('set.scLater', { x: modeLabel(m) })" :aria-label="t('set.scLater', { x: modeLabel(m) })" @click="moveShortcut(m, 1)"><Icon name="down" /></button>
-              <button type="button" class="ib sm plain" :title="t('set.scRemove', { x: modeLabel(m) })" :aria-label="t('set.scRemove', { x: modeLabel(m) })" @click="toggleShortcut(m)"><Icon name="close" /></button>
-            </div>
-            <div v-if="notShortcut.length" class="li scli scadd">
-              <Icon name="calc" class="scgap" aria-hidden="true" />
-              <div class="grow"><div class="t">{{ t("set.scAdd") }}</div><div class="s">{{ t(shortcuts.modes.length ? "set.scAddHint" : "set.scNone") }}</div></div>
-              <div class="scpick" role="group" :aria-label="t('set.scAdd')">
-                <button v-for="m in notShortcut" :key="m.id" type="button" class="btn s" :title="modeHint(m.id)" :aria-label="t('set.scAddOne', { x: modeLabel(m.id) })" @click="toggleShortcut(m.id)">+ {{ modeLabel(m.id) }}</button>
-              </div>
-            </div>
-          </template>
         </div>
       </section>
       <!-- History (C-26) -->
@@ -282,13 +260,6 @@ const LANG_OPTIONS = computed(() => [
 @media (prefers-reduced-motion: reduce) { .pbar i { transition: none; } .pbar i.busy { animation: none; width: 100%; opacity: .5; } }
 /* App & updates has three cards: the gap between blocks */
 #updates > .card + .card { margin-top: var(--spg); }
-/* C-66: the shortcut rows sit under their switch, lined up with its text (past the icon); the modes to add wrap under
-   their heading on a narrow screen */
-/* an invisible copy of the toggle rows' icon, so these rows line up through the same icon slot and gap */
-.scgap { visibility: hidden; }
-.scli .ib:disabled { opacity: .35; }
-.scadd { flex-wrap: wrap; }
-.scpick { display: flex; flex-wrap: wrap; gap: calc(var(--hg) / 2); }
 /* the privacy line under the cards: small print, the page's side inset */
 .note { margin: var(--lpy) var(--cpx) 0; font-size: 12.5px; color: var(--tx2); }
 </style>

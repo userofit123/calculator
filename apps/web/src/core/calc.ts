@@ -1,7 +1,7 @@
 // The calculator's state, kept outside the page so it survives moving to another page and back. The maths is in
 // @calc/core; here only the typed text is edited (append, delete, brackets, sign) and handed over to be worked out.
 // Memory, variables, the last answer and the calculator settings are kept on this device.
-import { reactive, watch } from "vue";
+import { reactive, ref, watch } from "vue";
 import {
   evaluate, formatDisplay, fractionNote, parseStored, sanitizeInput, storable, RESERVED, isFunction, type AngleUnit, type EvalOptions, type EvalResult, type NumberFormat,
   evaluateProgramming, formatInt, fitsWord, literal, rebase, toProgramming, fromProgramming, type Base, type WordSize, type ProgOptions,
@@ -24,53 +24,37 @@ export const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: "programming", label: "Programming", hint: "Binary, octal, hex, bit operations" },
   // no keypad: earlier lines above one line to type whole sums in (KeyboardCalc), like GNOME's Keyboard mode
   { id: "keyboard", label: "Keyboard", hint: "Type whole sums, no keypad" },
-  // not a keypad: its own forms in place of the display and keys (DateCalc, loaded when chosen)
-  { id: "date", label: "Date", hint: "Days between dates, adding to a date, age, times" },
-  // forms like Date (PercentCalc, TipCalc, loaded when chosen). C-66: these were Everyday mode's tabs; each is its own
-  // mode now, so it can be a shortcut next to the mode menu
-  { id: "percent", label: "Percent", hint: "Percent of a number, percent change, adding a percent" },
-  { id: "discount", label: "Discount", hint: "Sale price after one or two discounts" },
+  // C-66: the tools below are not calculators but forms in place of the display and keys (TipCalc, PercentCalc,
+  // DateCalc, loaded when chosen). They are tabs next to the calculator's tab, in this order, not in its type menu.
+  // Tip & Split, Discount and Percent were Everyday mode's tabs (its VAT tab is retired).
   { id: "tip", label: "Tip & Split", hint: "Tip on a bill, and splitting it" },
+  { id: "discount", label: "Discount", hint: "Sale price after one or two discounts" },
+  { id: "percent", label: "Percent", hint: "Percent of a number, percent change, adding a percent" },
+  // not a keypad either: days between dates, adding to a date, age, times
+  { id: "date", label: "Date", hint: "Days between dates, adding to a date, age, times" },
 ];
 export const modeLabel = (m: Mode) => tr(("mode." + m) as Key);
 export const modeHint = (m: Mode) => tr(("modeHint." + m) as Key);
-/** modes with their own forms in place of the display and keys */
+/** modes with their own forms in place of the display and keys: the tools, each a tab of its own */
 export const formMode = (m: Mode) => m === "date" || m === "percent" || m === "discount" || m === "tip";
 const isMode = (m: unknown): m is Mode => MODES.some((x) => x.id === m);
+/** the calculator types (the calculator tab's menu) and the tools (tabs next to it) */
+export const CALC_TYPES = MODES.filter((m) => !formMode(m.id));
+export const TOOLS = MODES.filter((m) => formMode(m.id));
 
 export interface CalcSettings { angle: AngleUnit; decimals: number; format: NumberFormat; thousands: boolean; decimalMark: "." | "," }
 const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0;
 // On a first run (no settings saved yet) the decimal mark follows the language: a comma in German, French, Russian, …
 const firstMark = (): "." | "," => (!hadSettings && LANG_INFO[resolveLang(langChoice.value)].comma ? "," : ".");
-// "everyday" was a switch before C-59 (it is gone since the mode shortcuts replaced Everyday): an old saved value is dropped
+// "everyday" was a switch before C-59 (it is gone since Everyday's tools became tabs of their own): an old saved value is dropped
 const { everyday: _oldEveryday, ...savedSettings } = readJson<Partial<CalcSettings> & { everyday?: unknown }>("calcSettings", {});
 export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: true, decimalMark: firstMark(), ...savedSettings });
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
 // C-65: grouping is on by default now. Installs saved before that have thousands: false stored, so it is switched on once
 // (the marker means a user who turns it off later keeps it off). Set after the watch so the change is saved too.
 if (!readJson<boolean>("calcThousandsOn", false)) { if (hadSettings) settings.thousands = true; writeJson("calcThousandsOn", true); }
-/** C-66: shortcuts to modes next to the mode menu (Settings > Calculator). `on` hides them all and keeps the choice;
- *  `modes` in the order they were picked. */
-export interface ModeShortcuts { on: boolean; modes: Mode[] }
-export const SHORTCUT_DEFAULT: Mode[] = ["tip", "discount", "percent"];
-const savedShortcuts = readJson<Partial<ModeShortcuts>>("calcShortcuts", {});
-export const shortcuts = reactive<ModeShortcuts>({
-  on: typeof savedShortcuts.on === "boolean" ? savedShortcuts.on : true,
-  // an edited entry, or a mode a later version dropped, can't break the bar
-  modes: Array.isArray(savedShortcuts.modes) ? [...new Set(savedShortcuts.modes.filter(isMode))] : [...SHORTCUT_DEFAULT],
-});
-watch(shortcuts, (v) => writeJson("calcShortcuts", v), { deep: true });
-/** Adds a mode to the shortcuts (at the end) or takes it away */
-export function toggleShortcut(m: Mode) {
-  const i = shortcuts.modes.indexOf(m);
-  if (i < 0) shortcuts.modes.push(m); else shortcuts.modes.splice(i, 1);
-}
-/** Moves a shortcut one place earlier (-1) or later (1) */
-export function moveShortcut(m: Mode, by: -1 | 1) {
-  const i = shortcuts.modes.indexOf(m), j = i + by;
-  if (i < 0 || j < 0 || j >= shortcuts.modes.length) return;
-  shortcuts.modes.splice(i, 1); shortcuts.modes.splice(j, 0, m);
-}
+// C-66 (first round) kept chosen mode shortcuts here; the tool tabs replaced them, so the saved list is dropped
+try { localStorage.removeItem("calcShortcuts"); } catch { /* storage blocked: nothing was saved either */ }
 /** The number formats: label for Settings and the display's menu, short label for the display's chip */
 export const FORMATS: { id: NumberFormat; label: string; short: string; hint: string }[] = [
   { id: "auto", label: "Auto", short: "Auto", hint: "Decimal, ×10ⁿ for very large or small numbers" },
@@ -129,6 +113,12 @@ watch(() => calc.answer, (v) => { if (!v) { calc.unit = ""; calc.note = ""; } },
 /** An answer with its unit, as shown and kept in history: "8.04672 km" */
 export const withUnit = (value: string, unit?: string) => (unit ? `${value} ${unit}` : value);
 const unitOf = (r: object) => ("unit" in r && typeof r.unit === "string" ? r.unit : "");
+/** The calculator type the calculator tab goes back to from a tool: the last one used, kept on this device (a tool
+ *  left open last time opens again, and its calculator tab still says Advanced if that was the type before it) */
+const savedType = readJson<unknown>("calcType", null);
+export const lastType = ref<Mode>(!formMode(calc.mode) ? calc.mode : isMode(savedType) && !formMode(savedType) ? savedType : "basic");
+watch(() => calc.mode, (m) => { if (!formMode(m)) lastType.value = m; });
+watch(lastType, (m) => writeJson("calcType", m));
 /** the mode a first-ever open started in by itself: not saved, so it is decided again until the user picks one */
 let autoMode: Mode | null = null, started = false;
 watch(() => calc.mode, (m) => { if (m !== autoMode) { autoMode = null; writeJson("calcMode", m); } });

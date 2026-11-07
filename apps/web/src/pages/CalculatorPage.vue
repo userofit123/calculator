@@ -8,10 +8,11 @@
 // Keyboard has no keys: earlier lines above one line to type whole sums in (KeyboardCalc: small, in the main bundle, as
 // a computer's first open starts in it).
 // Date has no display or keys: its forms (DateCalc, loaded when chosen) take their place, under the same mode switch.
-// Percent, Discount (PercentCalc) and Tip & Split (TipCalc) are forms the same way, loaded when chosen. Shortcuts to
-// chosen modes (Tip & Split, Discount and Percent unless changed in Settings) sit next to the mode menu (C-66).
+// Percent, Discount (PercentCalc) and Tip & Split (TipCalc) are forms the same way, loaded when chosen.
+// C-66: the top is a row of tabs. The first is the calculator, named after its type, with the types (Basic, Advanced,
+// Financial, Programming, Keyboard) in its menu; the tools (Tip & Split, Discount, Percent, Date) are a tab each.
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, ANGLES, shortcuts, chooseStartMode, formMode, answerNote, withUnit, modeLabel as modeName, modeHint } from "../core/calc";
+import { calc, press, preview, keyFor, paste, showCalc as show, current, settings, MODES, CALC_TYPES, TOOLS, lastType, ANGLES, chooseStartMode, formMode, answerNote, withUnit, modeLabel as modeName, modeHint } from "../core/calc";
 import { t, type Key } from "../core/i18n";
 import { tMsg } from "../core/msg";
 import { isPhone } from "../core/device";
@@ -84,9 +85,8 @@ function fkey(k: string) {
   tap(k);
 }
 
-const modeItems = computed(() => MODES.map((m) => ({ label: modeName(m.id), hint: modeHint(m.id), checked: calc.mode === m.id, run: () => { calc.mode = m.id; } })));
-const modeLabel = computed(() => modeName(calc.mode));
-const shortcutModes = computed(() => (shortcuts.on ? shortcuts.modes : []));
+const modeItems = computed(() => CALC_TYPES.map((m) => ({ label: modeName(m.id), hint: modeHint(m.id), checked: lastType.value === m.id, run: () => { calc.mode = m.id; } })));
+const typeLabel = computed(() => modeName(lastType.value));
 const adv = computed(() => calc.mode === "advanced");
 const progMode = computed(() => calc.mode === "programming");
 const fin = computed(() => calc.mode === "financial");
@@ -131,6 +131,10 @@ watch(() => calc.mode, (to, from) => {
   const by = MODES.findIndex((m) => m.id === to) >= MODES.findIndex((m) => m.id === from) ? 1 : -1;
   nextTick(() => pageEl.value?.querySelectorAll(":scope > :not(.calc-top, .sr, .scr), .calc-top .pbar").forEach((e) => play(e, "slide", by)));
 });
+// a tab chosen while scrolled out of a narrow row (or open on start) is brought into view
+const showTab = () => pageEl.value?.querySelector(".ctab.on, .ctabs .mnub:not(.off)")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+watch(() => calc.mode, () => nextTick(showTab));
+onMounted(showTab);
 // 2nd, hyp and the angle unit: the keys that now say something else turn over
 watch(() => [calc.second, calc.hyp, settings.angle], () => flipChanged(".calc .fkeys .key", nextTick));
 // =: the answer comes up into place; a preview (nothing shown before) fades in; an error shakes
@@ -178,8 +182,8 @@ const onPadKey = (e: KeyboardEvent) => !!(e.target as HTMLElement).closest?.(".c
 const onKeyUp = (e: KeyboardEvent) => { if (e.key === " " && onPadKey(e)) e.preventDefault(); };
 function onKey(e: KeyboardEvent) {
   if (busy(e) || dateMode.value || kbd.value) return; // Keyboard mode's line takes the keys (KeyboardCalc)
-  // Enter on a focused mode shortcut chooses it (it would otherwise be =)
-  if (e.key === "Enter" && (e.target as HTMLElement).closest?.(".cshort")) return;
+  // Enter on a focused tab chooses it or opens the type menu (it would otherwise be =)
+  if (e.key === "Enter" && (e.target as HTMLElement).closest?.(".ctabs")) return;
   if (e.key === " " && !e.ctrlKey) {
     // on the keys, or with nothing focused, Space after a word types one (5km in mi); otherwise it is left alone
     if (onPadKey(e) || e.target === document.body) { e.preventDefault(); press(" "); }
@@ -222,9 +226,10 @@ async function copyAnswer() {
     <h1 class="sr">{{ t("nav.calc") }}</h1>
     <div class="sr" aria-live="polite" aria-atomic="true">{{ announce }}</div>
     <div class="calc-top">
-      <Menu :items="modeItems" :text="modeLabel" :label="t('calc.mode')" align="start" />
-      <div v-if="shortcutModes.length" class="cshort" role="group" :aria-label="t('calc.shortcuts')">
-        <button v-for="m in shortcutModes" :key="m" type="button" class="cflag csc" :class="{ on: calc.mode === m }" :aria-pressed="calc.mode === m" :title="modeHint(m)" @click="calc.mode = m">{{ modeName(m) }}</button>
+      <div class="ctabs" role="group" :aria-label="t('calc.tabs')">
+        <!-- on a tool, the calculator's tab goes back to the calculator; on the calculator it opens the type menu -->
+        <Menu :items="modeItems" :text="typeLabel" :label="dateMode ? t('calc.backTo', { mode: typeLabel }) : t('calc.mode')" :inactive="dateMode" align="start" @activate="calc.mode = lastType" />
+        <button v-for="m in TOOLS" :key="m.id" type="button" class="ctab" :class="{ on: calc.mode === m.id }" :aria-pressed="calc.mode === m.id" :title="modeHint(m.id)" @click="calc.mode = m.id">{{ modeName(m.id) }}</button>
       </div>
       <button v-if="adv || kbd" type="button" class="cvars" @click="varsOpen = true">{{ t("calc.vars") }}</button>
     </div>

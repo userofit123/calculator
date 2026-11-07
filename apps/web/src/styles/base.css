@@ -205,15 +205,16 @@ body::after {
    (keys, chips, segments, the display) gets a border, the chosen one is marked with the system highlight, and the focus
    ring uses the system's own colour */
 @media (forced-colors: active) {
-  :is(.key, .cflag, .seg button, .chip, .cvchip, .memk button, .pbit, .pbase, .apt, .mnub, .fpick, .ib, .btn, .nb, .tabbar button, .tabs button, .cdisp, .klist, .kline, .card, .sht, .mnu, .ddm, .pop) {
+  :is(.key, .cflag, .seg button, .chip, .cvchip, .memk button, .pbit, .pbase, .apt, .mnub, .fpick, .ib, .btn, .nb, .tabbar button, .tabs button, .ctab, .cdisp, .klist, .kline, .card, .sht, .mnu, .ddm, .pop) {
     border: 1px solid CanvasText;
     forced-color-adjust: auto;
   }
-  :is(.key, .cflag, .seg button, .cvchip, .pbit, .pbase, .apt, .nb, .tabbar button, .tabs button, [role=tab], [role=menuitemradio], [role=radio]):is(.on, [aria-pressed=true], [aria-selected=true], [aria-checked=true]) {
+  :is(.key, .cflag, .seg button, .cvchip, .pbit, .pbase, .apt, .nb, .tabbar button, .tabs button, .ctab, [role=tab], [role=menuitemradio], [role=radio]):is(.on, [aria-pressed=true], [aria-selected=true], [aria-checked=true]) {
     border-color: Highlight;
     outline: 2px solid Highlight;
     outline-offset: -3px;
   }
+  .ctabs .mnub:not(.off) { border-color: Highlight; outline: 2px solid Highlight; outline-offset: -3px; }
   .k-eq { border-width: 2px; }
   :focus-visible { outline: 3px solid Highlight; outline-offset: 2px; }
   :is(.key, button):disabled { border-color: GrayText; color: GrayText; }

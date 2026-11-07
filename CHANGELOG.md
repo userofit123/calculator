@@ -6,10 +6,10 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
-- Percent, Discount and Tip & Split are their own modes in the mode menu instead of tabs in Everyday, which is gone.
-- VAT is no longer in the calculator. A calculator last left in Everyday opens on the tool it was showing.
-- Mode shortcuts: buttons next to the mode menu switch with one tap (Tip & Split, Discount and Percent to start with).
-  Choose, order or switch them off in Settings.
+- The top of the calculator is a row of tabs: the calculator, named after its type (Basic, Advanced, Financial,
+  Programming, Keyboard, chosen from its menu), then Tip & Split, Discount, Percent and Date, one tap each.
+- Everyday is gone: its Percent, Discount and Tip & Split are tabs of their own. VAT is no longer in the calculator.
+  A calculator last left in Everyday opens on the tool it was showing.
 - New app icon: a navy calculator with a light display, rounded keys and amber operator keys on a lime-to-teal tile.
 
 ## [0.2.0] - 2026-11-06

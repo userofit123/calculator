@@ -14,7 +14,6 @@ const ICONS: Record<string, string> = {
   download: "M12 4v11M7 10l5 5 5-5M5 20h14",
   right: "M9 18l6-6-6-6",
   down: "M6 9l6 6 6-6",
-  up: "M6 15l6-6 6 6",
   trash: "M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
   info: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16v-4M12 8h.01",
   palette: "M12 21a9 9 0 1 1 9-9c0 2.5-2 3-3.5 3H15a2 2 0 0 0-1.5 3.3A1.6 1.6 0 0 1 12 21zM7.5 11.5h.01M10 7.5h.01M15 7.5h.01",
