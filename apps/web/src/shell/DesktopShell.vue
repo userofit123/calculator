@@ -9,6 +9,8 @@ import Logo from "./Logo.vue";
 import UpdateButton from "./UpdateButton.vue";
 import { t } from "../core/i18n";
 
+// Settings sits with the other utility buttons at the foot of the rail; the pages above it are the main menu
+const top = NAV.filter((n) => n.name !== "settings"), bottom = NAV.filter((n) => n.name === "settings");
 const nav = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
 
 // the highlight glides from the previous page to the open one, stretching on the way (Money Manager's AppNav)
@@ -49,12 +51,15 @@ const dframe = typeof window !== "undefined" && !!window.desktopFrame;
     <nav ref="nav" :aria-label="t('nav.menu')">
       <i ref="pill" class="nbi" style="transform-origin:0 0" />
       <Logo shuffle />
-      <button v-for="p in NAV" :key="p.name" type="button" class="nb" :class="{ on: page === p.name }" :aria-current="page === p.name ? 'page' : undefined" @click="go(p.name)">
+      <button v-for="p in top" :key="p.name" type="button" class="nb" :class="{ on: page === p.name }" :aria-current="page === p.name ? 'page' : undefined" @click="go(p.name)">
         <span class="ic"><Icon :name="p.icon" :size="22" /></span>{{ t(p.label) }}
       </button>
       <div class="navb">
         <UpdateButton />
         <button id="themeBtn" type="button" class="nb" @click.stop="appearanceOpen = !appearanceOpen"><span class="ic"><Icon name="palette" :size="22" /></span>{{ t("nav.appearance") }}</button>
+        <button v-for="p in bottom" :key="p.name" type="button" class="nb" :class="{ on: page === p.name }" :aria-current="page === p.name ? 'page' : undefined" @click="go(p.name)">
+          <span class="ic"><Icon :name="p.icon" :size="22" /></span>{{ t(p.label) }}
+        </button>
       </div>
     </nav>
     <!-- no "appear": the first page is there at the first paint, without fading in -->
