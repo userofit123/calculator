@@ -42,8 +42,11 @@ const hadSettings = Object.keys(readJson<object>("calcSettings", {})).length > 0
 const firstMark = (): "." | "," => (!hadSettings && LANG_INFO[resolveLang(langChoice.value)].comma ? "," : ".");
 // "everyday" was a switch before C-59 (Everyday mode is always there now): an old saved one is dropped
 const { everyday: _oldEveryday, ...savedSettings } = readJson<Partial<CalcSettings> & { everyday?: unknown }>("calcSettings", {});
-export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: false, decimalMark: firstMark(), ...savedSettings });
+export const settings = reactive<CalcSettings>({ angle: "deg", decimals: 10, format: "auto", thousands: true, decimalMark: firstMark(), ...savedSettings });
 watch(settings, (s) => writeJson("calcSettings", s), { deep: true });
+// C-65: grouping is on by default now. Installs saved before that have thousands: false stored, so it is switched on once
+// (the marker means a user who turns it off later keeps it off). Set after the watch so the change is saved too.
+if (!readJson<boolean>("calcThousandsOn", false)) { if (hadSettings) settings.thousands = true; writeJson("calcThousandsOn", true); }
 /** The number formats: label for Settings and the display's menu, short label for the display's chip */
 export const FORMATS: { id: NumberFormat; label: string; short: string; hint: string }[] = [
   { id: "auto", label: "Auto", short: "Auto", hint: "Decimal, ×10ⁿ for very large or small numbers" },
