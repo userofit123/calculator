@@ -33,7 +33,7 @@ html:not(.mo) *::after {
 .tabbar { position: relative; }
 .tabbar button { position: relative; z-index: 1; }
 .tbi { position: absolute; left: 0; /* fixed side */ top: 0; z-index: 0; pointer-events: none; background: var(--accc); will-change: transform; }
-.tabbar.pl button.on .ic { background: transparent; }
+.tabbar.pld button.on .ic { background: transparent; } /* not ".pl": that is the uppercase label style (base.css) and made every tab label bold */
 .tabbar button .ic, .nb .ic { transition: background var(--dur-3), color var(--dur-3); }
 
 /* ---------- popovers: menus, the number format chip's panel, drop-down lists ---------- */

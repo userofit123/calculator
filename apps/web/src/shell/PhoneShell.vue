@@ -19,37 +19,52 @@ watch(page, (to, from) => { const a = order.indexOf(from), b = order.indexOf(to)
 
 // the tab highlight glides to the chosen tab, stretching on the way (as the computer's rail and the tab rows do)
 const bar = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
-let at: { x: number; y: number; w: number; h: number } | null = null, anim: Animation | null = null;
+interface Spot { x: number; y: number; w: number; h: number; r: string }
+let at: Spot | null = null, anim: Animation | null = null;
+/** where the pill belongs: on the chosen tab's icon box, in the bar's own pixels */
+function target(): Spot | null {
+  const ic = bar.value?.querySelector<HTMLElement>("button.on .ic"), b = ic?.parentElement;
+  if (!ic || !b) return null;
+  return { x: b.offsetLeft + ic.offsetLeft, y: b.offsetTop + ic.offsetTop, w: ic.offsetWidth, h: ic.offsetHeight, r: getComputedStyle(ic).borderTopLeftRadius };
+}
+const set = (x: number, y: number, sx = 1) => `translate(${x}px,${y}px) scale(${sx},1)`;
 function place(animate: boolean) {
   const tb = bar.value, p = pill.value; if (!tb || !p) return;
-  const ic = tb.querySelector<HTMLElement>("button.on .ic"), b = ic?.parentElement;
-  if (!ic || !b) { p.style.display = "none"; tb.classList.remove("pl"); at = null; return; }
-  const to = { x: b.offsetLeft + ic.offsetLeft, y: b.offsetTop + ic.offsetTop, w: ic.offsetWidth, h: ic.offsetHeight };
-  p.style.display = ""; p.style.width = to.w + "px"; p.style.height = to.h + "px"; p.style.borderRadius = getComputedStyle(ic).borderTopLeftRadius; tb.classList.add("pl");
-  const set = (r: typeof to, sx = 1) => `translate(${r.x}px,${r.y}px) scale(${sx},1)`;
-  const from = at; at = to; anim?.cancel();
-  p.style.transform = set(to);
-  if (!animate || !from || from.x === to.x || !canMove()) return;
-  const mid = { ...to, x: (from.x + to.x) / 2 - to.w * 0.15 };
-  anim = p.animate([{ transform: set(from) }, { transform: set(mid, 1.3), offset: 0.45 }, { transform: set(to) }], { duration: dur(3), easing: "cubic-bezier(.4,0,.2,1)" });
+  const to = target();
+  if (!to) { anim?.cancel(); anim = null; p.style.display = "none"; tb.classList.remove("pld"); at = null; return; }
+  // a glide still on its way starts the next one from where the pill is drawn now, not from where it was heading
+  const m = anim?.playState === "running" ? new DOMMatrixReadOnly(getComputedStyle(p).transform) : null;
+  const from = m ? { x: m.e, y: m.f, sx: m.a } : at && { x: at.x, y: at.y, sx: 1 };
+  at = to; anim?.cancel(); anim = null;
+  p.style.display = ""; p.style.width = to.w + "px"; p.style.height = to.h + "px"; p.style.borderRadius = to.r; tb.classList.add("pld");
+  p.style.transform = set(to.x, to.y);
+  if (!animate || !from || Math.abs(from.x - to.x) < 0.5 || !canMove()) return;
+  const mid = (from.x + to.x) / 2 - to.w * 0.15;
+  anim = p.animate([{ transform: set(from.x, from.y, from.sx) }, { transform: set(mid, to.y, 1.3), offset: 0.45 }, { transform: set(to.x, to.y) }], { duration: dur(3), easing: "cubic-bezier(.4,0,.2,1)" });
 }
 watch(page, () => nextTick(() => place(true)));
-// The pill is placed in pixels, so it is placed again whenever the bar or a tab changes size for any reason, not only
-// when the window does: the fixed dock narrows when the page gets a scrollbar (no resize event), and density, spacing,
-// fonts, labels and the screen's safe areas all move the icons. Direction and corner shape move or reshape the pill
-// without resizing anything, so those are watched as well.
-const onResize = () => place(false);
+// The pill is placed in pixels, so it has to follow when the icons move without a tab being picked. The common case
+// (C-73): in a browser or the desktop app the phone layout has real scrollbars, and the dock is fixed to the window, so
+// when a long page gives way to a short one (or the other way) the bar widens or narrows by the scrollbar's width and
+// every icon moves sideways, with no resize event. The pill is placed when the tab is picked, while the old page is
+// still leaving, so the new page's scrollbar change came after it and left the pill off to the side of its icon. The
+// screen's side safe areas and the window size resize the bar the same way; the direction moves the icons and the
+// corner shape reshapes them without resizing anything. Only a real change counts, so a glide on its way is kept.
+function follow() {
+  const to = target();
+  if (!to || !at) { if (!to !== !at) place(false); return; }
+  if (Math.abs(to.x - at.x) > 0.5 || Math.abs(to.y - at.y) > 0.5 || to.w !== at.w || to.h !== at.h || to.r !== at.r) place(false);
+}
 let ro: ResizeObserver | null = null, mo: MutationObserver | null = null;
 onMounted(() => {
   nextTick(() => place(false));
-  const tb = bar.value;
-  if (tb && typeof ResizeObserver !== "undefined") {
-    ro = new ResizeObserver(onResize); ro.observe(tb);
-    tb.querySelectorAll<HTMLElement>("button, button .ic").forEach((e) => ro!.observe(e));
-  }
-  mo = new MutationObserver(onResize); mo.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "data-rad"] });
+  // old Android WebViews have no ResizeObserver: the window's resize is watched instead; the end of every page change
+  // (the template's @after-enter) is checked either way, as that is when the new page's scrollbar has settled
+  if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(follow); if (bar.value) ro.observe(bar.value); }
+  else addEventListener("resize", follow);
+  mo = new MutationObserver(follow); mo.observe(document.documentElement, { attributes: true, attributeFilter: ["dir", "data-rad"] });
 });
-onBeforeUnmount(() => { ro?.disconnect(); mo?.disconnect(); });
+onBeforeUnmount(() => { ro?.disconnect(); removeEventListener("resize", follow); mo?.disconnect(); anim?.cancel(); });
 // the desktop app: the page draws the title strip that drags the window (styles/layout.css, html.dframe)
 const dframe = typeof window !== "undefined" && !!window.desktopFrame;
 
@@ -89,7 +104,7 @@ function te(e: TouchEvent) {
 <template>
   <div v-if="dframe" id="dragbar" aria-hidden="true" />
   <div class="pshell" :class="{ hasupd: !!upd.latest || webUpd.state === 'ready' }" @touchstart.passive="ts" @touchend.passive="te">
-    <div class="pmain" role="main"><Transition :name="motion" mode="out-in"><component :is="PAGES[page]" :key="page" /></Transition></div>
+    <div class="pmain" role="main"><Transition :name="motion" mode="out-in" @after-enter="follow"><component :is="PAGES[page]" :key="page" /></Transition></div>
     <div class="dock">
       <UpdateButton phone />
       <div ref="bar" class="tabbar" role="navigation" :style="{ '--tabs': NAV.length }" :aria-label="tr('nav.menu')">
