@@ -7,3 +7,10 @@ No account, no tracking, no data leaves your device (except the optional currenc
 
 Open it in your browser at https://userofit123.github.io/calculator/ and install it from there, or get the apps from
 the [latest release](https://github.com/userofit123/calculator/releases/latest).
+
+## License
+
+Calculator is free to use, change and share for personal use and any other non-commercial use. You may not sell it,
+or use it to make money.
+
+The full terms are in [LICENSE](LICENSE) (PolyForm Noncommercial License 1.0.0).
