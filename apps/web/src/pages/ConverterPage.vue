@@ -4,9 +4,11 @@
 // more. The amount is any expression the calculator understands ("3/4", "12 × 1.5"); the result follows as you type,
 // and the list below shows the amount in every unit of the category. The maths (and the unit tables) are in
 // @calc/core; this page is loaded only when opened, so none of it holds up the calculator's first screen. The last
-// category, units and amount are remembered on this device.
+// category, units and amount are remembered on this device. Right after Currency comes Time zone: a date and time on
+// the clock in one zone and the same moment in another (core's timezones.ts, with the platform's own zone data).
 import { computed, defineAsyncComponent, nextTick, onMounted, reactive, ref, watch } from "vue";
-import { UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, sourceDayOf, shortDay, RATE_SOURCES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, sanitizeInput, type Category, type EvalOptions, type Unit } from "@calc/core";
+import { UNIT_CATEGORIES, CONVERT_DIGITS, convert, convertAll, currencyCategory, rateDayOf, rateSourceOf, sourceDayOf, shortDay, RATE_SOURCES, FIXED_EURO_RATES, FIXED_EURO_BY, USD_PEGS, sanitizeInput, type Category, type EvalOptions, type Unit,
+  convertZoned, deviceTimeZone, formatHours, formatOffset, isTimeZone, timeZones, zoneOffset, zonedFields, zonePlace, WORLD_ZONES, type ZonedTime } from "@calc/core";
 import { settings, show, calc } from "../core/calc";
 import { isPhone } from "../core/device";
 import { readJson, writeJson } from "../core/prefs";
@@ -26,6 +28,8 @@ const RateGraph = defineAsyncComponent(() => import("../components/RateGraph.vue
 
 const currency = computed(() => currencyCategory(rates.set));
 const categories = computed<Category[]>(() => [currency.value, ...UNIT_CATEGORIES]);
+/** the chips: the unit categories, with Time zone (no units, its own card below) right after Currency */
+const chips = computed(() => [currency.value, { id: "timezone", name: "Time zone" }, ...UNIT_CATEGORIES]);
 
 // what most people convert first in each category
 const DEFAULTS: Record<string, [string, string]> = {
@@ -55,12 +59,13 @@ const unit = (id: string): Unit => cat.value.units.find((u) => u.id === id) ?? {
 // another category: its card and list come in from the side the chip is on (motion.ts)
 const cvg = ref<HTMLElement | null>(null);
 watch(() => st.cat, (to, from) => {
-  const ids = categories.value.map((c) => c.id), by = ids.indexOf(to) >= ids.indexOf(from) ? 1 : -1;
+  const ids = chips.value.map((c) => c.id), by = ids.indexOf(to) >= ids.indexOf(from) ? 1 : -1;
   nextTick(() => cvg.value?.querySelectorAll(":scope > *").forEach((e) => play(e, "slide", by)));
 });
 function swap() { st.units[cat.value.id] = [pair.value[1], pair.value[0]]; }
 
-const isCurrency = computed(() => cat.value.id === "currency");
+const isZone = computed(() => st.cat === "timezone");
+const isCurrency = computed(() => !isZone.value && cat.value.id === "currency");
 // currencies show their code as the badge, never a flag emoji: Windows draws those as two letters
 const options = computed<PickOption[]>(() => [...cat.value.units, ...noRate.value.map(unit)].map((u) => {
   const n = name(u);
@@ -68,7 +73,7 @@ const options = computed<PickOption[]>(() => [...cat.value.units, ...noRate.valu
   return { value: u.id, label: n, lead: u.symbol, hint: hint(u), keys: n === u.name ? u.alias : [u.alias, u.name].filter(Boolean).join(" ") };
 }));
 /** a category's, unit's or currency's name in the language shown (core keeps them in English) */
-const catName = (c: Category) => tMaybe("conv.cat." + c.id, c.name);
+const catName = (c: Pick<Category, "id" | "name">) => tMaybe("conv.cat." + c.id, c.name);
 const name = (u: Unit) => (isCurrency.value ? currencyName(u.id, u.name) : unitName(u.id, u.name));
 
 // the same engine and options as the calculator (its variables and ans too); money to at most 4 decimals
@@ -142,6 +147,65 @@ const unreachedNotes = computed(() => rates.unreached.map((id) => {
   return code ? tr("conv.unreachedRate", { name: who, day: day(rateDayOf(rates.set, code)) }) : tr("conv.unreached", { name: who });
 }));
 
+// ---- time zones ----
+// the zones are remembered like a category's units; until one is picked "From" is this device's zone (so it follows the
+// device when travelling) and "To" is UTC. The date and time start at now and aren't kept: "Now" brings them back.
+const here = deviceTimeZone();
+const zonePair = computed<[string, string]>(() => {
+  const s = st.units.timezone, d = [here, here === "UTC" ? "Europe/London" : "UTC"];
+  return [s && isTimeZone(s[0]) ? s[0] : d[0]!, s && isTimeZone(s[1]) ? s[1] : d[1]!];
+});
+const zFrom = computed({ get: () => zonePair.value[0], set: (v) => { st.units.timezone = [v, zonePair.value[1]]; } });
+const zTo = computed({ get: () => zonePair.value[1], set: (v) => { st.units.timezone = [zonePair.value[0], v]; } });
+function swapZones() { st.units.timezone = [zonePair.value[1], zonePair.value[0]]; }
+const when = reactive({ date: "", time: "" });
+function now() { Object.assign(when, zonedFields(zFrom.value, Date.now())); }
+now();
+const zr = computed(() => convertZoned(when.date, when.time, zFrom.value, zTo.value));
+/** the moment the offsets are shown for: the one typed, or now while the fields are empty */
+const moment = computed(() => zr.value?.utc ?? Date.now());
+// read only once the category is shown: some 400 zones
+const zoneList = computed(() => timeZones());
+const place = (z: string) => zonePlace(z).place;
+const zoneOptions = computed<PickOption[]>(() => [...new Set([...zoneList.value, zFrom.value, zTo.value])]
+  .map((z) => ({ z, o: zoneOffset(z, moment.value) })).sort((a, b) => a.o - b.o || a.z.localeCompare(b.z))
+  .map(({ z, o }) => {
+    const { place: label, region } = zonePlace(z);
+    return { value: z, label, lead: formatOffset(o), hint: [region, z === here ? t("conv.tz.here") : ""].filter(Boolean).join(" · ") || undefined, keys: z };
+  }));
+/** the same moment in well-known places and in the two chosen, east of UTC last */
+const world = computed(() => {
+  const r = zr.value;
+  if (!r) return [];
+  return [...new Set([...WORLD_ZONES.filter(isTimeZone), zFrom.value, zTo.value])]
+    .map((z) => { const c = convertZoned(when.date, when.time, zFrom.value, z)!; return { z, ...zonePlace(z), offset: c.toOffset, at: c.to }; })
+    .sort((a, b) => a.offset - b.offset || a.z.localeCompare(b.z));
+});
+// a clock reading shown in the language's own way (12 or 24 hours, month names); pinned to UTC so it shows as given
+const fmtClock = computed(() => new Intl.DateTimeFormat(locale(), { hour: "numeric", minute: "2-digit", timeZone: "UTC" }));
+const fmtLongDay = computed(() => new Intl.DateTimeFormat(locale(), { weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }));
+const fmtShortDay = computed(() => new Intl.DateTimeFormat(locale(), { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }));
+const asDate = (z: ZonedTime) => { const d = new Date(0); d.setUTCFullYear(z.date.y, z.date.m - 1, z.date.d); d.setUTCHours(z.hour, z.minute); return d; };
+const clock = (z: ZonedTime) => fmtClock.value.format(asDate(z));
+const longDay = (z: ZonedTime) => fmtLongDay.value.format(asDate(z));
+const shortDay2 = (z: ZonedTime) => fmtShortDay.value.format(asDate(z));
+/** "6 h behind Paris" */
+const zoneDiff = computed(() => {
+  const r = zr.value;
+  if (!r) return "";
+  const d = r.toOffset - r.fromOffset, p = { h: formatHours(d), place: place(zFrom.value) };
+  return d > 0 ? t("conv.tz.ahead", p) : d < 0 ? t("conv.tz.behind", p) : t("conv.tz.same", p);
+});
+const dayNote = computed(() => (!zr.value?.dayShift ? "" : t(zr.value.dayShift > 0 ? "conv.tz.nextDay" : "conv.tz.prevDay")));
+/** the clocks changing over the time typed, said in the from zone's words */
+const fromNote = computed(() => {
+  const r = zr.value;
+  if (!r) return "";
+  if (r.skipped) return t("conv.tz.skipped", { place: place(zFrom.value), shown: clock(r.skipped) });
+  return r.twice ? t("conv.tz.twice", { place: place(zFrom.value) }) : "";
+});
+const zoneCopy = computed(() => (zr.value ? `${clock(zr.value.to)} · ${longDay(zr.value.to)} · ${place(zTo.value)}` : ""));
+
 const amountEl = ref<HTMLInputElement | null>(null);
 onMounted(() => {
   if (!isPhone.value) amountEl.value?.focus({ preventScroll: true });
@@ -155,9 +219,51 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
   <div class="page cvp" :class="{ phone: isPhone }">
     <div class="ph"><div><h1>{{ t("nav.convert") }}</h1></div></div>
     <div class="cvc" role="tablist" :aria-label="t('conv.what')">
-      <button v-for="c in categories" :key="c.id" type="button" role="tab" class="cvchip" :class="{ on: c.id === cat.id }" :aria-selected="c.id === cat.id" @click="st.cat = c.id">{{ catName(c) }}</button>
+      <button v-for="c in chips" :key="c.id" type="button" role="tab" class="cvchip" :class="{ on: c.id === cat.id }" :aria-selected="c.id === cat.id" @click="st.cat = c.id">{{ catName(c) }}</button>
     </div>
-    <div ref="cvg" class="cvg">
+    <div v-if="isZone" ref="cvg" class="cvg">
+      <div class="stack">
+        <div class="card cvcard">
+          <span class="cvl">{{ t("c.from") }}</span>
+          <UnitPicker v-model="zFrom" :options="zoneOptions" :title="t('conv.cat.timezone')" />
+          <div class="tzin">
+            <input v-model="when.date" class="tzd" type="date" dir="ltr" min="0001-01-01" max="9999-12-31" :aria-label="t('conv.tz.date')" />
+            <input v-model="when.time" class="tzt" type="time" dir="ltr" :aria-label="t('conv.tz.time')" />
+            <button type="button" class="btn o sm" @click="now()">{{ t("conv.tz.now") }}</button>
+          </div>
+          <div v-if="fromNote" class="tznote">{{ fromNote }}</div>
+          <div class="cvsw">
+            <button type="button" class="ib" :title="t('conv.tz.swap')" :aria-label="t('conv.tz.swap')" @click="swapZones(); play(($event.currentTarget as HTMLElement).firstElementChild, 'spin')"><Icon name="convert" /></button>
+          </div>
+          <div class="cvto">
+            <span class="cvl">{{ t("c.to") }}</span>
+            <div class="cvrow">
+              <output v-swap:tick="zr ? clock(zr.to) : ''" class="cvout" :class="{ num: !!zr }" aria-live="polite">{{ zr ? clock(zr.to) : "" }}<span v-if="!zr" class="tznone">{{ t("conv.tz.pick") }}</span></output>
+              <div class="cvu"><UnitPicker v-model="zTo" :options="zoneOptions" :title="t('conv.cat.timezone')" /></div>
+            </div>
+            <div v-if="zr" class="tzday">{{ longDay(zr.to) }}<template v-if="dayNote"> · <b>{{ dayNote }}</b></template></div>
+            <div class="cvact">
+              <span class="cvsum num">{{ zr ? `${formatOffset(zr.fromOffset)} → ${formatOffset(zr.toOffset)} · ${zoneDiff}` : "" }}</span>
+              <button type="button" class="ib" :title="t('c.copyResult')" :aria-label="t('c.copyResult')" :disabled="!zr" @click="copy(zoneCopy)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V9zM5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section class="cvall">
+        <div class="sh first"><h2>{{ t("conv.tz.world") }}</h2></div>
+        <div class="card flush">
+          <button v-for="r in world" :key="r.z" type="button" class="li click lib cvli" :class="{ on: r.z === zTo, cur: r.z === zFrom }" :aria-pressed="r.z === zTo" @click="r.z !== zFrom && (zTo = r.z)">
+            <span class="cvsym num">{{ formatOffset(r.offset) }}</span>
+            <span class="grow"><span class="t">{{ r.place }}</span><span v-if="r.region" class="s">{{ r.region }}</span></span>
+            <span class="cvv num">{{ clock(r.at) }} · {{ shortDay2(r.at) }}</span>
+          </button>
+          <div v-if="!world.length" class="li cvnone">{{ t("conv.tz.pick") }}</div>
+        </div>
+      </section>
+    </div>
+    <div v-else ref="cvg" class="cvg">
       <div class="stack">
         <div class="card cvcard">
           <label class="cvl" for="cv-amount">{{ t("c.from") }}</label>
@@ -268,6 +374,15 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
 .cvli.on .cvv, .cvli.on .t { color: var(--acc); font-weight: 600; }
 .cvli.cur .cvsym { color: var(--acc); }
 .cvnone { color: var(--tx2); }
+/* Time zone: the date, time and Now on one line under the From zone, wrapping on a narrow phone */
+.tzin { display: flex; flex-wrap: wrap; gap: var(--hg); align-items: center; }
+.tzin .tzd { flex: 1 1 9em; min-width: 0; font-size: var(--fs-lg); font-variant-numeric: tabular-nums; color-scheme: inherit; }
+.tzin .tzt { flex: 1 1 6em; min-width: 0; font-size: var(--fs-lg); font-variant-numeric: tabular-nums; color-scheme: inherit; }
+.tzin .btn { flex: none; }
+.tznote { font-size: var(--fs-sm); color: var(--tx2); line-height: 1.4; }
+.tzday { font-size: var(--fs); color: var(--tx); }
+.tzday b { font-weight: 600; color: var(--acc); }
+.tznone { font-size: var(--fs); font-weight: 400; color: var(--tx2); }
 /* the phone: one column, the categories in a row that scrolls sideways */
 .phone .cvg { grid-template-columns: minmax(0, 1fr); }
 .phone .cvc { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: calc(-1 * var(--cpx)); padding-inline: var(--cpx); }

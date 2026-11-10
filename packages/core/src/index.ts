@@ -21,6 +21,11 @@ export {
   periodStart, historySource, ecbHistoryUrl, bcraHistoryUrl, parseEcbHistoryCsv, parseBcraHistoryJson, fixedPair, pairSeries, rateText, seriesStats, mergeDays, graphScale, GRAPH_PERIODS,
   type DayRates, type RatePoint, type GraphPeriod, type SeriesStats,
 } from "./rate-history";
+// Time zones (the converter's Time zone category): the platform's own zone data through Intl, nothing downloaded
+export {
+  convertZoned, zonedToUtc, zonedTime, zoneOffset, zonedFields, isTimeZone, timeZones, deviceTimeZone, zonePlace, formatOffset, formatHours, formatClock, parseClock, WORLD_ZONES,
+  type ZonedTime, type ZoneResult,
+} from "./timezones";
 // Date and time maths (Calculator's Date mode, loaded only when chosen)
 export {
   parseDate, formatIsoDate, isValidDate, isLeapYear, daysInMonth, dayNumber, fromDayNumber, daysBetween, compareDates, addDays, addMonths, addYears,
