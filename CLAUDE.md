@@ -1,7 +1,7 @@
 # Calculator: working notes
 
 ## Task queue
-The chat message "Work the queue" means: read and follow `workflow/RUNNER.md` (tasks from the Focus list "Calculator", account "New Team"). Otherwise tasks come from the chat as usual. `workflow/` is git-ignored and never committed.
+The chat message "Work the queue" means: read and follow `workflow/RUNNER.md` (tasks from the Focus list "Calculator", account "Server"). Otherwise tasks come from the chat as usual. `workflow/` is git-ignored and never committed.
 
 A private, offline-first calculator: basic, advanced (scientific), financial, programming and a unit/currency converter
 (the same modes and conversion categories as the GNOME/Linux calculator). Web app / PWA, desktop app (Electron, Linux and
