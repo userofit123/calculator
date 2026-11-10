@@ -6,6 +6,14 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+## [0.3.4] - 2026-11-10
+
+- The converter has a new Time zone section, right after Currency: enter a date and time in one place and see the
+  same moment's time and date in another, with how many hours ahead or behind it is. It starts on your own time zone
+  and the current time, handles summer time (a time the clocks skip says what the clock really shows), notes "Next
+  day", "Previous day" or two days across the date line, and lists the same moment in about 20 places around the
+  world. It works offline.
+
 ## [0.3.3] - 2026-11-10
 
 - Clicking the app icon at the top of the sidebar to change the look gives it a short wobble, as in Money Manager

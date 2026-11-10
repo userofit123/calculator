@@ -1,7 +1,7 @@
 {
   "name": "@calc/desktop",
   "productName": "Calculator",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "A private, offline calculator",
   "author": "userofit123",
   "homepage": "https://github.com/userofit123/calculator",
