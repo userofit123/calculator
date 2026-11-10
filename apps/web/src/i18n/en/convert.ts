@@ -68,6 +68,9 @@ export const convert = {
   "conv.tz.same": "Same time as {place}",
   "conv.tz.nextDay": "Next day",
   "conv.tz.prevDay": "Previous day",
+  "conv.tz.nextDay2": "Two days later",
+  "conv.tz.prevDay2": "Two days earlier",
+  "conv.tz.outOfRange": "That moment is outside the years 1 to 9999",
   "conv.tz.skipped": "The clocks go forward over this time in {place}, so it is read as {shown}",
   "conv.tz.twice": "The clocks go back over this time in {place}, so it comes twice: the first one is used",
   // the rate graph under the From/To card

@@ -24,7 +24,7 @@ export {
 // Time zones (the converter's Time zone category): the platform's own zone data through Intl, nothing downloaded
 export {
   convertZoned, zonedToUtc, zonedTime, zoneOffset, zonedFields, isTimeZone, timeZones, deviceTimeZone, zonePlace, formatOffset, formatHours, formatClock, parseClock, WORLD_ZONES,
-  type ZonedTime, type ZoneResult,
+  type ZonedTime, type ZoneResult, type ZoneOutOfRange,
 } from "./timezones";
 // Date and time maths (Calculator's Date mode, loaded only when chosen)
 export {

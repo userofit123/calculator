@@ -66,6 +66,8 @@ function swap() { st.units[cat.value.id] = [pair.value[1], pair.value[0]]; }
 
 const isZone = computed(() => st.cat === "timezone");
 const isCurrency = computed(() => !isZone.value && cat.value.id === "currency");
+/** the chip shown selected: Time zone isn't one of the unit categories, so cat falls back to the first of those */
+const chosen = computed(() => (isZone.value ? "timezone" : cat.value.id));
 // currencies show their code as the badge, never a flag emoji: Windows draws those as two letters
 const options = computed<PickOption[]>(() => [...cat.value.units, ...noRate.value.map(unit)].map((u) => {
   const n = name(u);
@@ -161,7 +163,10 @@ function swapZones() { st.units.timezone = [zonePair.value[1], zonePair.value[0]
 const when = reactive({ date: "", time: "" });
 function now() { Object.assign(when, zonedFields(zFrom.value, Date.now())); }
 now();
-const zr = computed(() => convertZoned(when.date, when.time, zFrom.value, zTo.value));
+const zres = computed(() => convertZoned(when.date, when.time, zFrom.value, zTo.value));
+const zr = computed(() => (zres.value && "utc" in zres.value ? zres.value : null));
+/** the date and time are right, but the moment is past the years 1 to 9999 on one of the clocks */
+const zOut = computed(() => !!zres.value && "outOfRange" in zres.value);
 /** the moment the offsets are shown for: the one typed, or now while the fields are empty */
 const moment = computed(() => zr.value?.utc ?? Date.now());
 // read only once the category is shown: some 400 zones
@@ -178,7 +183,8 @@ const world = computed(() => {
   const r = zr.value;
   if (!r) return [];
   return [...new Set([...WORLD_ZONES.filter(isTimeZone), zFrom.value, zTo.value])]
-    .map((z) => { const c = convertZoned(when.date, when.time, zFrom.value, z)!; return { z, ...zonePlace(z), offset: c.toOffset, at: c.to }; })
+    // a place where that moment is past year 9999 or before year 1 is left out
+    .flatMap((z) => { const c = convertZoned(when.date, when.time, zFrom.value, z); return c && "utc" in c ? [{ z, ...zonePlace(z), offset: c.toOffset, at: c.to }] : []; })
     .sort((a, b) => a.offset - b.offset || a.z.localeCompare(b.z));
 });
 // a clock reading shown in the language's own way (12 or 24 hours, month names); pinned to UTC so it shows as given
@@ -193,10 +199,11 @@ const shortDay2 = (z: ZonedTime) => fmtShortDay.value.format(asDate(z));
 const zoneDiff = computed(() => {
   const r = zr.value;
   if (!r) return "";
-  const d = r.toOffset - r.fromOffset, p = { h: formatHours(d), place: place(zFrom.value) };
-  return d > 0 ? t("conv.tz.ahead", p) : d < 0 ? t("conv.tz.behind", p) : t("conv.tz.same", p);
+  return t(`conv.tz.${r.relation}`, { h: formatHours(r.difference), place: place(zFrom.value) });
 });
-const dayNote = computed(() => (!zr.value?.dayShift ? "" : t(zr.value.dayShift > 0 ? "conv.tz.nextDay" : "conv.tz.prevDay")));
+// across the date line the date can move by two days (Kiritimati and Pago Pago)
+const DAY_NOTES: Record<number, Key> = { [-2]: "conv.tz.prevDay2", [-1]: "conv.tz.prevDay", 1: "conv.tz.nextDay", 2: "conv.tz.nextDay2" };
+const dayNote = computed(() => { const k = DAY_NOTES[zr.value?.dayShift ?? 0]; return k ? t(k) : ""; });
 /** the clocks changing over the time typed, said in the from zone's words */
 const fromNote = computed(() => {
   const r = zr.value;
@@ -219,7 +226,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
   <div class="page cvp" :class="{ phone: isPhone }">
     <div class="ph"><div><h1>{{ t("nav.convert") }}</h1></div></div>
     <div class="cvc" role="tablist" :aria-label="t('conv.what')">
-      <button v-for="c in chips" :key="c.id" type="button" role="tab" class="cvchip" :class="{ on: c.id === cat.id }" :aria-selected="c.id === cat.id" @click="st.cat = c.id">{{ catName(c) }}</button>
+      <button v-for="c in chips" :key="c.id" type="button" role="tab" class="cvchip" :class="{ on: c.id === chosen }" :aria-selected="c.id === chosen" @click="st.cat = c.id">{{ catName(c) }}</button>
     </div>
     <div v-if="isZone" ref="cvg" class="cvg">
       <div class="stack">
@@ -238,7 +245,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
           <div class="cvto">
             <span class="cvl">{{ t("c.to") }}</span>
             <div class="cvrow">
-              <output v-swap:tick="zr ? clock(zr.to) : ''" class="cvout" :class="{ num: !!zr }" aria-live="polite">{{ zr ? clock(zr.to) : "" }}<span v-if="!zr" class="tznone">{{ t("conv.tz.pick") }}</span></output>
+              <output v-swap:tick="zr ? clock(zr.to) : ''" class="cvout" :class="{ num: !!zr }" aria-live="polite">{{ zr ? clock(zr.to) : "" }}<span v-if="!zr" class="tznone">{{ t(zOut ? "conv.tz.outOfRange" : "conv.tz.pick") }}</span></output>
               <div class="cvu"><UnitPicker v-model="zTo" :options="zoneOptions" :title="t('conv.cat.timezone')" /></div>
             </div>
             <div v-if="zr" class="tzday">{{ longDay(zr.to) }}<template v-if="dayNote"> · <b>{{ dayNote }}</b></template></div>

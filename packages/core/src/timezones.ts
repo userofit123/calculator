@@ -13,7 +13,11 @@ export interface ZoneResult {
   /** each zone's offset from UTC at that moment, in minutes (east is positive) */
   fromOffset: number;
   toOffset: number;
-  /** the "to" date less the "from" date: -1, 0 or 1 (2 across the date line, e.g. Kiritimati and Baker Island) */
+  /** the "to" zone's offset less the "from" zone's, in minutes, and what that makes the "to" clock */
+  difference: number;
+  relation: "ahead" | "behind" | "same";
+  /** the "to" date less the "from" date: -1, 0 or 1, or ±2 across the date line (Kiritimati, UTC+14, and Pago Pago
+   *  or Niue, UTC-11: 00:30 on 1 March in Kiritimati is 23:30 on 27 February in Pago Pago) */
   dayShift: number;
   /** the time typed doesn't exist in the "from" zone (the clocks went forward over it): read with the offset from
    *  before the change, so 02:30 on a night the clocks go from 02:00 to 03:00 is 03:30, as a wall clock would show */
@@ -21,6 +25,8 @@ export interface ZoneResult {
   /** the time typed happens twice in the "from" zone (the clocks went back over it): the first one is used */
   twice?: boolean;
 }
+/** the date and time are right, but the same moment falls before year 1 or after year 9999 on one of the clocks */
+export interface ZoneOutOfRange { outOfRange: true }
 
 const MINUTE = 60_000, DAY = 86_400_000;
 // one formatter per zone: making them is the slow part
@@ -96,15 +102,19 @@ export function parseClock(s: string): { hour: number; minute: number } | null {
   return hour < 24 && minute < 60 ? { hour, minute } : null;
 }
 
-/** "2026-11-10" and "09:30" on the clock in `from` to the same moment in `to`, or null when the date, time or a zone is not right */
-export function convertZoned(date: string, time: string, from: string, to: string): ZoneResult | null {
+/** "2026-11-10" and "09:30" on the clock in `from` to the same moment in `to`; null when the date, time or a zone is
+ *  not right, outOfRange when the moment is past the years 1 to 9999 there (dates.ts keeps to those years) */
+export function convertZoned(date: string, time: string, from: string, to: string): ZoneResult | ZoneOutOfRange | null {
   const d = parseDate(date), c = parseClock(time);
   if (!d || !c || !isTimeZone(from) || !isTimeZone(to)) return null;
   const { utc, skipped, twice } = zonedToUtc(from, d, c.hour, c.minute);
   const shown = zonedTime(from, utc), out = zonedTime(to, utc);
-  if (!isValidDate(out.date)) return null;
+  // a skipped time read later can step past 9999 on the from clock too
+  if (!isValidDate(out.date) || !isValidDate(shown.date)) return { outOfRange: true };
   const dayShift = Math.round((wallMs(out.date, 0, 0) - wallMs(shown.date, 0, 0)) / DAY);
-  return { utc, to: out, fromOffset: zoneOffset(from, utc), toOffset: zoneOffset(to, utc), dayShift, ...(skipped ? { skipped: shown } : {}), ...(twice ? { twice } : {}) };
+  const fromOffset = zoneOffset(from, utc), toOffset = zoneOffset(to, utc), difference = toOffset - fromOffset;
+  const relation = difference > 0 ? "ahead" : difference < 0 ? "behind" : "same";
+  return { utc, to: out, fromOffset, toOffset, difference, relation, dayShift, ...(skipped ? { skipped: shown } : {}), ...(twice ? { twice } : {}) };
 }
 
 /** "UTC", "UTC+1", "UTC-3:30", "UTC+5:45" */
