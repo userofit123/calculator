@@ -109,8 +109,9 @@ export function convertZoned(date: string, time: string, from: string, to: strin
   if (!d || !c || !isTimeZone(from) || !isTimeZone(to)) return null;
   const { utc, skipped, twice } = zonedToUtc(from, d, c.hour, c.minute);
   const shown = zonedTime(from, utc), out = zonedTime(to, utc);
-  // a skipped time read later can step past 9999 on the from clock too
-  if (!isValidDate(out.date) || !isValidDate(shown.date)) return { outOfRange: true };
+  // the from clock can't leave the years 1 to 9999: no zone changes its offset near either end, so a skipped time
+  // never reads past them; only the other clock can
+  if (!isValidDate(out.date)) return { outOfRange: true };
   const dayShift = Math.round((wallMs(out.date, 0, 0) - wallMs(shown.date, 0, 0)) / DAY);
   const fromOffset = zoneOffset(from, utc), toOffset = zoneOffset(to, utc), difference = toOffset - fromOffset;
   const relation = difference > 0 ? "ahead" : difference < 0 ? "behind" : "same";

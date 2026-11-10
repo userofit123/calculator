@@ -51,7 +51,7 @@ export const convert: Record<keyof typeof EN, string> = {
   "conv.tz.prevDay": "Poprzedni dzień",
   "conv.tz.nextDay2": "Dwa dni później",
   "conv.tz.prevDay2": "Dwa dni wcześniej",
-  "conv.tz.outOfRange": "Ten moment wypada poza latami od 1 do 9999",
+  "conv.tz.outOfRange": "Ten moment jest poza zakresem lat od 1 do 9999",
   "conv.tz.skipped": "W {place} zegary przestawia się do przodu ponad tę godzinę, więc liczy się {shown}",
   "conv.tz.twice": "W {place} zegary cofa się przez tę godzinę, która występuje dwa razy: użyto pierwszej",
   "conv.cat.angle": "Kąt",

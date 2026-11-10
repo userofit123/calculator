@@ -167,7 +167,7 @@ const zres = computed(() => convertZoned(when.date, when.time, zFrom.value, zTo.
 const zr = computed(() => (zres.value && "utc" in zres.value ? zres.value : null));
 /** the date and time are right, but the moment is past the years 1 to 9999 on one of the clocks */
 const zOut = computed(() => !!zres.value && "outOfRange" in zres.value);
-/** the moment the offsets are shown for: the one typed, or now while the fields are empty */
+/** the moment the offsets are shown for: the one typed, or now while the fields are empty or the moment is out of range */
 const moment = computed(() => zr.value?.utc ?? Date.now());
 // read only once the category is shown: some 400 zones
 const zoneList = computed(() => timeZones());
@@ -266,7 +266,7 @@ watch(isCurrency, (c) => { if (c) autoRefresh(); });
             <span class="grow"><span class="t">{{ r.place }}</span><span v-if="r.region" class="s">{{ r.region }}</span></span>
             <span class="cvv num">{{ clock(r.at) }} · {{ shortDay2(r.at) }}</span>
           </button>
-          <div v-if="!world.length" class="li cvnone">{{ t("conv.tz.pick") }}</div>
+          <div v-if="!world.length" class="li cvnone">{{ t(zOut ? "conv.tz.outOfRange" : "conv.tz.pick") }}</div>
         </div>
       </section>
     </div>
