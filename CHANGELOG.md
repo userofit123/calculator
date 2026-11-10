@@ -6,6 +6,11 @@ docs/apps.md, Releases.
 
 ## Unreleased
 
+## [0.3.3] - 2026-11-10
+
+- Clicking the app icon at the top of the sidebar to change the look gives it a short wobble, as in Money Manager
+  (not with "reduce motion" on).
+
 ## [0.3.2] - 2026-11-07
 
 - The Windows installer, its install folder and the program are called "Calculator" (they were
